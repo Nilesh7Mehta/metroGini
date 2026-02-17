@@ -7,3 +7,4 @@ export const findUserByMobile = async (mobile) => {
     const { rows } = await sql.query(query, values);
     return rows[0];
 }
+

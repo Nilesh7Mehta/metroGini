@@ -4,7 +4,8 @@ import pool from "./src/config/db.js";   // adjust path if needed
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
+console.log("PORT from env:", process.env.PORT);
 
 const startServer = async () => {
   try {
