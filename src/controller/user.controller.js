@@ -2,6 +2,7 @@ import { findUserByMobile } from "../models/user.model.js";
 import sql from "../config/db.js";
 import jwt from "jsonwebtoken";
 import { deleteFile } from "../utils/file.service.js";
+import crypto from "crypto";
 // import { generateOTP } from "../utils/otp.js";
 
 //check if user exists by mobile
@@ -57,48 +58,150 @@ export const loginOrRegister = async (req, res, next) => {
 };
 
 //verfy otp
+// export const verifyOTP = async (req, res, next) => {
+//   const { mobile, otp } = req.body;
+//   if (!mobile || !otp) {
+//     return res.status(400).json({ success: false, message: "Mobile and OTP are required" });
+//   }
+//   try {
+//     const user = await findUserByMobile(mobile);
+//     if (!user) {
+//       return res.status(404).json({ success: false, message: "User not found" });
+//     }
+//     if (user.otp !== otp) {
+//       return res.status(400).json({ success: false, message: "Invalid OTP" });
+//     }
+//     // if (new Date() > new Date(user.otp_expires_at)) {
+//     //   return res.status(400).json({ success: false, message: "OTP expired" });
+//     // }
+
+//     const accessToken = jwt.sign(
+//       { id: user.id, mobile: user.mobile },
+//       process.env.JWT_SECRET,
+//       { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+//     );
+//     // Clear OTP after successful verification
+//     // await sql.query(
+//     //   `UPDATE users SET otp = NULL, otp_expires_at = NULL , is_mobile_verified = TRUE WHERE id = $1`,
+//     //   [user.id]
+//     // );
+//     res.status(200).json({
+//       success: true,
+//       message: "OTP verified successfully",
+//       data: {
+//         id: user.id,
+//         mobile: user.mobile,
+//         profile_completed: user.profile_completed,
+//         access_token: accessToken,
+//         expires_in: process.env.JWT_EXPIRES_IN || '15m'
+//       },
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 export const verifyOTP = async (req, res, next) => {
   const { mobile, otp } = req.body;
+  // console.log("Received OTP verification request for mobile:", mobile, "with OTP:", otp);
+
   if (!mobile || !otp) {
     return res.status(400).json({ success: false, message: "Mobile and OTP are required" });
   }
+
   try {
-    const user = await findUserByMobile(mobile);
-    if (!user) {
+    const userResult = await sql.query(
+      `SELECT * FROM users WHERE mobile = $1`,
+      [mobile]
+    );
+
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+
+    const user = userResult.rows[0];
+
     if (user.otp !== otp) {
       return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
-    // if (new Date() > new Date(user.otp_expires_at)) {
-    //   return res.status(400).json({ success: false, message: "OTP expired" });
-    // }
 
+    // ✅ Access Token (short expiry)
     const accessToken = jwt.sign(
       { id: user.id, mobile: user.mobile },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+      { expiresIn:  process.env.JWT_EXPIRES_IN || "15m" }
     );
+
+    // ✅ Refresh Token (long expiry)
+    const refreshToken = crypto.randomBytes(40).toString("hex");
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    // Store refresh token in DB
+    await sql.query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [user.id, refreshToken, expiresAt]
+    );
+
     // Clear OTP after successful verification
     // await sql.query(
     //   `UPDATE users SET otp = NULL, otp_expires_at = NULL , is_mobile_verified = TRUE WHERE id = $1`,
     //   [user.id]
     // );
+
+    // console.log(`User ${mobile} logged in successfully. Access Token and Refresh Token generated.`);
+
     res.status(200).json({
       success: true,
       message: "OTP verified successfully",
       data: {
-        id: user.id,
-        mobile: user.mobile,
-        profile_completed: user.profile_completed,
         access_token: accessToken,
-        expires_in: process.env.JWT_EXPIRES_IN || '15m'
-      },
+        refresh_token: refreshToken,
+        expires_in: process.env.JWT_EXPIRES_IN || "15m"
+      }
     });
   } catch (error) {
     next(error);
   }
 };
+
+//refresh token endpoint 
+export const refreshAccessToken = async (req, res) => {
+  const { refresh_token } = req.body;
+
+  if (!refresh_token) {
+    return res.status(400).json({ message: "Refresh token required" });
+  }
+
+  const result = await sql.query(
+    `SELECT * FROM refresh_tokens WHERE token = $1`,
+    [refresh_token]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(403).json({ message: "Invalid refresh token" });
+  }
+
+  const userResult = await sql.query(
+    `SELECT * FROM users WHERE id = $1`,
+    [result.rows[0].user_id]
+  );
+
+  const user = userResult.rows[0];
+
+  const newAccessToken = jwt.sign(
+    { id: user.id, mobile: user.mobile },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || "15m" }
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Access token refreshed successfully",
+    access_token: newAccessToken,
+    expires_in: process.env.JWT_EXPIRES_IN || "15m"
+  });
+};
+
 
 // GET USER PROFILE
 export const getProfile = async (req, res, next) => {
@@ -377,3 +480,41 @@ export const setDefaultAddress = async (req, res, next) => {
     next(error);
   }
 }
+
+//Terms and Condition
+export const acceptTerms = async(req , res , next)=>{
+  const userId = req.user.id;
+  try {
+    const updateQuery = `
+    UPDATE users
+    SET terms_and_condition = TRUE
+    WHERE id= $1
+    `;
+    const result = await sql.query(updateQuery , [userId]);
+    return res.status(200).json({
+      success: true,
+      message: "Terms and conditions accepted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+//logout
+export const logout = async (req, res) => {
+  const { refresh_token } = req.body;
+
+  if (!refresh_token) {
+    return res.status(400).json({ message: "Refresh token required" });
+  }
+
+  await sql.query(
+    `DELETE FROM refresh_tokens WHERE token = $1`,
+    [refresh_token]
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully"
+  });
+};

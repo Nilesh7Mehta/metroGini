@@ -8,6 +8,9 @@ const router = express.Router();
 router.post('/login-or-register', userController.loginOrRegister);
 router.post('/verify-otp', userController.verifyOTP);
 
+router.post('/refresh-token', userController.refreshAccessToken);
+router.post('/logout', userController.logout);
+
 router.get('/profile', authenticate, userController.getProfile);
 router.put("/profile",authenticate, profileUpload.single("profile_image"), userController.updateProfile);
 
@@ -18,6 +21,10 @@ router.delete('/address/:id', authenticate, userController.deleteAddress);
 router.put('/address/default/:id', authenticate, userController.setDefaultAddress);
 
 // console.log('User router loaded' , userController);
+
+//terms and conditions
+router.put('/terms-and-conditions', authenticate, userController.acceptTerms);
+
 
 
 
