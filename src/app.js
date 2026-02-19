@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import newUserRouter from './routes/user.router.js';
+import newUserRouter from './routes/users/user.router.js';
+import userOrderRouter from './routes/users/userOrder.router.js';
 
 const app = express();
 app.use(express.json());
@@ -8,6 +9,7 @@ app.use(cors());
 
 
 app.use('/api/user', newUserRouter);
+app.use('/api/user/order', userOrderRouter);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');

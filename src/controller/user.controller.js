@@ -57,49 +57,6 @@ export const loginOrRegister = async (req, res, next) => {
   }
 };
 
-//verfy otp
-// export const verifyOTP = async (req, res, next) => {
-//   const { mobile, otp } = req.body;
-//   if (!mobile || !otp) {
-//     return res.status(400).json({ success: false, message: "Mobile and OTP are required" });
-//   }
-//   try {
-//     const user = await findUserByMobile(mobile);
-//     if (!user) {
-//       return res.status(404).json({ success: false, message: "User not found" });
-//     }
-//     if (user.otp !== otp) {
-//       return res.status(400).json({ success: false, message: "Invalid OTP" });
-//     }
-//     // if (new Date() > new Date(user.otp_expires_at)) {
-//     //   return res.status(400).json({ success: false, message: "OTP expired" });
-//     // }
-
-//     const accessToken = jwt.sign(
-//       { id: user.id, mobile: user.mobile },
-//       process.env.JWT_SECRET,
-//       { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
-//     );
-//     // Clear OTP after successful verification
-//     // await sql.query(
-//     //   `UPDATE users SET otp = NULL, otp_expires_at = NULL , is_mobile_verified = TRUE WHERE id = $1`,
-//     //   [user.id]
-//     // );
-//     res.status(200).json({
-//       success: true,
-//       message: "OTP verified successfully",
-//       data: {
-//         id: user.id,
-//         mobile: user.mobile,
-//         profile_completed: user.profile_completed,
-//         access_token: accessToken,
-//         expires_in: process.env.JWT_EXPIRES_IN || '15m'
-//       },
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 export const verifyOTP = async (req, res, next) => {
   const { mobile, otp } = req.body;
   // console.log("Received OTP verification request for mobile:", mobile, "with OTP:", otp);
