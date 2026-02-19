@@ -83,7 +83,7 @@ export const verifyOTP = async (req, res, next) => {
 
     // ✅ Access Token (short expiry)
     const accessToken = jwt.sign(
-      { id: user.id, mobile: user.mobile },
+      { id: user.id, mobile: user.mobile  , role: user.role },
       process.env.JWT_SECRET,
       { expiresIn:  process.env.JWT_EXPIRES_IN || "15m" }
     );
