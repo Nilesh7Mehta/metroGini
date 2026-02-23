@@ -53,7 +53,7 @@ export const loginAdmin = async (req, res, next) => {
   }
 };
 
-export const createCoupon = async (req, res) => {
+export const createCoupon = async (req, res, next) => {
   try {
     const {
       coupon_code,
@@ -63,9 +63,10 @@ export const createCoupon = async (req, res) => {
       start_date,
       end_date,
       is_active,
+      per_user_limit,
+      usage_limit
     } = req.body;
 
-    // 🔹 Basic Validation
     if (
       !coupon_code ||
       !discount_type ||
@@ -84,28 +85,36 @@ export const createCoupon = async (req, res) => {
       });
     }
 
+    if (Number(discount_value) <= 0) {
+      return res.status(400).json({
+        message: "Discount value must be greater than 0",
+      });
+    }
+
     if (new Date(start_date) >= new Date(end_date)) {
       return res.status(400).json({
         message: "End date must be greater than start date",
       });
     }
 
-    // 🔹 Insert Query
     const query = `
-            INSERT INTO coupons
-            (coupon_code, discount_type, discount_value, minimum_amount_value, start_date, end_date, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *;
-        `;
+      INSERT INTO coupons
+      (coupon_code, discount_type, discount_value, minimum_amount_value,
+       start_date, end_date, is_active, per_user_limit, usage_limit)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *;
+    `;
 
     const values = [
-      coupon_code,
+      coupon_code.trim().toUpperCase(),
       discount_type,
       discount_value,
       minimum_amount_value || 0,
       start_date,
       end_date,
       is_active ?? true,
+      per_user_limit ?? 1,
+      usage_limit ?? null
     ];
 
     const result = await sql.query(query, values);
@@ -114,22 +123,21 @@ export const createCoupon = async (req, res) => {
       message: "Coupon created successfully",
       data: result.rows[0],
     });
-  } catch (error) {
-    console.error(error);
 
+  } catch (error) {
     if (error.code === "23505") {
       return res.status(400).json({
         message: "Coupon code already exists",
       });
     }
-
     next(error);
   }
 };
 
-export const updateCoupon = async (req, res) => {
+export const updateCoupon = async (req, res, next) => {
   try {
     const { id } = req.params;
+
     const {
       coupon_code,
       discount_type,
@@ -138,64 +146,83 @@ export const updateCoupon = async (req, res) => {
       start_date,
       end_date,
       is_active,
+      per_user_limit,
+      usage_limit
     } = req.body;
 
     const query = `
-            UPDATE coupons
-            SET 
-                coupon_code = $1,
-                discount_type = $2,
-                discount_value = $3,
-                minimum_amount_value = $4,
-                start_date = $5,
-                end_date = $6,
-                is_active = $7,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $8
-            RETURNING *;
-        `;
+      UPDATE coupons
+      SET 
+        coupon_code = $1,
+        discount_type = $2,
+        discount_value = $3,
+        minimum_amount_value = $4,
+        start_date = $5,
+        end_date = $6,
+        is_active = $7,
+        per_user_limit = $8,
+        usage_limit = $9,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *;
+    `;
 
     const values = [
-      coupon_code,
+      coupon_code.trim().toUpperCase(),
       discount_type,
       discount_value,
       minimum_amount_value,
       start_date,
       end_date,
       is_active,
-      id,
+      per_user_limit,
+      usage_limit,
+      id
     ];
 
     const result = await sql.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Coupon not found"
+      });
+    }
 
     return res.status(200).json({
       message: "Coupon updated successfully",
       data: result.rows[0],
     });
-  } catch (error) {
-     next(error);
-  }
-};
 
-export const getCoupons = async (req, res) => {
-  try {
-    const { rows } = await sql.query(`SELECT * FROM coupons ORDER BY created_at DESC`);
-    return res.status(200).json({
-      success: true,
-      data: rows,
-    });
   } catch (error) {
     next(error);
   }
 };
 
-export const getCouponById = async (req, res) => {
-  console.log(req.params);
+export const getCoupons = async (req, res, next) => {
   try {
-    const { id } = req.params;  // correct way
-    const query = `SELECT * FROM coupons WHERE id = $1`;
+    const { rows } = await sql.query(
+      `SELECT * FROM coupons ORDER BY created_at DESC`
+    );
 
-    const result = await sql.query(query, [id]); 
+    return res.status(200).json({
+      success: true,
+      data: rows,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCouponById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const result = await sql.query(
+      `SELECT * FROM coupons WHERE id = $1`,
+      [id]
+    );
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -205,7 +232,7 @@ export const getCouponById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message:"Coupon Data retrived Successfully",
+      message: "Coupon retrieved successfully",
       data: result.rows[0]
     });
 

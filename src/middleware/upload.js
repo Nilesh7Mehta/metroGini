@@ -5,7 +5,7 @@ import fs from "fs";
 export const createUploader = (folderName, maxSize = 5 * 1024) => {
 
   const uploadPath = `uploads/${folderName}`;
-  console.log("Upload path:", uploadPath);
+  // console.log("Upload path:", uploadPath);
 
   // create folder if not exists
   if (!fs.existsSync(uploadPath)) {

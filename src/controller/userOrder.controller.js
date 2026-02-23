@@ -1,20 +1,20 @@
-
 import sql from "../config/db.js";
+import { calculateOrderPricing } from "../utils/price.util.js";
 
 export const createDraftOrder = async (req, res, next) => {
   const client = await sql.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     const { service_id, clothes_count } = req.body;
     const user_id = req.user.id;
 
     // ✅ Validate clothes count
     if (!clothes_count || clothes_count < 10) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(400).json({
-        message: "Minimum 10 clothes required"
+        message: "Minimum 10 clothes required",
       });
     }
 
@@ -24,15 +24,15 @@ export const createDraftOrder = async (req, res, next) => {
        FROM user_address_details
        WHERE user_id = $1 AND is_selected = true
        LIMIT 1`,
-      [user_id]
+      [user_id],
     );
 
     const addressId = addressResult.rows[0]?.id;
 
     if (!addressId) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(400).json({
-        message: "Please select a delivery address"
+        message: "Please select a delivery address",
       });
     }
 
@@ -46,7 +46,7 @@ export const createDraftOrder = async (req, res, next) => {
        FROM orders
        WHERE user_id = $1 AND status = 'draft'
        LIMIT 1`,
-      [user_id]
+      [user_id],
     );
 
     let orderId;
@@ -69,12 +69,11 @@ export const createDraftOrder = async (req, res, next) => {
           min_weight,
           max_weight,
           addressId,
-          existingDraft.rows[0].id
-        ]
+          existingDraft.rows[0].id,
+        ],
       );
 
       orderId = updateResult.rows[0].id;
-
     } else {
       // ➕ Insert new draft
       const insertResult = await client.query(
@@ -84,30 +83,22 @@ export const createDraftOrder = async (req, res, next) => {
           address_id, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'draft')
          RETURNING id`,
-        [
-          user_id,
-          service_id,
-          clothes_count,
-          min_weight,
-          max_weight,
-          addressId
-        ]
+        [user_id, service_id, clothes_count, min_weight, max_weight, addressId],
       );
 
       orderId = insertResult.rows[0].id;
     }
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
     return res.status(200).json({
       order_id: orderId,
       estimated_weight_min: min_weight,
-      estimated_weight_max: max_weight ,
-      message: "Order created successfully"
+      estimated_weight_max: max_weight,
+      message: "Order created successfully",
     });
-
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     next(error);
   } finally {
     client.release();
@@ -117,13 +108,13 @@ export const createDraftOrder = async (req, res, next) => {
 export const updateServiceType = async (req, res, next) => {
   try {
     const { service_type_id } = req.body;
-    console.log("Received service_type_id:", service_type_id);
+    // console.log("Received service_type_id:", service_type_id);
     const order_id = req.params.id;
     const user_id = req.user.id;
 
     if (!service_type_id) {
       return res.status(400).json({
-        message: "service_type_id is required"
+        message: "service_type_id is required",
       });
     }
 
@@ -136,20 +127,19 @@ export const updateServiceType = async (req, res, next) => {
          AND user_id = $3
          AND status = 'draft'
        RETURNING id`,
-      [service_type_id, order_id, user_id]
+      [service_type_id, order_id, user_id],
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Draft order not found or cannot be updated"
+        message: "Draft order not found or cannot be updated",
       });
     }
 
     return res.status(200).json({
       order_id: result.rows[0].id,
-      message: "Service type updated successfully"
+      message: "Service type updated successfully",
     });
-
   } catch (error) {
     next(error);
   }
@@ -166,14 +156,14 @@ export const updatePickup = async (req, res, next) => {
     // ✅ Validate input
     if (!pickup_date || !pickup_slot_id) {
       return res.status(400).json({
-        message: "pickup_date and pickup_slot_id are required"
+        message: "pickup_date and pickup_slot_id are required",
       });
     }
 
     // ✅ Validate date format (basic check)
     if (isNaN(new Date(pickup_date).getTime())) {
       return res.status(400).json({
-        message: "Invalid pickup date"
+        message: "Invalid pickup date",
       });
     }
 
@@ -181,12 +171,12 @@ export const updatePickup = async (req, res, next) => {
     const slot = await sql.query(
       `SELECT id FROM time_slots
        WHERE id = $1 AND is_active = TRUE`,
-      [pickup_slot_id]
+      [pickup_slot_id],
     );
 
     if (slot.rows.length === 0) {
       return res.status(400).json({
-        message: "Invalid or inactive time slot"
+        message: "Invalid or inactive time slot",
       });
     }
 
@@ -200,12 +190,12 @@ export const updatePickup = async (req, res, next) => {
          AND user_id = $4
          AND status = 'draft'
        RETURNING id`,
-      [pickup_date, pickup_slot_id, order_id, user_id]
+      [pickup_date, pickup_slot_id, order_id, user_id],
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Draft order not found"
+        message: "Draft order not found",
       });
     }
 
@@ -213,9 +203,8 @@ export const updatePickup = async (req, res, next) => {
       message: "Pickup details updated successfully",
       order_id: result.rows[0].id,
       pickup_date,
-      pickup_slot_id
+      pickup_slot_id,
     });
-
   } catch (error) {
     next(error);
   }
@@ -229,7 +218,7 @@ export const updateDelivery = async (req, res, next) => {
 
     if (!delivery_date || !delivery_slot_id) {
       return res.status(400).json({
-        message: "delivery_date and delivery_slot_id are required"
+        message: "delivery_date and delivery_slot_id are required",
       });
     }
 
@@ -244,12 +233,12 @@ export const updateDelivery = async (req, res, next) => {
        WHERE o.id = $1
          AND o.user_id = $2
          AND o.status = 'draft'`,
-      [order_id, user_id]
+      [order_id, user_id],
     );
 
     if (orderCheck.rows.length === 0) {
       return res.status(404).json({
-        message: "Draft order not found or pickup not selected"
+        message: "Draft order not found or pickup not selected",
       });
     }
 
@@ -261,42 +250,38 @@ export const updateDelivery = async (req, res, next) => {
         ? pickup_date
         : pickup_date.toLocaleDateString("en-CA");
 
-    const pickupDateTime = new Date(
-      `${pickupDateStr}T${pickup_start_time}`
-    );
+    const pickupDateTime = new Date(`${pickupDateStr}T${pickup_start_time}`);
 
     // 🔹 Fetch delivery slot
     const deliverySlot = await sql.query(
       `SELECT start_time
        FROM time_slots
        WHERE id = $1 AND is_active = TRUE`,
-      [delivery_slot_id]
+      [delivery_slot_id],
     );
 
     if (deliverySlot.rows.length === 0) {
       return res.status(400).json({
-        message: "Invalid or inactive delivery time slot"
+        message: "Invalid or inactive delivery time slot",
       });
     }
 
     const delivery_start_time = deliverySlot.rows[0].start_time;
 
     const deliveryDateTime = new Date(
-      `${delivery_date}T${delivery_start_time}`
+      `${delivery_date}T${delivery_start_time}`,
     );
 
     const minDeliveryTime =
-      pickupDateTime.getTime() +
-      (delivery_hours * 60 * 60 * 1000);
+      pickupDateTime.getTime() + delivery_hours * 60 * 60 * 1000;
 
     if (deliveryDateTime.getTime() < minDeliveryTime) {
-      const minDate = new Date(minDeliveryTime)
-        .toLocaleDateString("en-CA");
+      const minDate = new Date(minDeliveryTime).toLocaleDateString("en-CA");
 
       return res.status(400).json({
         message: `Delivery must be at least ${delivery_hours} hours after pickup`,
         pickup_date: pickupDateStr,
-        minimum_allowed_delivery_date: minDate
+        minimum_allowed_delivery_date: minDate,
       });
     }
 
@@ -309,16 +294,15 @@ export const updateDelivery = async (req, res, next) => {
        WHERE id = $3
          AND user_id = $4
          AND status = 'draft'`,
-      [delivery_date, delivery_slot_id, order_id, user_id]
+      [delivery_date, delivery_slot_id, order_id, user_id],
     );
 
     return res.status(200).json({
       message: "Delivery details updated successfully",
       order_id: order_id,
       delivery_date,
-      delivery_slot_id
+      delivery_slot_id,
     });
-
   } catch (error) {
     next(error);
   }
@@ -343,44 +327,42 @@ export const finalizeOrder = async (req, res, next) => {
        WHERE o.id = $1
          AND o.user_id = $2
          AND o.status = 'draft'`,
-      [order_id, user_id]
+      [order_id, user_id],
     );
 
     if (orderResult.rows.length === 0) {
       return res.status(404).json({
-        message: "Draft order not found"
+        message: "Draft order not found",
       });
     }
 
     const order = orderResult.rows[0];
 
-    if (!order.service_type_id ||
-        !order.pickup_date ||
-        !order.delivery_date ||
-        !order.address_id) {
+    if (
+      !order.service_type_id ||
+      !order.pickup_date ||
+      !order.delivery_date ||
+      !order.address_id
+    ) {
       return res.status(400).json({
-        message: "Please complete all steps before finalizing"
+        message: "Please complete all steps before finalizing",
       });
     }
 
     const avg_weight =
       (Number(order.estimated_weight_min) +
-       Number(order.estimated_weight_max)) / 2;
+        Number(order.estimated_weight_max)) /
+      2;
 
-    const base =
-      avg_weight * Number(order.base_price_per_kg);
+    const base = avg_weight * Number(order.base_price_per_kg);
 
-    const type_extra =
-      avg_weight * Number(order.extra_price_per_kg);
+    const type_extra = avg_weight * Number(order.extra_price_per_kg);
 
-    const flat_fee =
-      Number(order.flat_fee);
+    const flat_fee = Number(order.flat_fee);
 
-    const peak_charge =
-      order.is_peak ? Number(order.peak_extra_charge) : 0;
+    const peak_charge = order.is_peak ? Number(order.peak_extra_charge) : 0;
 
-    const estimated_total =
-      base + type_extra + flat_fee + peak_charge;
+    const estimated_total = base + type_extra + flat_fee + peak_charge;
 
     await sql.query(
       `UPDATE orders
@@ -398,16 +380,15 @@ export const finalizeOrder = async (req, res, next) => {
         order.flat_fee,
         peak_charge,
         estimated_total,
-        order_id
-      ]
+        order_id,
+      ],
     );
 
     return res.status(200).json({
       message: "Order finalized successfully",
       order_id,
-      estimated_total: estimated_total.toFixed(2)
+      estimated_total: estimated_total.toFixed(2),
     });
-
   } catch (error) {
     next(error);
   }
@@ -420,45 +401,58 @@ export const reviewOrder = async (req, res, next) => {
 
     const result = await sql.query(
       `SELECT 
-          o.*,
+      o.*,
 
-          s.name AS service_name,
-          s.base_price_per_kg,
+      s.name AS service_name,
+      s.base_price_per_kg,
 
-          st.name AS service_type_name,
-          st.extra_price_per_kg,
-          st.flat_fee,
+      st.name AS service_type_name,
+      st.extra_price_per_kg,
+      st.flat_fee,
 
-          pickup_slot.start_time AS pickup_start,
-          pickup_slot.end_time AS pickup_end,
-          TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+      pickup_slot.start_time AS pickup_start,
+      pickup_slot.end_time AS pickup_end,
+      TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
 
-          TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+      TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
 
-          delivery_slot.start_time AS delivery_start,
-          delivery_slot.end_time AS delivery_end,
+      delivery_slot.start_time AS delivery_start,
+      delivery_slot.end_time AS delivery_end,
 
-          ua.complete_address AS full_address,
+      ua.complete_address AS full_address,
 
-          ts.is_peak,
-          ts.peak_extra_charge
+      ts.is_peak,
+      ts.peak_extra_charge,
 
-       FROM orders o
-       JOIN services s ON o.service_id = s.id
-       JOIN service_types st ON o.service_type_id = st.id
-       LEFT JOIN time_slots pickup_slot 
-            ON o.pickup_slot_id = pickup_slot.id
-       LEFT JOIN time_slots delivery_slot 
-            ON o.delivery_slot_id = delivery_slot.id
-       LEFT JOIN user_address_details ua 
-            ON o.address_id = ua.id
-       LEFT JOIN time_slots ts 
-            ON o.pickup_slot_id = ts.id
+      c.id AS coupon_id,
+      c.coupon_code,
+      c.discount_type,
+      c.discount_value,
+      c.minimum_amount_value
 
-       WHERE o.id = $1
-         AND o.user_id = $2
-         AND o.status = 'created'`,
-      [order_id, user_id]
+   FROM orders o
+   JOIN services s ON o.service_id = s.id
+   JOIN service_types st ON o.service_type_id = st.id
+
+   LEFT JOIN time_slots pickup_slot 
+        ON o.pickup_slot_id = pickup_slot.id
+
+   LEFT JOIN time_slots delivery_slot 
+        ON o.delivery_slot_id = delivery_slot.id
+
+   LEFT JOIN user_address_details ua 
+        ON o.address_id = ua.id
+
+   LEFT JOIN time_slots ts 
+        ON o.pickup_slot_id = ts.id
+
+   LEFT JOIN coupons c
+        ON o.applied_coupon_id = c.id
+
+   WHERE o.id = $1
+     AND o.user_id = $2
+     AND o.status = 'created'`,
+      [order_id, user_id],
     );
 
     if (result.rows.length === 0) {
@@ -467,29 +461,8 @@ export const reviewOrder = async (req, res, next) => {
 
     const order = result.rows[0];
 
-    const avg_weight =
-      (Number(order.estimated_weight_min) +
-       Number(order.estimated_weight_max)) / 2;
-
-    const service_charge =
-      avg_weight * Number(order.base_price_per_kg);
-
-    const type_extra =
-      avg_weight * Number(order.extra_price_per_kg);
-
-    const flat_fee = Number(order.flat_fee);
-
-    const peak_charge =
-      order.is_peak ? Number(order.peak_extra_charge) : 0;
-
-    const gross_total =
-      service_charge + type_extra + flat_fee + peak_charge;
-
-    const discount = 0;
-    const final_total = gross_total - discount;
-
-    const advance_payment = 500;
-    const remaining_payment = final_total - advance_payment;
+    // ✅ Call pricing function
+    const pricing = calculateOrderPricing(order);
 
     return res.status(200).json({
       order_id,
@@ -498,52 +471,182 @@ export const reviewOrder = async (req, res, next) => {
         service_name: order.service_name,
         service_type: order.service_type_name,
         clothes_count: order.clothes_count,
-        estimated_weight_range:
-          `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`
+        estimated_weight_range: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
       },
 
       schedule: {
         pickup: {
           date: order.pickup_date,
-          slot: `${order.pickup_start} - ${order.pickup_end}`
+          slot: `${order.pickup_start} - ${order.pickup_end}`,
         },
         delivery: {
           date: order.delivery_date,
-          slot: `${order.delivery_start} - ${order.delivery_end}`
-        }
+          slot: `${order.delivery_start} - ${order.delivery_end}`,
+        },
       },
 
       address: order.full_address,
 
       pricing_breakdown: {
-        service_charge: service_charge.toFixed(2),
-        peak_charge: peak_charge.toFixed(2),
-        discount: discount.toFixed(2),
-        advance_payment: advance_payment.toFixed(2),
-        remaining_payment:
-          remaining_payment > 0
-            ? remaining_payment.toFixed(2)
-            : "0.00",
-        total_payable_now: advance_payment.toFixed(2),
-        approx_total: final_total.toFixed(2)
-      }
-    });
+        service_charge: pricing.service_charge.toFixed(2),
+        peak_charge: pricing.peak_charge.toFixed(2),
 
+        coupon: order.coupon_code
+          ? {
+              coupon_code: order.coupon_code,
+              discount_type: order.discount_type,
+              discount_value: order.discount_value,
+            }
+          : null,
+
+        discount: pricing.discount.toFixed(2),
+
+        advance_payment: pricing.advance_payment.toFixed(2),
+
+        remaining_payment:
+          pricing.remaining_payment > 0
+            ? pricing.remaining_payment.toFixed(2)
+            : "0.00",
+
+        total_payable_now: pricing.advance_payment.toFixed(2),
+        approx_total: pricing.final_total.toFixed(2),
+      },
+    });
   } catch (error) {
     next(error);
   }
 };
 
+export const applyCoupon = async (req, res, next) => {
+  try {
+    const order_id = req.params.id;
+    const user_id = req.user.id;
+    const { coupon_code } = req.body;
 
+    if (!coupon_code) {
+      return res.status(400).json({
+        message: "Coupon code is required",
+      });
+    }
 
+    // 1️⃣ Check Order
+    const orderResult = await sql.query(
+      `SELECT * FROM orders
+       WHERE id = $1
+       AND user_id = $2
+       AND status = 'created'`,
+      [order_id, user_id],
+    );
 
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
 
+    // 2️⃣ Validate Coupon
+    const couponResult = await sql.query(
+      `SELECT * FROM coupons
+       WHERE UPPER(coupon_code) = UPPER($1)
+       AND is_active = true
+       AND start_date <= CURRENT_TIMESTAMP
+       AND end_date >= CURRENT_TIMESTAMP`,
+      [coupon_code],
+    );
 
+    if (couponResult.rows.length === 0) {
+      return res.status(400).json({
+        message: "Invalid or expired coupon",
+      });
+    }
 
+    const coupon = couponResult.rows[0];
 
+    // 3️⃣ Check Global Usage Limit
+    if (
+      coupon.usage_limit !== null &&
+      coupon.used_count >= coupon.usage_limit
+    ) {
+      return res.status(400).json({
+        message: "Coupon usage limit exceeded",
+      });
+    }
 
+    // 4️⃣ Check Per-User Limit
+    if (coupon.per_user_limit !== null) {
+      const usageCheck = await sql.query(
+        `SELECT COUNT(*) FROM coupon_usages
+         WHERE coupon_id = $1
+         AND user_id = $2`,
+        [coupon.id, user_id],
+      );
 
+      const userUsageCount = Number(usageCheck.rows[0].count);
 
+      if (userUsageCount >= coupon.per_user_limit) {
+        return res.status(400).json({
+          message: "You have already used this coupon",
+        });
+      }
+    }
 
+    // 5️⃣ Replace Existing Coupon (if any)
+    await sql.query(
+      `UPDATE orders
+       SET applied_coupon_id = $1
+       WHERE id = $2`,
+      [coupon.id, order_id],
+    );
 
+    return res.status(200).json({
+      message: "Coupon applied successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
+export const removeCoupon = async (req, res, next) => {
+  try {
+    const order_id = req.params.id;
+    const user_id = req.user.id;
+
+    // 1️⃣ Check order exists
+    const orderResult = await sql.query(
+      `SELECT applied_coupon_id
+       FROM orders
+       WHERE id = $1
+       AND user_id = $2
+       AND status = 'created'`,
+      [order_id, user_id],
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    const existingCoupon = orderResult.rows[0].applied_coupon_id;
+
+    if (!existingCoupon) {
+      return res.status(400).json({
+        message: "No coupon applied to this order",
+      });
+    }
+
+    // 2️⃣ Remove coupon
+    await sql.query(
+      `UPDATE orders
+       SET applied_coupon_id = NULL
+       WHERE id = $1`,
+      [order_id],
+    );
+
+    return res.status(200).json({
+      message: "Coupon removed successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
