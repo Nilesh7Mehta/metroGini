@@ -21,9 +21,10 @@ app.get('/', (req, res) => {
 
 //global error handler next(error) must be last
 app.use((err, req, res, next) => {
-  // console.error(err);
+  console.error(err);
 
   res.status(500).json({
+   
     code: 500,
     success: false,
     message: "Internal Server Error",

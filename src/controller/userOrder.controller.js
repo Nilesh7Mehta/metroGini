@@ -650,3 +650,172 @@ export const removeCoupon = async (req, res, next) => {
     next(error);
   }
 };
+
+
+//get User Order by id
+export const getUserOrder = async (req, res, next) => {
+  try {
+    const user_id = req.user.id;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { status, time } = req.query;
+
+    let whereConditions = [`o.user_id = $1`];
+    let values = [user_id];
+    let paramIndex = 2;
+
+    // ✅ Status Mapping (UI → DB)
+    if (status && status !== "all") {
+      const statusMap = {
+        booked: "confirmed",
+        picked_up: "picked_up",
+        in_process: "in_process",
+        delivered: "delivered",
+        cancelled: "cancelled",
+      };
+
+      const dbStatus = statusMap[status];
+
+      if (dbStatus) {
+        whereConditions.push(`o.status = $${paramIndex}`);
+        values.push(dbStatus);
+        paramIndex++;
+      }
+    }
+
+    // ✅ Time Filter
+    if (time && time !== "anytime") {
+      let intervalQuery = "";
+
+      switch (time) {
+        case "last_7_days":
+          intervalQuery = "NOW() - INTERVAL '7 days'";
+          break;
+        case "last_30_days":
+          intervalQuery = "NOW() - INTERVAL '30 days'";
+          break;
+        case "last_6_months":
+          intervalQuery = "NOW() - INTERVAL '6 months'";
+          break;
+        case "last_year":
+          intervalQuery = "NOW() - INTERVAL '1 year'";
+          break;
+      }
+
+      if (intervalQuery) {
+        whereConditions.push(`o.created_at >= ${intervalQuery}`);
+      }
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+
+    // ✅ Count Query
+    const countResult = await sql.query(
+      `
+      SELECT COUNT(*)
+      FROM orders o
+      JOIN payments p 
+        ON p.order_id = o.id
+        AND p.payment_type = 'advance'
+        AND p.status = 'success'
+      WHERE ${whereClause}
+      `,
+      values
+    );
+
+    const totalOrders = parseInt(countResult.rows[0].count);
+
+    // ✅ Data Query
+    const result = await sql.query(
+      `
+      SELECT 
+        o.id,
+        o.clothes_count,
+        o.estimated_weight_min,
+        o.estimated_weight_max,
+
+        s.name AS service_name,
+        s.image AS service_image,
+
+        pickup_slot.start_time AS pickup_start,
+        pickup_slot.end_time AS pickup_end,
+        TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+
+        delivery_slot.start_time AS delivery_start,
+        delivery_slot.end_time AS delivery_end,
+        TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+
+        p.amount AS advance_amount,
+        p.payment_method
+
+      FROM orders o
+
+      JOIN payments p 
+        ON p.order_id = o.id
+        AND p.payment_type = 'advance'
+        AND p.status = 'success'
+
+      JOIN services s 
+        ON o.service_id = s.id
+
+      LEFT JOIN time_slots pickup_slot 
+        ON o.pickup_slot_id = pickup_slot.id
+
+      LEFT JOIN time_slots delivery_slot 
+        ON o.delivery_slot_id = delivery_slot.id
+
+      WHERE ${whereClause}
+
+      ORDER BY o.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `,
+      [...values, limit, offset]
+    );
+
+    const formattedOrders = result.rows.map(order => ({
+      order_id: order.id,
+
+      service_name: order.service_name,
+      service_image: order.service_image,
+
+      pickup_slot: {
+        date: order.pickup_date,
+        time: `${order.pickup_start} - ${order.pickup_end}`,
+      },
+
+      delivery_slot: {
+        date: order.delivery_date,
+        time: `${order.delivery_start} - ${order.delivery_end}`,
+      },
+
+      item_details: {
+        clothes_count: order.clothes_count,
+        estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
+      },
+
+      payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
+    }));
+
+    return res.status(200).json({
+      status: 200,
+      message:
+        formattedOrders.length > 0
+          ? "Orders fetched successfully"
+          : "No orders found",
+      data: formattedOrders,
+      pagination: {
+        total: totalOrders,
+        current_page: page,
+        total_pages: Math.ceil(totalOrders / limit),
+        per_page: limit,
+      },
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};

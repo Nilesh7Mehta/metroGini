@@ -34,4 +34,7 @@ router.post('/:id/applyCoupon', userOrderController.applyCoupon);
 
 router.post('/:id/removeCoupon', userOrderController.removeCoupon);
 
+router.get('/getUserOrder' , userOrderController.getUserOrder);
+
+
 export default router;
