@@ -518,43 +518,53 @@ export const reviewOrder = async (req, res, next) => {
 };
 
 export const applyCoupon = async (req, res, next) => {
+  const client = await sql.connect();
+
   try {
+    await client.query("BEGIN");
+
     const order_id = req.params.id;
     const user_id = req.user.id;
     const { coupon_code } = req.body;
 
     if (!coupon_code) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
         message: "Coupon code is required",
       });
     }
 
-    // 1️⃣ Check Order
-    const orderResult = await sql.query(
-      `SELECT * FROM orders
+    // 1️⃣ Validate Order
+    const orderResult = await client.query(
+      `SELECT id, applied_coupon_id
+       FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'`,
-      [order_id, user_id],
+       AND status = 'created'
+       FOR UPDATE`,
+      [order_id, user_id]
     );
 
     if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         message: "Order not found",
       });
     }
 
     // 2️⃣ Validate Coupon
-    const couponResult = await sql.query(
-      `SELECT * FROM coupons
+    const couponResult = await client.query(
+      `SELECT *
+       FROM coupons
        WHERE UPPER(coupon_code) = UPPER($1)
        AND is_active = true
        AND start_date <= CURRENT_TIMESTAMP
        AND end_date >= CURRENT_TIMESTAMP`,
-      [coupon_code],
+      [coupon_code]
     );
 
     if (couponResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
         message: "Invalid or expired coupon",
       });
@@ -562,95 +572,137 @@ export const applyCoupon = async (req, res, next) => {
 
     const coupon = couponResult.rows[0];
 
-    // 3️⃣ Check Global Usage Limit
+    // 🔥 Special check for CANCEL500 (user-specific reward)
+    if (coupon.coupon_code === "CANCEL500") {
+      const eligibilityCheck = await client.query(
+        `SELECT id
+         FROM coupon_usages
+         WHERE coupon_id = $1
+         AND user_id = $2
+         AND is_used = FALSE
+         AND expiry_date >= CURRENT_TIMESTAMP`,
+        [coupon.id, user_id]
+      );
+
+      if (eligibilityCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "You are not eligible to use this coupon",
+        });
+      }
+    }
+
+    // 3️⃣ Global usage limit
     if (
       coupon.usage_limit !== null &&
       coupon.used_count >= coupon.usage_limit
     ) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
         message: "Coupon usage limit exceeded",
       });
     }
 
-    // 4️⃣ Check Per-User Limit
+    // 4️⃣ Per-user limit (for normal coupons)
     if (coupon.per_user_limit !== null) {
-      const usageCheck = await sql.query(
-        `SELECT COUNT(*) FROM coupon_usages
+      const usageCheck = await client.query(
+        `SELECT COUNT(*) 
+         FROM coupon_usages
          WHERE coupon_id = $1
-         AND user_id = $2`,
-        [coupon.id, user_id],
+         AND user_id = $2
+         AND is_used = TRUE`,
+        [coupon.id, user_id]
       );
 
       const userUsageCount = Number(usageCheck.rows[0].count);
 
       if (userUsageCount >= coupon.per_user_limit) {
+        await client.query("ROLLBACK");
         return res.status(400).json({
           message: "You have already used this coupon",
         });
       }
     }
 
-    // 5️⃣ Replace Existing Coupon (if any)
-    await sql.query(
+    // 5️⃣ Apply coupon to order
+    await client.query(
       `UPDATE orders
        SET applied_coupon_id = $1
        WHERE id = $2`,
-      [coupon.id, order_id],
+      [coupon.id, order_id]
     );
+
+    await client.query("COMMIT");
 
     return res.status(200).json({
       message: "Coupon applied successfully",
     });
+
   } catch (error) {
+    await client.query("ROLLBACK");
     next(error);
+  } finally {
+    client.release();
   }
 };
 
 export const removeCoupon = async (req, res, next) => {
+  const client = await sql.connect();
+
   try {
+    await client.query("BEGIN");
+
     const order_id = req.params.id;
     const user_id = req.user.id;
 
-    // 1️⃣ Check order exists
-    const orderResult = await sql.query(
+    // 🔒 Lock order
+    const orderResult = await client.query(
       `SELECT applied_coupon_id
        FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'`,
-      [order_id, user_id],
+       AND status = 'created'
+       FOR UPDATE`,
+      [order_id, user_id]
     );
 
     if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         message: "Order not found",
       });
     }
 
-    const existingCoupon = orderResult.rows[0].applied_coupon_id;
+    const appliedCouponId = orderResult.rows[0].applied_coupon_id;
 
-    if (!existingCoupon) {
+    if (!appliedCouponId) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
         message: "No coupon applied to this order",
       });
     }
 
-    // 2️⃣ Remove coupon
-    await sql.query(
+    // ✅ Remove coupon
+    await client.query(
       `UPDATE orders
        SET applied_coupon_id = NULL
        WHERE id = $1`,
-      [order_id],
+      [order_id]
     );
+
+    await client.query("COMMIT");
 
     return res.status(200).json({
       message: "Coupon removed successfully",
     });
+
   } catch (error) {
+    await client.query("ROLLBACK");
     next(error);
+  } finally {
+    client.release();
   }
 };
-
 
 //get User Order by id
 export const getUserOrder = async (req, res, next) => {
@@ -819,3 +871,384 @@ export const getUserOrder = async (req, res, next) => {
     next(error);
   }
 };
+
+//reschedule Order
+export const rescheduleOrderPickup = async (req, res, next) => {
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+
+    const order_id = req.params.id;
+    const user_id = req.user.id;
+    const { pickup_date, pickup_slot_id } = req.body;
+
+    if (!pickup_date || !pickup_slot_id) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Pickup date and slot are required",
+      });
+    }
+
+    // 🔒 Lock order + validate status + validate advance payment
+    const orderCheck = await client.query(
+      `
+      SELECT o.pickup_date,
+             ts.start_time
+      FROM orders o
+      JOIN time_slots ts ON o.pickup_slot_id = ts.id
+      JOIN payments p ON p.order_id = o.id
+      WHERE o.id = $1
+        AND o.user_id = $2
+        AND o.status = 'created'
+        AND p.payment_type = 'advance'
+        AND p.status = 'success'
+      FOR UPDATE
+      `,
+      [order_id, user_id]
+    );
+
+    if (orderCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message:
+          "Order cannot be rescheduled. Either status invalid or advance payment not completed.",
+      });
+    }
+
+    const order = orderCheck.rows[0];
+
+    // Combine existing pickup date + time
+    const pickupDateTime = new Date(
+      `${order.pickup_date.toISOString().split("T")[0]}T${order.start_time}`
+    );
+
+    const now = new Date();
+    const diffInHours = (pickupDateTime - now) / (1000 * 60 * 60);
+
+    // ⏳ Must be at least 12 hours before pickup
+    if (diffInHours < 12) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Pickup can only be rescheduled at least 12 hours before pickup time",
+      });
+    }
+
+    // Optional: validate new slot exists & active
+    const slotCheck = await client.query(
+      `SELECT id FROM time_slots WHERE id = $1 AND is_active = TRUE`,
+      [pickup_slot_id]
+    );
+
+    if (slotCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Invalid or inactive pickup slot",
+      });
+    }
+
+    // ✅ Update pickup
+    await client.query(
+      `
+      UPDATE orders
+      SET pickup_date = $1,
+          pickup_slot_id = $2,
+          updated_at = NOW()
+      WHERE id = $3
+      `,
+      [pickup_date, pickup_slot_id, order_id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Pickup rescheduled successfully",
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+export const rescheduleOrderDelivery = async (req, res, next) => {
+  const client = await sql.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { delivery_date, delivery_slot_id } = req.body;
+    const order_id = req.params.id;
+    const user_id = req.user.id;
+
+    if (!delivery_date || !delivery_slot_id) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "delivery_date and delivery_slot_id are required",
+      });
+    }
+
+    // 🔒 Lock order + validate status + payment
+    const orderCheck = await client.query(
+      `
+      SELECT o.pickup_date,
+             ps.start_time AS pickup_start_time,
+             o.delivery_date,
+             ds.start_time AS current_delivery_start_time,
+             st.delivery_hours
+      FROM orders o
+      JOIN time_slots ps ON o.pickup_slot_id = ps.id
+      JOIN time_slots ds ON o.delivery_slot_id = ds.id
+      JOIN service_types st ON o.service_type_id = st.id
+      JOIN payments p ON p.order_id = o.id
+      WHERE o.id = $1
+        AND o.user_id = $2
+        AND o.status = 'created'
+        AND p.payment_type = 'advance'
+        AND p.status = 'success'
+      FOR UPDATE
+      `,
+      [order_id, user_id]
+    );
+
+    if (orderCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message:
+          "Order cannot be rescheduled. Invalid status or advance payment not completed.",
+      });
+    }
+
+    const {
+      pickup_date,
+      pickup_start_time,
+      delivery_date: old_delivery_date,
+      current_delivery_start_time,
+      delivery_hours,
+    } = orderCheck.rows[0];
+
+    // 🔹 Construct pickup datetime
+    const pickupDateStr =
+      typeof pickup_date === "string"
+        ? pickup_date
+        : pickup_date.toISOString().split("T")[0];
+
+    const pickupDateTime = new Date(
+      `${pickupDateStr}T${pickup_start_time}`
+    );
+
+    // 🔹 Fetch new delivery slot
+    const slotCheck = await client.query(
+      `SELECT start_time FROM time_slots 
+       WHERE id = $1 AND is_active = TRUE`,
+      [delivery_slot_id]
+    );
+
+    if (slotCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Invalid or inactive delivery slot",
+      });
+    }
+
+    const new_delivery_start_time = slotCheck.rows[0].start_time;
+
+    const newDeliveryDateTime = new Date(
+      `${delivery_date}T${new_delivery_start_time}`
+    );
+
+    // ✅ Rule 1: Delivery must be after pickup
+    if (newDeliveryDateTime <= pickupDateTime) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Delivery must be after pickup time",
+      });
+    }
+
+    // ✅ Rule 2: Must respect delivery_hours (CMS controlled)
+    const minDeliveryTime =
+      pickupDateTime.getTime() +
+      Number(delivery_hours) * 60 * 60 * 1000;
+
+    if (newDeliveryDateTime.getTime() < minDeliveryTime) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: `Delivery must be at least ${delivery_hours} hours after pickup`,
+      });
+    }
+
+    // ✅ Rule 3: Cannot reschedule within 12 hrs of current delivery
+    const oldDeliveryDateStr =
+      typeof old_delivery_date === "string"
+        ? old_delivery_date
+        : old_delivery_date.toISOString().split("T")[0];
+
+    const oldDeliveryDateTime = new Date(
+      `${oldDeliveryDateStr}T${current_delivery_start_time}`
+    );
+
+    const now = new Date();
+    const diffInHours =
+      (oldDeliveryDateTime.getTime() - now.getTime()) /
+      (1000 * 60 * 60);
+
+    if (diffInHours < 12) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message:
+          "Delivery can only be rescheduled at least 12 hours before delivery time",
+      });
+    }
+
+    // ✅ Update delivery
+    await client.query(
+      `
+      UPDATE orders
+      SET delivery_date = $1,
+          delivery_slot_id = $2,
+          updated_at = NOW()
+      WHERE id = $3
+      `,
+      [delivery_date, delivery_slot_id, order_id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Delivery rescheduled successfully",
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+export const cancelService = async (req, res, next) => {
+  console.log("IN");
+  const client = await sql.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const order_id = req.params.id;
+    const user_id = req.user.id;
+    const { reason_type, reason_description } = req.body;
+
+    const allowedReasons = [
+      "pickup_schedule_issue",
+      "modify_order",
+      "service_charge_incorrect",
+      "changed_mind",
+      "other",
+    ];
+
+    // ✅ Validate reason
+    if (!allowedReasons.includes(reason_type)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Invalid cancellation reason" });
+    }
+
+    if (reason_type === "other" && !reason_description) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Please provide description" });
+    }
+
+    // 🔒 Lock order + get pickup datetime (DB handles date + time safely)
+    const orderCheck = await client.query(
+      `SELECT 
+          (o.pickup_date + ts.start_time) AS pickup_datetime
+       FROM orders o
+       JOIN time_slots ts ON o.pickup_slot_id = ts.id
+       WHERE o.id = $1
+       AND o.user_id = $2
+       AND o.status = 'created'
+       FOR UPDATE`,
+      [order_id, user_id]
+    );
+
+    if (orderCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Order cannot be cancelled",
+      });
+    }
+
+    const pickupDateTime = new Date(orderCheck.rows[0].pickup_datetime);
+    const now = new Date();
+
+    const diffInHours =
+      (pickupDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    // ⛔ 12 hour rule
+    if (diffInHours < 12) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Order can only be cancelled 12 hours before pickup",
+      });
+    }
+
+    // ✅ Update order status
+    await client.query(
+      `UPDATE orders
+       SET status = 'cancelled',
+           updated_at = NOW()
+       WHERE id = $1`,
+      [order_id]
+    );
+
+    // ✅ Insert cancellation record
+    await client.query(
+      `INSERT INTO order_cancellations
+       (order_id, user_id, reason_type, reason_description)
+       VALUES ($1, $2, $3, $4)`,
+      [order_id, user_id, reason_type, reason_description || null]
+    );
+
+    // 🎁 Give ₹500 cancellation coupon
+    const couponResult = await client.query(
+      `SELECT id FROM coupons
+       WHERE coupon_code = 'CANCEL500'
+       AND is_active = true`
+    );
+
+    if (couponResult.rows.length > 0) {
+      const coupon_id = couponResult.rows[0].id;
+
+      // 🔒 Prevent multiple active unused coupons
+      const existingCoupon = await client.query(
+        `SELECT id FROM coupon_usages
+         WHERE coupon_id = $1
+         AND user_id = $2
+         AND is_used = FALSE
+         AND expiry_date >= CURRENT_TIMESTAMP`,
+        [coupon_id, user_id]
+      );
+
+      if (existingCoupon.rows.length === 0) {
+        await client.query(
+          `INSERT INTO coupon_usages
+           (coupon_id, user_id, is_used, expiry_date)
+           VALUES ($1, $2, FALSE, NOW() + INTERVAL '30 days')`,
+          [coupon_id, user_id]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Order cancelled successfully. ₹500 coupon added.",
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+

@@ -36,5 +36,12 @@ router.post('/:id/removeCoupon', userOrderController.removeCoupon);
 
 router.get('/getUserOrder' , userOrderController.getUserOrder);
 
+// Reschedule Order - (Pickup can change before 12 hrs of actual Pickup)
+router.put('/:id/rescheduleOrderPickup' , userOrderController.rescheduleOrderPickup);
+
+router.put('/:id/rescheduleOrderDelivery' , userOrderController.rescheduleOrderDelivery)
+
+router.post('/:id/cancelService' , userOrderController.cancelService);
+
 
 export default router;
