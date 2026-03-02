@@ -4,6 +4,7 @@ import newUserRouter from './routes/users/user.router.js';
 import newCommonRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
 import newAdminRouter from './routes/admin/admin.router.js';
+import newUserPaymentRouter from './routes/users/userPayment.router.js'
 
 const app = express();
 app.use(express.json());
@@ -14,6 +15,7 @@ app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
 app.use('/api/user/order', userOrderRouter);
 app.use('/api/admin', newAdminRouter);
+app.use('/api/user/order/payment' , newUserPaymentRouter);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
