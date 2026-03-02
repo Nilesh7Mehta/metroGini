@@ -1,5 +1,5 @@
-import sql from "../config/db.js";
-import { calculateOrderPricing } from "../utils/price.util.js";
+import sql from "../../config/db.js";
+import { calculateOrderPricing } from "../../utils/price.util.js";
 
 export const createDraftOrder = async (req, res, next) => {
   const client = await sql.connect();

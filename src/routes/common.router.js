@@ -1,17 +1,14 @@
 import express from 'express';
-import * as userDashboardController from '../controller/Common.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
-
-
+import * as CommonController from '../controller/Common.controller.js';
 const router = express.Router();
 
-router.get('/cities', authenticate, userDashboardController.getCities);
-router.get('/services', authenticate, userDashboardController.getServices);
-router.get('/service-types', authenticate, userDashboardController.getServiceTypes);
-router.get('/time-slots', authenticate, userDashboardController.getTimeSlots);
+router.get('/cities', CommonController.getCities);
+router.get('/services', CommonController.getServices);
+router.get('/service-types', CommonController.getServiceTypes);
+router.get('/time-slots', CommonController.getTimeSlots);
 
 
-router.get('/faq', authenticate)
+router.get('/faq',  CommonController.faq);
 
 
 

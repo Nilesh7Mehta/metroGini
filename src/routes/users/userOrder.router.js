@@ -1,5 +1,5 @@
 import express from 'express';
-import * as userOrderController from '../../controller/userOrder.controller.js';
+import * as userOrderController from '../../controller/users/userOrder.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { isUser } from '../../middleware/checkRole.middleware.js';
 

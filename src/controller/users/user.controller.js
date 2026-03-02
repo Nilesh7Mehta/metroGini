@@ -1,8 +1,9 @@
-import { findUserByMobile } from "../models/user.model.js";
-import sql from "../config/db.js";
+import { findUserByMobile } from "../../models/user.model.js";
+import sql from "../../config/db.js";
 import jwt from "jsonwebtoken";
-import { deleteFile } from "../utils/file.service.js";
+import { deleteFile } from "../../utils/file.service.js";
 import crypto from "crypto";
+import { stat } from "fs";
 // import { generateOTP } from "../utils/otp.js";
 
 //check if user exists by mobile
@@ -454,6 +455,31 @@ export const acceptTerms = async(req , res , next)=>{
     });
   } catch (error) {
     next(error);
+  }
+}
+
+//need help 
+export const needHelp = async (req , res , next) => {
+  console.log(" I am In");
+  try{
+   const user_id = req.user.id;
+   const {message}  = req.body;
+
+   if(!message){
+     return res.status(500).json({
+      message:"Message Field is required"
+     })
+   }
+
+   const {rows} = await sql.query(`INSERT into helpline (user_id , message) VALUES ($1 , $2) RETURNING *` , [user_id , message.trim()] )
+
+   res.status(200).json({
+    status: true,
+    message:"Support request submitted Successfully",
+    data:rows[0]
+   })
+  }catch(error){
+    next(error); 
   }
 }
 

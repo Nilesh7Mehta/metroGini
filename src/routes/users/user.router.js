@@ -1,5 +1,5 @@
 import express from 'express';
-import * as userController from '../../controller/user.controller.js';
+import * as userController from '../../controller/users/user.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { createUploader } from "../../middleware/upload.js";
 import { isUser } from '../../middleware/checkRole.middleware.js';
@@ -25,6 +25,9 @@ router.put('/address/default/:id', authenticate, userController.setDefaultAddres
 
 //terms and conditions
 router.put('/terms-and-conditions', authenticate, userController.acceptTerms);
+
+//need Help ;
+router.post('/needHelp' , authenticate , isUser , userController.needHelp);
 
 
 
