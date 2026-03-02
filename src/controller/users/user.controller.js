@@ -170,7 +170,7 @@ export const getProfile = async (req, res, next) => {
       `SELECT id, mobile, full_name, email, gender,
               alternate_phone, profile_completed,
               profile_image,
-              terms_and_condition
+              terms_and_condition , push_notification 
        FROM users
        WHERE id = $1`,
       [userId]
@@ -482,6 +482,38 @@ export const needHelp = async (req , res , next) => {
     next(error); 
   }
 }
+
+//push_notification
+export const allowNotification = async (req, res, next) => {
+  try {
+    const user_id = req.user.id;
+    const { is_notification_allowed } = req.body;
+
+    if (typeof is_notification_allowed !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "is_notification_allowed must be true or false"
+      });
+    }
+
+    await sql.query(
+      `UPDATE users 
+       SET push_notification = $1 
+       WHERE id = $2`,
+      [is_notification_allowed, user_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Push notification ${
+        is_notification_allowed ? "enabled" : "disabled"
+      } successfully`
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
 
 //logout
 export const logout = async (req, res) => {

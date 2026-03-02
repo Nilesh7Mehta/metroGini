@@ -29,6 +29,9 @@ router.put('/terms-and-conditions', authenticate, userController.acceptTerms);
 //need Help ;
 router.post('/needHelp' , authenticate , isUser , userController.needHelp);
 
+//push-notification
+router.put('/allowNotification' , authenticate , isUser , userController.allowNotification)
+
 
 
 
