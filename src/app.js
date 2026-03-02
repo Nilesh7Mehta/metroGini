@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import newUserRouter from './routes/users/user.router.js';
-import newUserDashboardRouter from './routes/Dashboard.router.js';
+import newUserDashboardRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
 import newAdminRouter from './routes/admin/admin.router.js';
 
@@ -11,7 +11,7 @@ app.use(cors());
 
 
 app.use('/api/user', newUserRouter);
-app.use('/api/user/dashboard', newUserDashboardRouter);
+app.use('/api/common', newUserDashboardRouter);
 app.use('/api/user/order', userOrderRouter);
 app.use('/api/admin', newAdminRouter);
 
