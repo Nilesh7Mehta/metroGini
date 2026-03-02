@@ -371,7 +371,7 @@ export const finalizeOrder = async (req, res, next) => {
            flat_fee = $3,
            peak_extra_charge = $4,
            estimated_total = $5,
-           status = 'created',
+           status = 'booked',
            updated_at = NOW()
        WHERE id = $6`,
       [
@@ -451,7 +451,7 @@ export const reviewOrder = async (req, res, next) => {
 
    WHERE o.id = $1
      AND o.user_id = $2
-     AND o.status = 'created'`,
+     AND o.status = 'booked'`,
       [order_id, user_id],
     );
 
@@ -540,7 +540,7 @@ export const applyCoupon = async (req, res, next) => {
        FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'
+       AND status = 'booked'
        FOR UPDATE`,
       [order_id, user_id]
     );
@@ -661,7 +661,7 @@ export const removeCoupon = async (req, res, next) => {
        FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'
+       AND status = 'booked'
        FOR UPDATE`,
       [order_id, user_id]
     );
@@ -899,7 +899,7 @@ export const rescheduleOrderPickup = async (req, res, next) => {
       JOIN payments p ON p.order_id = o.id
       WHERE o.id = $1
         AND o.user_id = $2
-        AND o.status = 'created'
+        AND o.status = 'booked'
         AND p.payment_type = 'advance'
         AND p.status = 'success'
       FOR UPDATE
@@ -1004,7 +1004,7 @@ export const rescheduleOrderDelivery = async (req, res, next) => {
       JOIN payments p ON p.order_id = o.id
       WHERE o.id = $1
         AND o.user_id = $2
-        AND o.status = 'created'
+        AND o.status = 'booked'
         AND p.payment_type = 'advance'
         AND p.status = 'success'
       FOR UPDATE
@@ -1165,7 +1165,7 @@ export const cancelService = async (req, res, next) => {
        JOIN time_slots ts ON o.pickup_slot_id = ts.id
        WHERE o.id = $1
        AND o.user_id = $2
-       AND o.status = 'created'
+       AND o.status = 'booked'
        FOR UPDATE`,
       [order_id, user_id]
     );
@@ -1249,6 +1249,66 @@ export const cancelService = async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+};
+
+export const reportOrderIssue = async (req, res, next) => {
+  try {
+    const user_id = req.user.id;
+    const { order_id, issue_type, issue_reason, description } = req.body;
+
+    if (!order_id || !issue_type || !issue_reason) {
+      return res.status(400).json({
+        success: false,
+        message: "order_id, issue_type and issue_reason are required"
+      });
+    }
+
+    // ✅ 1️⃣ Check if order exists AND belongs to this user
+    const { rows: orderRows } = await sql.query(
+      `SELECT id FROM orders 
+       WHERE id = $1 AND user_id = $2 AND payment_status = 'partially_paid'`,
+      [order_id, user_id]
+    );
+
+    if (orderRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found or does not belong to you"
+      });
+    }
+
+    // ✅ 2️⃣ Optional: Prevent duplicate reports
+    const { rows: existingReport } = await sql.query(
+      `SELECT id FROM order_reports 
+       WHERE order_id = $1 AND user_id = $2 AND status = 'open'`,
+      [order_id, user_id]
+    );
+
+    if (existingReport.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reported this order"
+      });
+    }
+
+    // ✅ 3️⃣ Insert Report
+    const { rows } = await sql.query(
+      `INSERT INTO order_reports 
+       (order_id, user_id, issue_type, issue_reason, description)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [order_id, user_id, issue_type, issue_reason, description || null]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Issue reported successfully",
+      data: rows[0]
+    });
+
+  } catch (error) {
+    next(error);
   }
 };
 

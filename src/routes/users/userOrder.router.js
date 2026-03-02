@@ -43,5 +43,8 @@ router.put('/:id/rescheduleOrderDelivery' , userOrderController.rescheduleOrderD
 
 router.post('/:id/cancelService' , userOrderController.cancelService);
 
+//report oder
+router.post('/report-order' , userOrderController.reportOrderIssue);
+
 
 export default router;

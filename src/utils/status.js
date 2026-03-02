@@ -40,7 +40,7 @@ export const applyCoupon1 = async (req, res, next) => {
       `SELECT * FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'`,
+       AND status = 'booked'`,
       [order_id, user_id],
     );
 
@@ -123,7 +123,7 @@ export const removeCoupon1 = async (req, res, next) => {
        FROM orders
        WHERE id = $1
        AND user_id = $2
-       AND status = 'created'`,
+       AND status = 'booked'`,
       [order_id, user_id],
     );
 
