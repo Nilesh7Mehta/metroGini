@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import newUserRouter from './routes/users/user.router.js';
 import newCommonRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
@@ -9,7 +10,7 @@ import newUserPaymentRouter from './routes/users/userPayment.router.js'
 const app = express();
 app.use(express.json());
 app.use(cors());
-
+app.use(morgan("dev"));
 
 app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
