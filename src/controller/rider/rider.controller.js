@@ -170,3 +170,125 @@ export const verifyOtp = async (req, res, next) => {
 
   }
 };
+
+//choose shift
+export const chooseShift = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const { shift_id } = req.body;
+    if (!shift_id) {
+      res.status(500).json({
+        message: "Shift is required",
+      });
+    }
+    const { rows } = await sql.query(
+      `UPDATE riders SET  shift_id = $1 , shift_started_at = NOW() where id = $2 RETURNING *`,
+      [shift_id, rider_id],
+    );
+
+    const shiftResult = await sql.query(
+      `SELECT shift_name FROM shifts WHERE id = $1`,
+      [shift_id],
+    );
+
+    if (shiftResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Shift not found",
+      });
+    }
+
+    const shiftName = shiftResult.rows[0].shift_name;
+
+    return res.status(200).json({
+      success: true,
+      message: `Shift confirmed! You have selected ${shiftName}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const goActive = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+
+    // Get current status
+    const { rows } = await sql.query(
+      `SELECT is_active FROM riders WHERE id = $1`,
+      [rider_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider not found"
+      });
+    }
+
+    const currentStatus = rows[0].is_active;
+
+    // Toggle status
+    const { rows: updated } = await sql.query(
+      `UPDATE riders
+       SET is_active = $1
+       WHERE id = $2
+       RETURNING is_active`,
+      [!currentStatus, rider_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: updated[0].is_active
+        ? "Rider is now Online"
+        : "Rider is now Offline",
+      is_active: updated[0].is_active
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const acceptTerms = async (req, res, next) => {
+  console.log("IJ");
+  try {
+    const rider_id = req.user.rider_id;
+
+    // Get current status
+    const { rows } = await sql.query(
+      `SELECT is_terms_and_condition_verified FROM riders WHERE id = $1`,
+      [rider_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider not found"
+      });
+    }
+
+    const currentStatus = rows[0].is_terms_and_condition_verified;
+
+    // Toggle status
+    const { rows: updated } = await sql.query(
+      `UPDATE riders
+       SET is_terms_and_condition_verified = $1
+       WHERE id = $2
+       RETURNING is_terms_and_condition_verified`,
+      [!currentStatus, rider_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: updated[0].is_terms_and_condition_verified
+        ? "Terms and condition verified successfully"
+        : "Terms and condition verified unsuccessfully",
+      is_terms_and_condition_verified: updated[0].is_terms_and_condition_verified
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+ 

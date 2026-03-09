@@ -96,29 +96,15 @@ export const userFaq = async(req , res ,next) =>{
     }
 }
 
-const shifts = [
-  {
-    id: 1,
-    shift_name: "Morning",
-    start_time: "07:30",
-    end_time: "13:00"
-  },
-  {
-    id: 2,
-    shift_name: "Night",
-    start_time: "16:00",
-    end_time: "21:30"
-  }
-];
 
 export const shift = async(req , res , next) =>{
     try{
+        const {rows} = await sql.query(`SELECT * from shifts`);
         res.status(200).json({
-            status : 'true',
-            message: 'Shifts retrieved Successfully',
-            data : shifts,
+            success:true,
+            message: 'Shift retrieved Successfully',
+            data:rows
         })
-
     }catch(error){
         next(error)
     }
