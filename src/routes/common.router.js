@@ -8,7 +8,9 @@ router.get('/service-types', CommonController.getServiceTypes);
 router.get('/time-slots', CommonController.getTimeSlots);
 
 
-router.get('/faq',  CommonController.faq);
+router.get('/userfaq',  CommonController.userFaq);
+router.get('/shift',  CommonController.shift);
+
 
 
 

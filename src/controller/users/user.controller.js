@@ -12,7 +12,6 @@ export const loginOrRegister = async (req, res, next) => {
 
   try {
     let user = await findUserByMobile(mobile);
-
     let message;
 
     if (!user) {
@@ -27,18 +26,15 @@ export const loginOrRegister = async (req, res, next) => {
     }
 
     // Generate OTP
-    // const otp = generateOTP();
-    const otp = 1234; // for testing, replace with generateOTP() in production
+    const otp = 1234; // replace with generateOTP() in production
 
-    // Delete old OTPs (important)
+    // Update OTP and expiry
     await sql.query(
-      `UPDATE users SET otp = NULL, otp_expires_at = NULL WHERE id = $1`,
-      [user.id]
-    );
-    
-    // Insert new OTP with expiry
-    await sql.query(
-      `UPDATE users SET otp = $2, otp_expires_at = NOW() + INTERVAL '2 minutes' WHERE id = $1`,
+      `UPDATE users
+       SET otp = $2,
+           otp_expires_at = NOW() + INTERVAL '2 minutes',
+           otp_attempts = 0
+       WHERE id = $1`,
       [user.id, otp]
     );
 

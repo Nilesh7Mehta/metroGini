@@ -4,10 +4,12 @@ import { authenticate } from '../../middleware/auth.middleware.js';
 import { createUploader } from "../../middleware/upload.js";
 import { isUser } from '../../middleware/checkRole.middleware.js';
 const profileUpload = createUploader("profile", 500 * 1024); 
+import {sendOtpLimiter , verifyOtpLimiter}  from '../../middleware/rateLimiter.js';
+
 const router = express.Router();
 
-router.post('/login-or-register', userController.loginOrRegister);
-router.post('/verify-otp', userController.verifyOTP);
+router.post('/login-or-register', sendOtpLimiter , userController.loginOrRegister);
+router.post('/verify-otp', verifyOtpLimiter, userController.verifyOTP);
 
 router.post('/refresh-token', userController.refreshAccessToken);
 router.post('/logout', userController.logout);
