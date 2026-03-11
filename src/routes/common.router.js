@@ -10,6 +10,8 @@ router.get('/time-slots', CommonController.getTimeSlots);
 
 router.get('/userfaq',  CommonController.userFaq);
 router.get('/shift',  CommonController.shift);
+router.get('/banners',  CommonController.getBanners);
+
 
 
 

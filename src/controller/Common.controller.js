@@ -1,4 +1,5 @@
 import sql from "../config/db.js";
+import { getImageUrl } from "../utils/getImageUrl.js";
 
 export const getCities = async (req, res, next) => {
     try {
@@ -109,3 +110,25 @@ export const shift = async(req , res , next) =>{
         next(error)
     }
 }
+
+export const getBanners = async (req, res, next) => {
+  try {
+
+    const { rows } = await sql.query(
+      `SELECT * FROM banners WHERE status = true ORDER BY created_at DESC`
+    );
+
+    const banners = rows.map(banner => ({
+      ...banner,
+      image_url: getImageUrl(req, banner.image_url)
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: banners
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};

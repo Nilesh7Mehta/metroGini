@@ -3,6 +3,7 @@ import sql from "../../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+
 export const loginAdmin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
