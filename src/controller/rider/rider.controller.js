@@ -1,5 +1,7 @@
 import sql from '../../config/db.js';
 import jwt from 'jsonwebtoken';
+import { deleteFile } from '../../utils/file.service.js';
+import { getImageUrl } from '../../utils/getImageUrl.js';
 
 export const loginOrVerify = async (req, res, next) => {
   const client = await sql.connect();
@@ -251,13 +253,14 @@ export const goActive = async (req, res, next) => {
 };
 
 export const acceptTerms = async (req, res, next) => {
-  console.log("IJ");
   try {
     const rider_id = req.user.rider_id;
 
-    // Get current status
     const { rows } = await sql.query(
-      `SELECT is_terms_and_condition_verified FROM riders WHERE id = $1`,
+      `UPDATE riders
+       SET is_terms_and_condition_verified = true
+       WHERE id = $1
+       RETURNING is_terms_and_condition_verified`,
       [rider_id]
     );
 
@@ -268,23 +271,196 @@ export const acceptTerms = async (req, res, next) => {
       });
     }
 
-    const currentStatus = rows[0].is_terms_and_condition_verified;
+    res.status(200).json({
+      success: true,
+      message: "Terms and Conditions accepted successfully",
+      is_terms_and_condition_verified: rows[0].is_terms_and_condition_verified
+    });
 
-    // Toggle status
-    const { rows: updated } = await sql.query(
-      `UPDATE riders
-       SET is_terms_and_condition_verified = $1
-       WHERE id = $2
-       RETURNING is_terms_and_condition_verified`,
-      [!currentStatus, rider_id]
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  const client = await sql.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const rider_id = req.user.rider_id;
+    console.log("Rider id", rider_id);
+
+    if (!rider_id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const {
+      full_name,
+      alternate_contact_number,
+      aadhaar_number,
+      pan_card_number,
+      date_of_birth,
+      residential_address,
+      vehicle_type,
+      vehicle_registration_number,
+      licence_validity_date,
+      account_holder_name,
+      bank_name,
+      account_number,
+      ifsc_code
+    } = req.body;
+
+    // ---- Get existing image ----
+    const rider = await client.query(
+      "SELECT image FROM riders WHERE id = $1",
+      [rider_id]
+    );
+
+    if (!rider.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        success: false,
+        message: "Rider not found"
+      });
+    }
+
+    let imagePath = rider.rows[0].image;
+
+    // ---- If new image uploaded ----
+    if (req.file) {
+      if (imagePath) {
+        await deleteFile(imagePath);
+      }
+
+      imagePath = req.file.path;
+    }
+
+    // ---- Update query ----
+    const updatedRider = await client.query(
+      `UPDATE riders SET
+        full_name = $1,
+        alternate_contact_number = $2,
+        aadhaar_number = $3,
+        pan_card_number = $4,
+        date_of_birth = $5,
+        residential_address = $6,
+        vehicle_type = $7,
+        vehicle_registration_number = $8,
+        licence_validity_date = $9,
+        account_holder_name = $10,
+        bank_name = $11,
+        account_number = $12,
+        ifsc_code = $13,
+        image = $14,
+        status = 'active',
+        profile_completed = true
+      WHERE id = $15
+      RETURNING *`,
+      [
+        full_name,
+        alternate_contact_number,
+        aadhaar_number,
+        pan_card_number,
+        date_of_birth,
+        residential_address,
+        vehicle_type,
+        vehicle_registration_number,
+        licence_validity_date,
+        account_holder_name,
+        bank_name,
+        account_number,
+        ifsc_code,
+        imagePath,
+        rider_id
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully"
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+export const getProfile = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+
+    if (!rider_id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const { rows } = await sql.query(
+      `SELECT * FROM riders WHERE id = $1`,
+      [rider_id]
+    );
+
+    const rider = rows[0];
+
+    rider.image = getImageUrl(req, rider.image);
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Rider not found"
+      });
+    }
+
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile fetched successfully",
+      data:rider
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const needHelp = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const { report_issue, message } = req.body;
+
+    if (!report_issue) {
+      return res.status(400).json({
+        message: "Report issue is required"
+      });
+    }
+
+    if (!message) {
+      return res.status(400).json({
+        message: "Message field is required"
+      });
+    }
+
+    const { rows } = await sql.query(
+      `INSERT INTO rider_helpline (rider_id, report_issue, message)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [rider_id, report_issue, message.trim()]
     );
 
     res.status(200).json({
-      success: true,
-      message: updated[0].is_terms_and_condition_verified
-        ? "Terms and condition verified successfully"
-        : "Terms and condition verified unsuccessfully",
-      is_terms_and_condition_verified: updated[0].is_terms_and_condition_verified
+      status: true,
+      message: "Support request submitted successfully",
+      data: rows[0]
     });
 
   } catch (error) {

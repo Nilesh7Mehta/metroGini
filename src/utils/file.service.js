@@ -8,7 +8,7 @@ export const deleteFile = async (filePath) => {
 
   try {
     if (fs.existsSync(fullPath)) {
-      // console.log("Deleting file:", fullPath);
+      // console.log("Deleting file====================================================:", fullPath);
       fs.unlinkSync(fullPath);
     }
   } catch (error) {

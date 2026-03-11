@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
+app.use('/uploads' , express.static("uploads"));
 
 app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);

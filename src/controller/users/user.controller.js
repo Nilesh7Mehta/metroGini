@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { deleteFile } from "../../utils/file.service.js";
 import crypto from "crypto";
 import { stat } from "fs";
+import { getImageUrl } from "../../utils/getImageUrl.js";
 // import { generateOTP } from "../utils/otp.js";
 
 //check if user exists by mobile
@@ -171,6 +172,10 @@ export const getProfile = async (req, res, next) => {
        WHERE id = $1`,
       [userId]
     );
+
+    const user =  result.rows[0];
+    user.image = getImageUrl(req, user.profile_image);
+    
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -456,7 +461,6 @@ export const acceptTerms = async(req , res , next)=>{
 
 //need help 
 export const needHelp = async (req , res , next) => {
-  console.log(" I am In");
   try{
    const user_id = req.user.id;
    const {message}  = req.body;
