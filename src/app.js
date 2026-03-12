@@ -7,7 +7,11 @@ import userOrderRouter from './routes/users/userOrder.router.js';
 import newAdminRouter from './routes/admin/admin.router.js';
 import newUserPaymentRouter from './routes/users/userPayment.router.js'
 import newRiderRouter from './routes/rider/rider.router.js';
+import riderOrderRoute from './routes/rider/riderOrder.router.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
+import { startPickupCron } from "./cron/pickupCron.js";
+
+startPickupCron();
 
 const app = express();
 app.use(express.json());
@@ -22,6 +26,7 @@ app.use('/api/user/order', userOrderRouter);
 app.use('/api/admin', newAdminRouter);
 app.use('/api/user/order/payment' , newUserPaymentRouter);
 app.use('/api/rider' , newRiderRouter);
+app.use('/api/rider/order' , riderOrderRoute);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
