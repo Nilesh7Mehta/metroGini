@@ -2,6 +2,8 @@ import sql from '../../config/db.js';
 import jwt from 'jsonwebtoken';
 import { deleteFile } from '../../utils/file.service.js';
 import { getImageUrl } from '../../utils/getImageUrl.js';
+import { assignOrdersToRider } from '../../models/riders/orderSplit.model.js';
+import { checkRiderReady } from '../../models/riders/rider.model.js';
 
 export const loginOrVerify = async (req, res, next) => {
   const client = await sql.connect();
@@ -178,19 +180,18 @@ export const chooseShift = async (req, res, next) => {
   try {
     const rider_id = req.user.rider_id;
     const { shift_id } = req.body;
+
     if (!shift_id) {
-      res.status(500).json({
+      return res.status(400).json({
+        success: false,
         message: "Shift is required",
       });
     }
-    const { rows } = await sql.query(
-      `UPDATE riders SET  shift_id = $1 , shift_started_at = NOW() where id = $2 RETURNING *`,
-      [shift_id, rider_id],
-    );
 
+    // 1️⃣ Check shift exists
     const shiftResult = await sql.query(
       `SELECT shift_name FROM shifts WHERE id = $1`,
-      [shift_id],
+      [shift_id]
     );
 
     if (shiftResult.rows.length === 0) {
@@ -202,49 +203,109 @@ export const chooseShift = async (req, res, next) => {
 
     const shiftName = shiftResult.rows[0].shift_name;
 
+    // 2️⃣ Update rider shift
+    await sql.query(
+      `UPDATE riders 
+       SET shift_id = $1, shift_started_at = NOW() 
+       WHERE id = $2`,
+      [shift_id, rider_id]
+    );
+
     return res.status(200).json({
       success: true,
       message: `Shift confirmed! You have selected ${shiftName}`,
     });
+
   } catch (error) {
     next(error);
   }
 };
 
+// export const goActive1 = async (req, res, next) => {
+//   try {
+//     const rider_id = req.user.rider_id;
+
+//     // Get current status
+//     const { rows } = await sql.query(
+//       `SELECT is_active FROM riders WHERE id = $1`,
+//       [rider_id]
+//     );
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Rider not found"
+//       });
+//     }
+
+//     const currentStatus = rows[0].is_active;
+
+//     // Toggle status
+//     const { rows: updated } = await sql.query(
+//       `UPDATE riders
+//        SET is_active = $1
+//        WHERE id = $2
+//        RETURNING is_active`,
+//       [!currentStatus, rider_id]
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: updated[0].is_active
+//         ? "Rider is now Online"
+//         : "Rider is now Offline",
+//       is_active: updated[0].is_active
+//     });
+
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const goActive = async (req, res, next) => {
   try {
+
     const rider_id = req.user.rider_id;
 
-    // Get current status
     const { rows } = await sql.query(
       `SELECT is_active FROM riders WHERE id = $1`,
       [rider_id]
     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Rider not found"
+    const currentStatus = rows[0].is_active;
+    const newStatus = !currentStatus;
+
+    await sql.query(
+      `UPDATE riders
+       SET is_active = $1
+       WHERE id = $2`,
+      [newStatus, rider_id]
+    );
+
+    // If going online
+    if (newStatus) {
+
+      const ready = await checkRiderReady(rider_id);
+
+      if (!ready) {
+        return res.status(400).json({
+          success: false,
+          message: "Please select shift first"
+        });
+      }
+
+      const assignedOrders = await assignOrdersToRider(rider_id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Rider is now online",
+        assigned_orders: assignedOrders.length
       });
     }
 
-    const currentStatus = rows[0].is_active;
-
-    // Toggle status
-    const { rows: updated } = await sql.query(
-      `UPDATE riders
-       SET is_active = $1
-       WHERE id = $2
-       RETURNING is_active`,
-      [!currentStatus, rider_id]
-    );
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: updated[0].is_active
-        ? "Rider is now Online"
-        : "Rider is now Offline",
-      is_active: updated[0].is_active
+      message: "Rider is now offline"
     });
 
   } catch (error) {
