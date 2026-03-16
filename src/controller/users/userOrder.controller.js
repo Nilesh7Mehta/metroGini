@@ -1313,27 +1313,27 @@ export const reportOrderIssue = async (req, res, next) => {
 };
 
 //cron JOb
-export const processPickupOrders = async () => {
-  const today = new Date().toISOString().split("T")[0];
+// export const processPickupOrders = async () => {
+//   const today = new Date().toISOString().split("T")[0];
 
-  const { rows } = await sql.query(
-    `SELECT id, user_id
-     FROM orders
-     WHERE pickup_date = $1
-     AND status = 'booked'`,
-    [today]
-  );
+//   const { rows } = await sql.query(
+//     `SELECT id, user_id
+//      FROM orders
+//      WHERE pickup_date = $1
+//      AND status = 'booked'`,
+//     [today]
+//   );
 
-  for (const order of rows) {
-    const otp = generateOTP();
+//   for (const order of rows) {
+//     const otp = generateOTP();
 
-    await sql.query(
-      `UPDATE orders
-       SET status = 'out_for_pickup',
-           pickup_otp = $1,
-           otp_generated_at = NOW()
-       WHERE id = $2`,
-      [otp, order.id]
-    );
-  }
-};
+//     await sql.query(
+//       `UPDATE orders
+//        SET status = 'out_for_pickup',
+//            pickup_otp = $1,
+//            otp_generated_at = NOW()
+//        WHERE id = $2`,
+//       [otp, order.id]
+//     );
+//   }
+// };

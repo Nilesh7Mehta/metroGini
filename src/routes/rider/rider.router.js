@@ -15,7 +15,6 @@ router.post('/terms-and-conditions' , authenticate , riderController.acceptTerms
 router.post('/updateProfile' , authenticate , riderUpload.single("image"), riderController.updateProfile);
 router.get('/getProfile' , authenticate , riderController.getProfile);
 
-router.post('/needRiderHelp',authenticate , riderController.needHelp);
-
+router.post('/needRiderHelp' ,authenticate ,  riderController.needHelp);
 
 export default router;

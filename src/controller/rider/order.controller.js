@@ -1,6 +1,8 @@
 import sql from '../../config/db.js';
 import { assignOrdersToRider } from '../../models/riders/orderSplit.model.js';
 import { checkRiderReady } from '../../models/riders/rider.model.js';
+import { createNotificationsBatch } from '../../utils/notificationHelper.js';
+import { generateOTP } from "../../utils/otp.js";
 
 export const getTodayOrderList = async (req, res, next) => {
   try {
@@ -132,6 +134,130 @@ export const startOrderDelivery = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: `Delivery started for Order Id = ORD-${order_id}`
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+//verify Delivery OTP
+export const verifyDeliveryOtp = async (req, res, next) => {
+  try {
+
+    const rider_id = req.user.rider_id;
+    const { order_id, otp } = req.body;
+
+    const { rows } = await sql.query(
+      `SELECT id, pickup_otp , assigned_rider_id, status
+       FROM orders
+       WHERE id = $1`,
+      [order_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    const order = rows[0];
+
+    if (order.assigned_rider_id !== rider_id) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this order"
+      });
+    }
+
+    if (order.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Order is not in delivery stage"
+      });
+    }
+
+    console.log("PickUP" , order.pickup_otp);
+    console.log("OTP" , otp);
+
+    if (order.pickup_otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP"
+      });
+    }
+
+    await sql.query(
+      `UPDATE orders
+       SET status = 'done' , otp_verified = 'true'
+       WHERE id = $1`,
+      [order_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Delivery completed successfully"
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+export const resendDeliveryOtp = async (req, res, next) => {
+  try {
+
+    const rider_id = req.user.rider_id;
+    const { order_id } = req.body;
+
+    const { rows } = await sql.query(
+      `SELECT o.id, o.user_id, u.mobile
+      FROM orders o
+      INNER JOIN users u ON u.id = o.user_id
+      WHERE o.id = $1
+      AND o.assigned_rider_id = $2
+      AND o.otp_verified = false`,
+      [order_id, rider_id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    const order = rows[0];
+    
+    const otp = generateOTP();
+
+    // update OTP
+    await sql.query(
+      `UPDATE orders
+       SET pickup_otp = $1
+       WHERE id = $2`,
+      [otp, order_id]
+    );
+
+    // send notification to customer
+    await createNotificationsBatch([
+      {
+        user_id: order.user_id,
+        title: "Delivery OTP Resent",
+        message: `Your delivery OTP is ${otp}`,
+        reference_type: "order",
+        reference_id: order_id
+      }
+    ]);
+
+    // optional SMS
+    // await sendSMS(order.mobile, `Your delivery OTP is ${otp}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to customer" , 
+      otp  //Remove in Prod
     });
 
   } catch (error) {
