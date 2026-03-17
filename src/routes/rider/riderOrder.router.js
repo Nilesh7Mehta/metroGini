@@ -11,4 +11,8 @@ router.post('/:id/startOrderDelivery' , authenticate , riderOrderController.star
 router.post('/verifyDeliveryOtp', authenticate, verifyOtpLimiter , riderOrderController.verifyDeliveryOtp);
 router.post('/resendDeliveryOtp', authenticate, sendOtpLimiter, riderOrderController.resendDeliveryOtp);
 
+//getOrderHistory
+router.get('/getOrderHistory' , authenticate , riderOrderController.getOrderHistory);
+
+
 export default router;

@@ -205,7 +205,6 @@ export const verifyDeliveryOtp = async (req, res, next) => {
   }
 };
 
-
 export const resendDeliveryOtp = async (req, res, next) => {
   try {
 
@@ -258,6 +257,126 @@ export const resendDeliveryOtp = async (req, res, next) => {
       success: true,
       message: "OTP sent to customer" , 
       otp  //Remove in Prod
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getOrderHistory = async (req, res, next) => {
+  try {
+
+    const rider_id = req.user.rider_id;
+
+    const {
+      order_type,
+      status,
+      time_filter,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    let conditions = [`o.assigned_rider_id = $1`];
+    let values = [rider_id];
+    let index = 2;
+
+    // Order Type
+    if (order_type === "regular") {
+      conditions.push(`st.name = $${index}`);
+      values.push("Regular Service");
+      index++;
+    }
+
+    if (order_type === "express") {
+      conditions.push(`st.name = $${index}`);
+      values.push("Express Service");
+      index++;
+    }
+
+    // Status
+    if (status === "pending") {
+      conditions.push(`o.status = $${index}`);
+      values.push("out_for_pickup");
+      index++;
+    }
+
+    if (status === "in_process") {
+      conditions.push(`o.status = $${index}`);
+      values.push("active");
+      index++;
+    }
+
+    if (status === "delivered") {
+      conditions.push(`o.status = $${index}`);
+      values.push("done");
+      index++;
+    }
+
+    // Time Filters
+    if (time_filter === "today") {
+      conditions.push(`DATE(o.created_at) = CURRENT_DATE`);
+    }
+
+    if (time_filter === "7days") {
+      conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '7 days'`);
+    }
+
+    if (time_filter === "30days") {
+      conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '30 days'`);
+    }
+
+    if (time_filter === "6months") {
+      conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '6 months'`);
+    }
+
+    if (time_filter === "1year") {
+      conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '1 year'`);
+    }
+
+    // Total count
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM orders o
+      INNER JOIN service_types st ON st.id = o.service_type_id
+      WHERE ${conditions.join(" AND ")}
+    `;
+
+    const { rows: countRows } = await sql.query(countQuery, values);
+    const total = parseInt(countRows[0].count);
+
+    // Data query
+    const query = `
+      SELECT
+        o.id,
+        o.status,
+        o.created_at,
+        u.full_name AS customer_name,
+        st.name AS service_type,
+        uad.complete_address
+      FROM orders o
+      INNER JOIN users u ON u.id = o.user_id
+      INNER JOIN service_types st ON st.id = o.service_type_id
+      INNER JOIN user_address_details uad ON uad.id = o.address_id
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY o.created_at DESC
+      LIMIT $${index} OFFSET $${index + 1}
+    `;
+
+    values.push(limit);
+    values.push(offset);
+
+    const { rows } = await sql.query(query, values);
+
+    return res.status(200).json({
+      success: true,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total_orders: total,
+      total_pages: Math.ceil(total / limit),
+      data: rows
     });
 
   } catch (error) {
