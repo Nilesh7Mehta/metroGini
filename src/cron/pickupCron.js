@@ -5,9 +5,10 @@ import { generateOTP } from "../utils/otp.js";
 
 export const startPickupCron = () => {
 
-  cron.schedule("*/5 * * * *", async () => {
+  cron.schedule("*/2 * * * *", async () => {
     try {
-
+      console.log("Cron is running ===============");
+      
       const today = new Date().toISOString().split("T")[0];
 
       const { rows } = await sql.query(

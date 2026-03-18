@@ -1,7 +1,7 @@
 import sql from '../../config/db.js';
 
 export const checkRiderReady = async (rider_id) => {
-
+  console.log("I m rider" , rider_id);
   const { rows } = await sql.query(
     `SELECT id
      FROM riders

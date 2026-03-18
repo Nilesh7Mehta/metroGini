@@ -19,19 +19,8 @@ export const getTodayOrderList = async (req, res, next) => {
       });
     }
 
-    // 2️⃣ Get rider position
-    const { rows } = await sql.query(
-      `SELECT COUNT(*) AS position
-       FROM riders
-       WHERE is_active = true
-       AND id <= $1`,
-      [rider_id]
-    );
-
-    const riderPosition = rows[0].position - 1;
-
     // 3️⃣ Get orders
-    const orders = await assignOrdersToRider(riderPosition);
+    const orders = await assignOrdersToRider(rider_id);
 
     return res.status(200).json({
       status: true,
