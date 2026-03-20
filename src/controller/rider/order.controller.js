@@ -1,5 +1,4 @@
 import sql from '../../config/db.js';
-import { assignOrdersToRider } from '../../models/riders/orderSplit.model.js';
 import { checkRiderReady } from '../../models/riders/rider.model.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from "../../utils/otp.js";

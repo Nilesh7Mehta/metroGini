@@ -2,7 +2,6 @@ import sql from '../../config/db.js';
 import jwt from 'jsonwebtoken';
 import { deleteFile } from '../../utils/file.service.js';
 import { getImageUrl } from '../../utils/getImageUrl.js';
-import { assignOrdersToRider } from '../../models/riders/orderSplit.model.js';
 import { checkRiderReady } from '../../models/riders/rider.model.js';
 
 export const loginOrVerify = async (req, res, next) => {
