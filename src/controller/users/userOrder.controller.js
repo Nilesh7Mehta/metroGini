@@ -160,10 +160,23 @@ export const updatePickup = async (req, res, next) => {
       });
     }
 
-    // ✅ Validate date format (basic check)
+    // ✅ Validate date format
     if (isNaN(new Date(pickup_date).getTime())) {
       return res.status(400).json({
         message: "Invalid pickup date",
+      });
+    }
+
+    // ✅ NEW: Prevent same day & past date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const selectedDate = new Date(pickup_date);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate <= today) {
+      return res.status(400).json({
+        message: "Pickup date must be a future date",
       });
     }
 

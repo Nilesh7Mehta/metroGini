@@ -294,12 +294,9 @@ export const goActive = async (req, res, next) => {
         });
       }
 
-      const assignedOrders = await assignOrdersToRider(rider_id);
-
       return res.status(200).json({
         success: true,
-        message: "Rider is now online",
-        assigned_orders: assignedOrders.length
+        message: "Rider is now online"
       });
     }
 
