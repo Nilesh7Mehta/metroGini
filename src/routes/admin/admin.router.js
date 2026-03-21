@@ -23,5 +23,6 @@ router.delete("/deleteBanner/:id",  authenticate, bannerController.deleteBanner)
 
 // Vendor
 router.post('/addVendor', authenticate, vendorUpload.single('image'), adminvendorController.addVendor);
+router.put('/updateVendor/:id', authenticate, vendorUpload.single('image'), adminvendorController.updateVendor);
 
 export default router;

@@ -36,12 +36,10 @@ app.get('/', (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err);
 
-  res.status(500).json({
-   
-    code: 500,
+  res.status(err.status || 500).json({
+    code: err.status || 500,
     success: false,
-    message: "Internal Server Error",
-    error: err.code
+    message: err.message || "Internal Server Error",
   });
 });
 

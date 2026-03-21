@@ -15,3 +15,11 @@ export const deleteFile = async (filePath) => {
     // console.error("File delete error:", error.message);
   }
 };
+
+export const cleanupAndThrow = async ( filePath ,message, status = 400) => {
+  console.log("Insode");
+    if (filePath) {
+      await deleteFile(filePath).catch(() => {});
+    }
+    throw { status, message };
+  };
