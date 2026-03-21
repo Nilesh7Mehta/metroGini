@@ -1,5 +1,6 @@
 import sql from "../../config/db.js";
 import { cleanupAndThrow, deleteFile } from "../../utils/file.service.js";
+import jwt from 'jsonwebtoken';
 
 export const addVendorService = async (body, file) => {
   const {
@@ -91,8 +92,8 @@ export const addVendorService = async (body, file) => {
       `INSERT INTO vendors
         (owner_contact_name, mobile_number, email, aadhar_number, pan_card_number,
          laundry_shop_name, shop_address, gst_number, account_holder_name, bank_name,
-         account_number, ifsc_code, image , pincode)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13 , $14)
+         account_number, ifsc_code, image , pincode , status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13 , $14 , active)
        RETURNING *`,
       [
         owner_contact_name,
@@ -256,4 +257,118 @@ export const updateVendorService = async (id, body, file) => {
   }
 };
 
+//Login Otp
+export const loginOrVerifyVendorService = async (mobile_number) => {
+  if (!mobile_number || !/^\d{10}$/.test(mobile_number)) {
+    throw { status: 400, message: "mobile_number must be a 10-digit number" };
+  }
+    const { rows } = await sql.query(
+      `SELECT * FROM vendors WHERE mobile_number = $1`,
+      [mobile_number]
+    );
 
+  if (!rows.length) {
+    throw { status: 404, message: "Vendor not found" };
+  }
+
+  const otp = "1234";
+  const otp_expires_at = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  await sql.query(
+    `UPDATE vendors SET otp = $1, otp_expire = $2 WHERE mobile_number = $3`,
+    [otp, otp_expires_at, mobile_number]
+  );
+
+  return { message: "OTP sent successfully" , otp };
+};
+
+export const verifyVendorOtp = async (mobile_number, otp) => {
+  if (!mobile_number || !/^\d{10}$/.test(mobile_number)) {
+    throw { status: 400, message: "Invalid mobile number" };
+  }
+
+  if (!otp) {
+    throw { status: 400, message: "Please enter OTP" };
+  }
+
+  const { rows } = await sql.query(
+    `SELECT * FROM vendors WHERE mobile_number = $1`,
+    [mobile_number]
+  );
+
+  if (!rows.length) {
+    throw { status: 404, message: "Vendor not found" };
+  }
+
+  const vendor = rows[0];
+
+  if (!vendor.otp || !vendor.otp_expire) {
+    throw { status: 400, message: "No OTP found or already used" };
+  }
+
+  if (vendor.otp_expire < new Date()) {
+    throw { status: 400, message: "OTP expired" };
+  }
+
+  if (String(vendor.otp) !== String(otp)) {
+    throw { status: 400, message: "Invalid OTP" };
+  }
+
+  const access_token = jwt.sign(
+    { vendor_id: vendor.id, mobile_number: vendor.mobile_number },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || "9d" }
+  );
+  const expiresIn = process.env.JWT_EXPIRES_IN || "9d";
+
+  // Reset OTP after success
+  // await sql.query(
+  //   `UPDATE vendors SET otp = NULL, otp_expire = NULL WHERE mobile_number = $1`,
+  //   [mobile_number]
+  // );
+
+  return {
+    success : "true",
+    message: "OTP verified successfully",
+    data : {
+      access_token ,
+      expiresIn
+    }
+  };
+};
+
+export const toggleVendorActiveService = async (vendor_id) => {
+  const { rows: existing } = await sql.query(
+    `SELECT id, is_active FROM vendors WHERE id = $1`,
+    [vendor_id]
+  );
+
+  console.log(existing);
+
+  if (!existing.length) {
+    throw { status: 404, message: "Vendor not found" };
+  }
+
+  const newStatus = !existing[0].is_active;
+
+  const { rows } = await sql.query(
+    `UPDATE vendors 
+     SET is_active = $1, updated_at = NOW() 
+     WHERE id = $2 
+     RETURNING id, is_active`,
+    [newStatus, vendor_id]
+  );
+
+  return rows[0].is_active;
+};
+
+export const acceptTermsService = async (vendor_id) => {
+  const { rows } = await sql.query(
+    `UPDATE vendors SET is_terms_and_condition = true WHERE id = $1 RETURNING is_terms_and_condition`,
+    [vendor_id],
+  );
+
+  if (rows.length === 0) throw { status: 404, message: "Rider not found" };
+
+  return rows[0].is_terms_and_condition_verified;
+};
