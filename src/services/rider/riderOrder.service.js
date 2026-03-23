@@ -32,8 +32,8 @@ export const fetchDashboardCount = async (rider_id) => {
   const { rows } = await sql.query(
     `SELECT
       COUNT(*) FILTER (WHERE status = 'out_for_pickup') AS pending_orders,
-      COUNT(*) FILTER (WHERE status = 'active') AS active_orders,
-      COUNT(*) FILTER (WHERE status = 'done') AS completed_orders
+      COUNT(*) FILTER (WHERE status = 'pickup_in_progress') AS active_orders,
+      COUNT(*) FILTER (WHERE status = 'picked_up') AS completed_orders
      FROM orders
      WHERE pickup_date >= CURRENT_DATE AND assigned_rider_id = $1`,
     [rider_id],
@@ -43,7 +43,7 @@ export const fetchDashboardCount = async (rider_id) => {
 
 export const startDelivery = async (rider_id, order_id) => {
   const { rows: activeOrders } = await sql.query(
-    `SELECT id FROM orders WHERE assigned_rider_id = $1 AND status = 'active'`,
+    `SELECT id FROM orders WHERE assigned_rider_id = $1 AND status = 'pickup_in_progress'`,
     [rider_id],
   );
   if (activeOrders.length > 0)
@@ -64,7 +64,7 @@ export const startDelivery = async (rider_id, order_id) => {
   if (order.status !== "out_for_pickup")
     throw { status: 400, message: "Order cannot be started" };
 
-  await sql.query(`UPDATE orders SET status = 'active' WHERE id = $1`, [
+  await sql.query(`UPDATE orders SET status = 'pickup_in_progress' WHERE id = $1`, [
     order_id,
   ]);
 };
@@ -84,7 +84,7 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
   if (order.pickup_otp !== otp) throw { status: 400, message: "Invalid OTP" };
 
   await sql.query(
-    `UPDATE orders SET status = 'done', otp_verified = 'true' WHERE id = $1`,
+    `UPDATE orders SET status = 'picked_up', otp_verified = 'true' WHERE id = $1`,
     [order_id],
   );
 };
@@ -116,6 +116,45 @@ export const resendOtp = async (rider_id, order_id) => {
   ]);
 
   return otp;
+};
+
+export const handoverToVendorService = async (rider_id, order_id, vendor_id) => {
+
+  const { rows } = await sql.query(
+    `SELECT id, status, assigned_rider_id, vendor_id 
+     FROM orders 
+     WHERE id = $1`,
+    [order_id]
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Order not found" };
+  }
+
+  const order = rows[0];
+
+  // ✅ Rider validation
+  if (order.assigned_rider_id !== rider_id) {
+    throw { status: 403, message: "You are not assigned to this order" };
+  }
+
+  // ✅ Vendor validation
+  if (order.vendor_id !== vendor_id) {
+    throw { status: 400, message: "Invalid vendor for this order" };
+  }
+
+  // ✅ Status validation
+  if (order.status !== "picked_up") {
+    throw { status: 400, message: "Order must be in picked_up state" };
+  }
+
+  // ✅ Update
+  await sql.query(
+    `UPDATE orders 
+     SET status = 'in_process' 
+     WHERE id = $1`,
+    [order_id]
+  );
 };
 
 export const fetchOrderHistory = async (rider_id, query) => {

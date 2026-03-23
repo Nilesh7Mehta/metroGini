@@ -5,6 +5,7 @@ import {
   verifyOtp,
   resendOtp,
   fetchOrderHistory,
+  handoverToVendorService,
 } from "../../services/rider/riderOrder.service.js";
 
 export const getTodayOrderList = async (req, res, next) => {
@@ -74,6 +75,30 @@ export const resendDeliveryOtp = async (req, res, next) => {
         .status(err.status)
         .json({ success: false, message: err.message });
     next(err);
+  }
+};
+
+export const handoverToVendor = async (req, res , next) => {
+  try {
+    const rider_id = req.user.rider_id; // ✅ from token
+    const { order_id, vendor_id } = req.body;
+
+    if (!order_id || !vendor_id) {
+      return res.status(400).json({
+        success: false,
+        message: "order_id and vendor_id are required"
+      });
+    }
+
+    const data = handoverToVendorService(rider_id, order_id, vendor_id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Order successfully handed over to vendor"
+    });
+
+  } catch (error) {
+    next(error);
   }
 };
 

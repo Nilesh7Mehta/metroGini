@@ -10,6 +10,7 @@ router.get('/getDashboardCount' , authenticate , riderOrderController.getDashboa
 router.post('/:id/startOrderDelivery' , authenticate , riderOrderController.startOrderDelivery);
 router.post('/verifyDeliveryOtp', authenticate, verifyOtpLimiter , riderOrderController.verifyDeliveryOtp);
 router.post('/resendDeliveryOtp', authenticate, sendOtpLimiter, riderOrderController.resendDeliveryOtp);
+router.post('/handOverOrder', authenticate, riderOrderController.handoverToVendor);
 
 //getOrderHistory
 router.get('/getOrderHistory' , authenticate , riderOrderController.getOrderHistory);
