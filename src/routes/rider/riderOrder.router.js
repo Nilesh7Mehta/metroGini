@@ -7,10 +7,13 @@ router.get('/getTodayOrder' , authenticate , riderOrderController.getTodayOrderL
 router.get('/getDashboardCount' , authenticate , riderOrderController.getDashboardCount);
 
 //start delivery
-router.post('/:id/startOrderDelivery' , authenticate , riderOrderController.startOrderDelivery);
-router.post('/verifyDeliveryOtp', authenticate, verifyOtpLimiter , riderOrderController.verifyDeliveryOtp);
-router.post('/resendDeliveryOtp', authenticate, sendOtpLimiter, riderOrderController.resendDeliveryOtp);
+router.post('/:id/startOrderDelivery', authenticate, riderOrderController.startOrderDelivery);
+router.post('/verifyPickupOtp', authenticate, verifyOtpLimiter, riderOrderController.verifyPickupOtp);
+router.post('/resendPickupOtp', authenticate, sendOtpLimiter, riderOrderController.resendPickupOtp);
 router.post('/handOverOrder', authenticate, riderOrderController.handoverToVendor);
+router.post('/collectPayment', authenticate, riderOrderController.collectPayment);
+router.post('/pickupFromVendor', authenticate, riderOrderController.pickupFromVendor);
+router.post('/completeDelivery', authenticate, verifyOtpLimiter, riderOrderController.completeDelivery);
 
 //getOrderHistory
 router.get('/getOrderHistory' , authenticate , riderOrderController.getOrderHistory);

@@ -6,8 +6,10 @@ import {
   resendOtp,
   fetchOrderHistory,
   handoverToVendorService,
+  collectPaymentService,
+  pickupFromVendorService,
+  verifyDeliveryOtpService,
 } from "../../services/rider/riderOrder.service.js";
-
 export const getTodayOrderList = async (req, res, next) => {
   try {
     const data = await fetchTodayOrders(req.user.rider_id);
@@ -48,7 +50,7 @@ export const startOrderDelivery = async (req, res, next) => {
   }
 };
 
-export const verifyDeliveryOtp = async (req, res, next) => {
+export const verifyPickupOtp = async (req, res, next) => {
   try {
     await verifyOtp(req.user.rider_id, req.body.order_id, req.body.otp);
     return res
@@ -63,7 +65,7 @@ export const verifyDeliveryOtp = async (req, res, next) => {
   }
 };
 
-export const resendDeliveryOtp = async (req, res, next) => {
+export const resendPickupOtp = async (req, res, next) => {
   try {
     const otp = await resendOtp(req.user.rider_id, req.body.order_id);
     return res
@@ -119,5 +121,56 @@ export const getOrderHistory = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+export const collectPayment = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const { order_id } = req.body;
+
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: 'order_id is required' });
+    }
+
+    const data = await collectPaymentService(rider_id, order_id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+export const pickupFromVendor = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const { order_id } = req.body;
+
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: 'order_id is required' });
+    }
+
+    await pickupFromVendorService(rider_id, order_id);
+    return res.status(200).json({ success: true, message: 'Order picked up from vendor, out for delivery' });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+export const completeDelivery = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const { order_id, otp } = req.body;
+
+    if (!order_id || !otp) {
+      return res.status(400).json({ success: false, message: 'order_id and otp are required' });
+    }
+
+    await verifyDeliveryOtpService(rider_id, order_id, otp);
+    return res.status(200).json({ success: true, message: 'Delivery completed successfully' });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    next(error);
   }
 };

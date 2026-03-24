@@ -1,5 +1,6 @@
 import sql from '../../config/db.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
+import { generateOTP } from '../../utils/otp.js';
 
 // Returns { start, end } date strings for the given filter
 const formatDate = (date) =>
@@ -447,5 +448,48 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     order_id: parseInt(order_id),
     status: 'order_finalized',
     final_total: parseFloat(order.final_total),
+  };
+};
+
+export const markReadyForDeliveryService = async (vendor_id, order_id) => {
+  const { rows } = await sql.query(
+    `SELECT o.id, o.status, o.user_id FROM orders o
+     WHERE o.id = $1 AND o.vendor_id = $2`,
+    [order_id, vendor_id]
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: 'Order not found or does not belong to this vendor' };
+  }
+
+  const order = rows[0];
+
+  if (order.status !== 'order_finalized') {
+    throw { status: 400, message: 'Order can only be marked ready when status is order_finalized' };
+  }
+
+  // Generate delivery OTP
+  const delivery_otp = generateOTP();
+
+  await sql.query(
+    `UPDATE orders
+     SET status = 'ready_for_delivery', delivery_otp = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [delivery_otp, order_id]
+  );
+
+  // Send delivery OTP to user
+  await createNotificationsBatch([{
+    user_id: order.user_id,
+    title: 'Your laundry is ready',
+    message: `Your order is packed and ready for delivery. Your delivery OTP is ${delivery_otp}. Please share it with the rider upon delivery.`,
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
+
+  return {
+    order_id: parseInt(order_id),
+    status: 'ready_for_delivery',
+    delivery_otp //remove in Production
   };
 };

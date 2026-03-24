@@ -226,3 +226,129 @@ export const fetchOrderHistory = async (rider_id, query) => {
 
   return { total, page: parseInt(page), limit: parseInt(limit), data: rows };
 };
+
+export const collectPaymentService = async (rider_id, order_id) => {
+  const { rows } = await sql.query(
+    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
+            o.final_total, o.payment_status
+     FROM orders o
+     WHERE o.id = $1`,
+    [order_id]
+  );
+
+  if (rows.length === 0) throw { status: 404, message: 'Order not found' };
+
+  const order = rows[0];
+
+  if (order.assigned_rider_id !== rider_id) {
+    throw { status: 403, message: 'You are not assigned to this order' };
+  }
+
+  if (order.status !== 'out_for_delivery') {
+    throw { status: 400, message: 'Payment can only be collected when order is out_for_delivery' };
+  }
+
+  if (order.payment_status === 'paid') {
+    throw { status: 400, message: 'Payment has already been completed for this order' };
+  }
+
+  const final_total = parseFloat(order.final_total);
+
+  // If partially_paid, advance of ₹500 already collected — only collect the remaining
+  const amount_to_collect = order.payment_status === 'partially_paid'
+    ? parseFloat((final_total - 500).toFixed(2))
+    : final_total;
+
+  if (amount_to_collect <= 0) {
+    throw { status: 400, message: 'No remaining amount to collect' };
+  }
+
+  await sql.query(
+    `INSERT INTO payments (order_id, payment_type, payment_method, amount, status , paid_at)
+     VALUES ($1, 'remaining', 'cash', $2, 'success' , NOW())`,
+    [order_id, amount_to_collect]
+  );
+
+  await sql.query(
+    `UPDATE orders SET payment_status = 'paid',  updated_at = NOW() WHERE id = $1`,
+    [order_id]
+  );
+
+  await createNotificationsBatch([{
+    user_id: order.user_id,
+    title: 'Payment Received',
+    message: `Cash payment of ₹${amount_to_collect} collected by rider.`,
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
+
+  return {
+    order_id: parseInt(order_id),
+    payment_method: 'cash',
+    amount_collected: amount_to_collect,
+    payment_status: 'paid',
+  };
+};
+
+export const pickupFromVendorService = async (rider_id, order_id) => {
+  const { rows } = await sql.query(
+    `SELECT id, status, assigned_rider_id FROM orders WHERE id = $1`,
+    [order_id]
+  );
+
+  if (rows.length === 0) throw { status: 404, message: 'Order not found' };
+
+  const order = rows[0];
+
+  if (order.assigned_rider_id !== rider_id) {
+    throw { status: 403, message: 'You are not assigned to this order' };
+  }
+
+  if (order.status !== 'ready_for_delivery') {
+    throw { status: 400, message: 'Order must be ready_for_delivery before pickup' };
+  }
+
+  await sql.query(
+    `UPDATE orders SET status = 'out_for_delivery', updated_at = NOW() WHERE id = $1`,
+    [order_id]
+  );
+};
+
+export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
+  const { rows } = await sql.query(
+    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
+            o.delivery_otp, o.payment_status, o.final_total
+     FROM orders o WHERE o.id = $1`,
+    [order_id]
+  );
+
+  if (rows.length === 0) throw { status: 404, message: 'Order not found' };
+
+  const order = rows[0];
+
+  if (order.assigned_rider_id !== rider_id) {
+    throw { status: 403, message: 'You are not assigned to this order' };
+  }
+
+  if (order.status !== 'out_for_delivery') {
+    throw { status: 400, message: 'Order must be out_for_delivery to verify OTP' };
+  }
+
+  if (order.delivery_otp !== otp) {
+    throw { status: 400, message: 'Invalid delivery OTP' };
+  }
+
+  await sql.query(
+    `UPDATE orders SET status = 'delivered', updated_at = NOW() WHERE id = $1`,
+    [order_id]
+  );
+
+  // Notify user
+  await createNotificationsBatch([{
+    user_id: order.user_id,
+    title: 'Order Delivered',
+    message: 'Your laundry has been delivered successfully. Thank you for using our service.',
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
+};

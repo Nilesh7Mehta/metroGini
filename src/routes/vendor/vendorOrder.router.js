@@ -8,5 +8,6 @@ router.get('/:order_id', authenticate, vendorOrderController.getOrderDetails);
 router.post('/:order_id/confirm-clothes', authenticate, vendorOrderController.confirmClothes);
 router.post('/:order_id/confirm-weight', authenticate, vendorOrderController.confirmWeight);
 router.post('/:order_id/finalize', authenticate, vendorOrderController.finalizeOrder);
+router.post('/:order_id/mark-ready', authenticate, vendorOrderController.markReadyForDelivery);
 
 export default router;
