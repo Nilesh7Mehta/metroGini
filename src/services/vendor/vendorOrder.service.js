@@ -1,4 +1,5 @@
 import sql from '../../config/db.js';
+import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 
 // Returns { start, end } date strings for the given filter
 const formatDate = (date) =>
@@ -398,5 +399,53 @@ export const confirmWeightService = async (vendor_id, order_id, actual_weight) =
     estimated_range: { min: weight_min, max: weight_max },
     pricing_note,
     final_total:   parseFloat(final_total.toFixed(2)),
+  };
+};
+
+export const finalizeOrderService = async (vendor_id, order_id) => {
+  const orderCheck = await sql.query(
+    `SELECT o.id, o.status, o.user_id, o.final_total, o.actual_weight, o.actual_clothes_count
+     FROM orders o
+     WHERE o.id = $1 AND o.vendor_id = $2`,
+    [order_id, vendor_id]
+  );
+
+  if (orderCheck.rows.length === 0) {
+    throw { status: 404, message: 'Order not found or does not belong to this vendor' };
+  }
+
+  const order = orderCheck.rows[0];
+
+  if (order.status !== 'in_process') {
+    throw { status: 400, message: 'Order can only be finalized when status is in_process' };
+  }
+
+  if (!order.actual_weight) {
+    throw { status: 400, message: 'Please confirm the actual weight before finalizing' };
+  }
+
+  if (!order.actual_clothes_count) {
+    throw { status: 400, message: 'Please confirm the clothes count before finalizing' };
+  }
+
+  // Update status to order_finalized — locks weight/clothes from further edits
+  await sql.query(
+    `UPDATE orders SET status = 'order_finalized', updated_at = NOW() WHERE id = $1`,
+    [order_id]
+  );
+
+  // Notify user about final amount
+  await createNotificationsBatch([{
+    user_id: order.user_id,
+    title: 'Your laundry has been weighed',
+    message: 'The exact weight has been calculated. The final amount details are available in the app.',
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
+
+  return {
+    order_id: parseInt(order_id),
+    status: 'order_finalized',
+    final_total: parseFloat(order.final_total),
   };
 };

@@ -1,4 +1,4 @@
-import { orderDashboardService, getOrderDetailsService, confirmClothesService, confirmWeightService } from '../../services/vendor/vendorOrder.service.js';
+import { orderDashboardService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService } from '../../services/vendor/vendorOrder.service.js';
 
 const VALID_FILTERS = ['today', 'this_week', 'this_month'];
 
@@ -54,6 +54,18 @@ export const confirmWeight = async (req, res, next) => {
     }
 
     const data = await confirmWeightService(vendor_id, order_id, actual_weight);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const finalizeOrder = async (req, res, next) => {
+  try {
+    const vendor_id = req.user.vendor_id;
+    const { order_id } = req.params;
+
+    const data = await finalizeOrderService(vendor_id, order_id);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);

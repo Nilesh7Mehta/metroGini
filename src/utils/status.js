@@ -3,8 +3,9 @@
 // out_for_pickup → system scheduled pickup (cron)
 // pickup_in_progress → rider started going to customer
 // picked_up → rider collected order (OTP verified)
-// in_process → washing/cleaning in progress
-// ready_for_delivery → processed & packed
+// in_process → vendor weighing and counting clothes
+// order_finalized → weight confirmed, final amount locked, user notified to pay
+// ready_for_delivery → washing done, packed and ready for rider
 // out_for_delivery → rider delivering to customer
 // delivered → order handed to customer ✅ (final state)
 // cancelled → order cancelled
