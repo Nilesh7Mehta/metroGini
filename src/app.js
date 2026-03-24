@@ -9,6 +9,7 @@ import newUserPaymentRouter from './routes/users/userPayment.router.js'
 import newRiderRouter from './routes/rider/rider.router.js';
 import riderOrderRoute from './routes/rider/riderOrder.router.js';
 import newVendorRoute from './routes/vendor/vendor.router.js';
+import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 
@@ -29,6 +30,7 @@ app.use('/api/user/order/payment' , newUserPaymentRouter);
 app.use('/api/rider' , newRiderRouter);
 app.use('/api/rider/order' , riderOrderRoute);
 app.use('/api/vendor' , newVendorRoute);
+app.use('/api/vendor/order' , newVendorOrderRoute);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');

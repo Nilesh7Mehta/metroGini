@@ -368,7 +368,7 @@ export const acceptTermsService = async (vendor_id) => {
     [vendor_id],
   );
 
-  if (rows.length === 0) throw { status: 404, message: "Rider not found" };
+  if (rows.length === 0) throw { status: 404, message: "Vendor not found" };
 
   return rows[0].is_terms_and_condition_verified;
 };

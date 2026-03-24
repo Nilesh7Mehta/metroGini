@@ -139,6 +139,7 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   }
 
   // ✅ Vendor validation
+  console.log( order.vendor_id , vendor_id);
   if (order.vendor_id !== vendor_id) {
     throw { status: 400, message: "Invalid vendor for this order" };
   }
@@ -149,12 +150,13 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   }
 
   // ✅ Update
-  await sql.query(
-    `UPDATE orders 
-     SET status = 'in_process' 
-     WHERE id = $1`,
-    [order_id]
-  );
+ await sql.query(
+  `UPDATE orders 
+   SET status = 'in_process',
+       vendor_received_at = CURRENT_DATE
+   WHERE id = $1`,
+  [order_id]
+);
 };
 
 export const fetchOrderHistory = async (rider_id, query) => {

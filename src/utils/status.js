@@ -1,15 +1,13 @@
-export const ORDER_STATUS = {
-  DRAFT : "draft",  
-  CREATED: "created",
-  CONFIRMED: "confirmed",
-  PICKED_UP: "picked_up",
-  IN_PROCESS: "in_process",
-  OUT_FOR_DELIVERY: "out_for_delivery",
-  DELIVERED: "delivered",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-};
-
+// draft → order created, not paid
+// confirmed → payment done, order placed
+// out_for_pickup → system scheduled pickup (cron)
+// pickup_in_progress → rider started going to customer
+// picked_up → rider collected order (OTP verified)
+// in_process → washing/cleaning in progress
+// ready_for_delivery → processed & packed
+// out_for_delivery → rider delivering to customer
+// delivered → order handed to customer ✅ (final state)
+// cancelled → order cancelled
 export const PAYMENT_STATUS = {
   PENDING: "pending",
   PARTIALLY_PAID: "partially_paid",

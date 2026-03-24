@@ -81,6 +81,7 @@ export const resendDeliveryOtp = async (req, res, next) => {
 export const handoverToVendor = async (req, res , next) => {
   try {
     const rider_id = req.user.rider_id; // ✅ from token
+    console.log("Rider_id" , rider_id);
     const { order_id, vendor_id } = req.body;
 
     if (!order_id || !vendor_id) {
@@ -90,7 +91,7 @@ export const handoverToVendor = async (req, res , next) => {
       });
     }
 
-    const data = handoverToVendorService(rider_id, order_id, vendor_id);
+    const data = await  handoverToVendorService(rider_id, order_id, vendor_id);
 
     return res.status(200).json({
       success: true,
