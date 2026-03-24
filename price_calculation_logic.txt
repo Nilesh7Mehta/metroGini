@@ -1,0 +1,101 @@
+====================================================
+         PRICE CALCULATION LOGIC - LAUNDRY APP
+====================================================
+
+------------------------------------------------------
+1. AT ORDER BOOKING (finalizeOrderService)
+------------------------------------------------------
+
+User provides clothes_count.
+System estimates weight:
+  estimated_weight_min = clothes_count * 0.4  (rounded to nearest 0.5)
+  estimated_weight_max = clothes_count * 0.7  (rounded to nearest 0.5)
+
+avg_weight = (estimated_weight_min + estimated_weight_max) / 2
+
+estimated_total = (avg_weight * base_price_per_kg)
+                + (avg_weight * extra_price_per_kg)
+                + flat_fee
+                + peak_charge (if peak slot, else 0)
+
+This estimated_total is stored on the orders table.
+User pays advance of ₹500 at this stage.
+
+
+------------------------------------------------------
+2. COUPON (optional, applied before payment)
+------------------------------------------------------
+
+gross_total = estimated_total (as above)
+
+If coupon applied and gross_total >= minimum_amount_value:
+  - percentage coupon: discount = gross_total * (discount_value / 100)
+  - flat coupon:       discount = discount_value
+
+final_total = gross_total - discount
+
+Minimum payable is ₹500:
+  if final_total < 500 → final_total = 500
+
+
+------------------------------------------------------
+3. AT VENDOR - CONFIRM WEIGHT (confirmWeightService)
+------------------------------------------------------
+
+Vendor physically weighs the clothes and enters actual_weight.
+
+CASE A — actual_weight <= estimated_weight_max (within range):
+  → final_total = estimated_total (no change, user is not charged extra)
+  → pricing_note = "within_estimate"
+
+CASE B — actual_weight > estimated_weight_max (exceeds range):
+  → extra_kg   = actual_weight - estimated_weight_max
+  → rate_per_kg = base_price_per_kg + extra_price_per_kg
+  → extra_cost  = extra_kg * rate_per_kg
+  → final_total = estimated_total + extra_cost
+  → pricing_note = "exceeded_estimate"
+
+NOTE: flat_fee and peak_charge are NOT added again.
+They were already included in estimated_total.
+Only the genuinely extra kg is charged.
+
+orders table is updated with:
+  actual_weight, final_total, status = 'in_process'
+
+
+------------------------------------------------------
+4. REMAINING PAYMENT (at delivery)
+------------------------------------------------------
+
+remaining_payment = final_total - 500 (advance already paid)
+
+If final_total = 500 → remaining_payment = 0
+
+
+------------------------------------------------------
+EXAMPLE
+------------------------------------------------------
+
+clothes_count     = 20
+estimated_min     = 8 kg
+estimated_max     = 14 kg  (but let's say 8.5 for this example)
+avg_weight        = (5 + 8.5) / 2 = 6.75 kg
+base_price_per_kg = 80
+extra_price_per_kg= 20
+flat_fee          = 100
+peak_charge       = 0
+
+estimated_total = (6.75 * 80) + (6.75 * 20) + 100
+               = 540 + 135 + 100
+               = ₹775
+
+--- Vendor confirms actual_weight = 8 kg (within range) ---
+  final_total = ₹775 (no change)
+
+--- Vendor confirms actual_weight = 10 kg (exceeds 8.5 max) ---
+  extra_kg   = 10 - 8.5 = 1.5 kg
+  rate_per_kg= 80 + 20  = 100
+  extra_cost = 1.5 * 100 = ₹150
+  final_total= 775 + 150 = ₹925
+
+====================================================

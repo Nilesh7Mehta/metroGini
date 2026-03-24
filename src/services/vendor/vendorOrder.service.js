@@ -344,7 +344,7 @@ export const confirmClothesService = async (vendor_id, order_id, items) => {
 
 export const confirmWeightService = async (vendor_id, order_id, actual_weight) => {
   const orderCheck = await sql.query(
-    `SELECT o.id, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
+    `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
             o.peak_extra_charge, o.applied_coupon_id,
             o.estimated_weight_min, o.estimated_weight_max, o.estimated_total,
             c.discount_type, c.discount_value, c.minimum_amount_value
@@ -357,7 +357,11 @@ export const confirmWeightService = async (vendor_id, order_id, actual_weight) =
   if (orderCheck.rows.length === 0) {
     throw { status: 404, message: 'Order not found or does not belong to this vendor' };
   }
-    
+
+  if (orderCheck.rows[0].status !== 'in_process') {
+    throw { status: 400, message: 'Weight can only be confirmed when order status is in_process' };
+  }
+
   const order = orderCheck.rows[0];
   const weight_min = Number(order.estimated_weight_min);
   const weight_max = Number(order.estimated_weight_max);
