@@ -437,7 +437,8 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
 
   // Notify user about final amount
   await createNotificationsBatch([{
-    user_id: order.user_id,
+    identity_id: order.user_id,
+    role: 'user',
     title: 'Your laundry has been weighed',
     message: 'The exact weight has been calculated. The final amount details are available in the app.',
     reference_type: 'order',
@@ -480,7 +481,8 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
 
   // Send delivery OTP to user
   await createNotificationsBatch([{
-    user_id: order.user_id,
+    identity_id: order.user_id,
+    role: 'user',
     title: 'Your laundry is ready',
     message: `Your order is packed and ready for delivery. Your delivery OTP is ${delivery_otp}. Please share it with the rider upon delivery.`,
     reference_type: 'order',

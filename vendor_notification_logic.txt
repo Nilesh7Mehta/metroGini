@@ -1,0 +1,79 @@
+NOTIFICATION USAGE MAP
+======================
+
+Schema: notifications(identity_id, role, title, message, reference_type, reference_id, is_read, created_at)
+role values: 'user' | 'vendor' | 'rider'
+
+
+─────────────────────────────────────────────────────────────
+FILE: src/controller/users/paymentGateway/userPayment.controller.js
+FUNCTION: dummyPay
+─────────────────────────────────────────────────────────────
+1. identity_id = user_id      | role = user
+   title   : Order Confirmed
+   message : Order confirmed, advance ₹500 received
+   trigger : User completes advance payment → order status
+   Trigger: verifyDeliveryOtpService()
+   When   : Rider verifies delivery OTP and order is marked delivered
+   Title  : "Delivery Completed"
+   ref_type: rider
+
+c) Delivery Deadline Approaching (cron)
+   File   : src/cron/vendorDeadlineCron.js
+   Trigger: Runs every hour (cron: "0 * * * *")
+   When   : Order is still in_process / order_finalized / ready_for_delivery
+            AND delivery_date is TODAY
+            AND delivery slot starts within the next 3 hours
+   Title  : "Delivery Deadline Approaching"
+   ref_type: order
+   Dedup  : Will NOT insert if a notification with the same title already
+            exists for that order (prevents duplicate reminders)
+
+
+2. HOW NOTIFICATIONS ARE FETCHED (Vendor API)
+----------------------------------------------
+
+Route  : GET /api/vendor/notifications
+Auth   : Bearer token (vendor)
+Scoped : Only notifications belonging to the vendor's own user_id
+
+Query params:
+  category = all | orders | rider   (maps to reference_type filter)
+  page     = 1, 2, 3...
+  limit    = max 50, default 20
+
+category mapping:
+  all    → no filter (returns everything)
+  orders → reference_type = 'order'  (order received + deadline reminders)
+  rider  → reference_type = 'rider'  (delivery completed by rider)
+
+
+3. OTHER ENDPOINTS
+-------------------
+
+GET  /api/vendor/notifications/unread-count   → returns { unread_count: N }
+PATCH /api/vendor/notifications/read-all      → marks all as read
+PATCH /api/vendor/notifications/:id/read      → marks one notification as read
+
+
+4. NOTIFICATION TABLE COLUMNS USED
+------------------------------------
+
+  user_id        → vendor's user_id (from vendors table)
+  title          → notification heading
+  message        → detail text
+  reference_type → 'order' or 'rider'
+  reference_id   → order id
+  is_read        → false by default, updated via PATCH endpoints
+  created_at     → timestamp
+
+
+5. FILES CHANGED / CREATED
+----------------------------
+
+  CREATED  src/services/vendor/vendorNotification.service.js
+  CREATED  src/controller/vendor/vendorNotification.controller.js
+  CREATED  src/routes/vendor/vendorNotification.router.js
+  CREATED  src/cron/vendorDeadlineCron.js
+  MODIFIED src/services/rider/riderOrder.service.js  (added 2 notify calls)
+  MODIFIED src/app.js  (registered route + cron)

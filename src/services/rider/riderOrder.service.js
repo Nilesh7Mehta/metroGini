@@ -67,6 +67,21 @@ export const startDelivery = async (rider_id, order_id) => {
   await sql.query(`UPDATE orders SET status = 'pickup_in_progress' WHERE id = $1`, [
     order_id,
   ]);
+
+  // Notify user rider is on the way
+  const { rows: orderRows } = await sql.query(
+    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+  );
+  if (orderRows.length > 0) {
+    await createNotificationsBatch([{
+      identity_id: orderRows[0].user_id,
+      role: 'user',
+      title: 'Rider On The Way',
+      message: `Your rider is on the way to pick up order #${order_id}. Please keep your clothes ready.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
+  }
 };
 
 export const verifyOtp = async (rider_id, order_id, otp) => {
@@ -87,6 +102,21 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
     `UPDATE orders SET status = 'picked_up', otp_verified = 'true' WHERE id = $1`,
     [order_id],
   );
+
+  // Notify user clothes have been picked up
+  const { rows: pickedRows } = await sql.query(
+    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+  );
+  if (pickedRows.length > 0) {
+    await createNotificationsBatch([{
+      identity_id: pickedRows[0].user_id,
+      role: 'user',
+      title: 'Clothes Picked Up',
+      message: `Your clothes for order #${order_id} have been picked up and are on the way to the laundry.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
+  }
 };
 
 export const resendOtp = async (rider_id, order_id) => {
@@ -107,7 +137,8 @@ export const resendOtp = async (rider_id, order_id) => {
 
   await createNotificationsBatch([
     {
-      user_id: rows[0].user_id,
+      identity_id: rows[0].user_id,
+      role: 'user',
       title: "Delivery OTP Resent",
       message: `Your delivery OTP is ${otp}`,
       reference_type: "order",
@@ -157,6 +188,16 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
    WHERE id = $1`,
   [order_id]
 );
+
+  // Notify vendor that order has been received
+  await createNotificationsBatch([{
+    identity_id: order.vendor_id,
+    role: 'vendor',
+    title: 'New Order Received',
+    message: `Order #${order_id} has been handed over by the rider and is now in your queue for processing.`,
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
 };
 
 export const fetchOrderHistory = async (rider_id, query) => {
@@ -275,7 +316,8 @@ export const collectPaymentService = async (rider_id, order_id) => {
   );
 
   await createNotificationsBatch([{
-    user_id: order.user_id,
+    identity_id: order.user_id,
+    role: 'user',
     title: 'Payment Received',
     message: `Cash payment of ₹${amount_to_collect} collected by rider.`,
     reference_type: 'order',
@@ -312,6 +354,21 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
     `UPDATE orders SET status = 'out_for_delivery', updated_at = NOW() WHERE id = $1`,
     [order_id]
   );
+
+  // Notify user their laundry is out for delivery
+  const { rows: deliveryRows } = await sql.query(
+    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+  );
+  if (deliveryRows.length > 0) {
+    await createNotificationsBatch([{
+      identity_id: deliveryRows[0].user_id,
+      role: 'user',
+      title: 'Out For Delivery',
+      message: `Your laundry for order #${order_id} is on its way. The rider will arrive at your delivery slot.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
+  }
 };
 
 export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
@@ -345,10 +402,27 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
 
   // Notify user
   await createNotificationsBatch([{
-    user_id: order.user_id,
+    identity_id: order.user_id,
+    role: 'user',
     title: 'Order Delivered',
     message: 'Your laundry has been delivered successfully. Thank you for using our service.',
     reference_type: 'order',
     reference_id: order_id,
   }]);
+
+  // Notify vendor that rider completed the delivery
+  const vendorRow = await sql.query(
+    `SELECT vendor_id FROM orders WHERE id = $1`,
+    [order_id]
+  );
+  if (vendorRow.rows.length > 0) {
+    await createNotificationsBatch([{
+      identity_id: vendorRow.rows[0].vendor_id,
+      role: 'vendor',
+      title: 'Delivery Completed',
+      message: `Order #${order_id} has been successfully delivered to the customer by the rider.`,
+      reference_type: 'rider',
+      reference_id: order_id,
+    }]);
+  }
 };

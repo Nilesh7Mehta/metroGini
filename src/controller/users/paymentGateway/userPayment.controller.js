@@ -104,6 +104,26 @@ export const dummyPay = async (req, res, next) => {
     // 8️⃣ Commit
     await client.query("COMMIT");
 
+    // Notify user — order confirmed
+    await createNotificationsBatch([{
+      identity_id: user_id,
+      role: 'user',
+      title: 'Order Confirmed',
+      message: `Your order #${order_id} has been confirmed and advance payment of ₹${advanceAmount} received. We will assign a rider for pickup.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
+
+    // Notify vendor — new order assigned
+    await createNotificationsBatch([{
+      identity_id: vendor_id,
+      role: 'vendor',
+      title: 'New Order Assigned',
+      message: `Order #${order_id} has been assigned to your laundry. A rider will deliver it to you on the pickup date.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
+
     return res.status(200).json({
       message: "Payment successful. Order booked.",
       order_id,

@@ -1,0 +1,89 @@
+NOTIFICATIONS MAP
+=================
+Schema: identity_id + role ('user' | 'vendor' | 'rider')
+
+---------------------------------------------------------------
+1. ORDER BOOKED + ADVANCE PAID
+   File   : src/controller/users/paymentGateway/userPayment.controller.js
+   Func   : dummyPay()
+   Notify : user  → "Order Confirmed"
+   Notify : vendor → "New Order Assigned"
+---------------------------------------------------------------
+2. PICKUP SCHEDULED TODAY (cron)
+   File   : src/cron/pickupCron.js
+   Func   : startPickupCron()  [runs every 2 min]
+   Notify : user → "Pickup Scheduled Today"
+---------------------------------------------------------------
+3. RIDER ON THE WAY
+   File   : src/services/rider/riderOrder.service.js
+   Func   : startDelivery()   [status → pickup_in_progress]
+   Notify : user → "Rider On The Way"
+---------------------------------------------------------------
+4. CLOTHES PICKED UP
+   File   : src/services/rider/riderOrder.service.js
+   Func   : verifyOtp()   [status → picked_up]
+   Notify : user → "Clothes Picked Up"
+---------------------------------------------------------------
+5. OTP RESENT
+   File   : src/services/rider/riderOrder.service.js
+   Func   : resendOtp()
+   Notify : user → "Delivery OTP Resent"
+---------------------------------------------------------------
+6. ORDER HANDED TO VENDOR
+   File   : src/services/rider/riderOrder.service.js
+   Func   : handoverToVendorService()   [status → in_process]
+   Notify : vendor → "New Order Received"
+---------------------------------------------------------------
+7. LAUNDRY WEIGHED
+   File   : src/services/vendor/vendorOrder.service.js
+   Func   : finalizeOrderService()   [status → order_finalized]
+   Notify : user → "Your laundry has been weighed"
+---------------------------------------------------------------
+8. ORDER READY FOR DELIVERY
+   File   : src/services/vendor/vendorOrder.service.js
+   Func   : markReadyForDeliveryService()   [status → ready_for_delivery]
+   Notify : user → "Your laundry is ready"  (includes delivery OTP)
+---------------------------------------------------------------
+9. OUT FOR DELIVERY
+   File   : src/services/rider/riderOrder.service.js
+   Func   : pickupFromVendorService()   [status → out_for_delivery]
+   Notify : user → "Out For Delivery"
+---------------------------------------------------------------
+10. PAYMENT COLLECTED BY RIDER
+    File   : src/services/rider/riderOrder.service.js
+    Func   : collectPaymentService()
+    Notify : user → "Payment Received"
+---------------------------------------------------------------
+11. ORDER DELIVERED
+    File   : src/services/rider/riderOrder.service.js
+    Func   : verifyDeliveryOtpService()   [status → delivered]
+    Notify : user   → "Order Delivered"
+    Notify : vendor → "Delivery Completed"
+---------------------------------------------------------------
+12. PICKUP RESCHEDULED
+    File   : src/services/users/userOrder.service.js
+    Func   : reschedulePickupService()
+    Notify : user → "Pickup Rescheduled"
+---------------------------------------------------------------
+13. DELIVERY RESCHEDULED
+    File   : src/services/users/userOrder.service.js
+    Func   : rescheduleDeliveryService()
+    Notify : user → "Delivery Rescheduled"
+---------------------------------------------------------------
+14. ORDER CANCELLED
+    File   : src/services/users/userOrder.service.js
+    Func   : cancelServiceService()   [status → cancelled]
+    Notify : user → "Order Cancelled"
+---------------------------------------------------------------
+15. DELIVERY DEADLINE APPROACHING (cron)
+    File   : src/cron/vendorDeadlineCron.js
+    Func   : sendDeliveryDeadlineReminders()  [runs every hour]
+    When   : delivery_date = TODAY and slot starts within 3 hours
+             and order still in_process / order_finalized / ready_for_delivery
+    Notify : vendor → "Delivery Deadline Approaching"
+    Dedup  : skips if same notification already exists for that order
+---------------------------------------------------------------
+
+TOTAL: 15 notification triggers
+  → user   receives: 1,2,3,4,5,7,8,9,10,11,12,13,14  (13 triggers)
+  → vendor receives: 1,6,11,15                         (4 triggers)

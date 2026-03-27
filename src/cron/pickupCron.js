@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import sql from "../config/db.js";
 import { generateOTP } from "../utils/otp.js";
+import { createNotificationsBatch } from "../utils/notificationHelper.js";
 
 
 export const startPickupCron = () => {
@@ -31,6 +32,16 @@ export const startPickupCron = () => {
            WHERE id = $2`,
           [otp, order.id]
         );
+
+        // Notify user their pickup is scheduled for today
+        await createNotificationsBatch([{
+          identity_id: order.user_id,
+          role: 'user',
+          title: 'Pickup Scheduled Today',
+          message: `Your laundry pickup for order #${order.id} is scheduled for today. Our rider will arrive at your selected time slot.`,
+          reference_type: 'order',
+          reference_id: order.id,
+        }]);
 
         console.log(`Order ${order.id} moved to out_for_pickup`);
       }

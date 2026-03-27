@@ -1,5 +1,6 @@
 import sql from "../../config/db.js";
 import { calculateOrderPricing } from "../../utils/price.util.js";
+import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -503,6 +504,15 @@ export const reschedulePickupService = async ({
     );
 
     await client.query("COMMIT");
+
+    await createNotificationsBatch([{
+      identity_id: user_id,
+      role: 'user',
+      title: 'Pickup Rescheduled',
+      message: `Your pickup for order #${order_id} has been rescheduled to ${pickup_date}. We will send a rider at your selected slot.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -604,6 +614,15 @@ export const rescheduleDeliveryService = async ({
     );
 
     await client.query("COMMIT");
+
+    await createNotificationsBatch([{
+      identity_id: user_id,
+      role: 'user',
+      title: 'Delivery Rescheduled',
+      message: `Your delivery for order #${order_id} has been rescheduled to ${delivery_date}.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -679,6 +698,15 @@ export const cancelServiceService = async ({
     }
 
     await client.query("COMMIT");
+
+    await createNotificationsBatch([{
+      identity_id: user_id,
+      role: 'user',
+      title: 'Order Cancelled',
+      message: `Your order #${order_id} has been cancelled. A ₹500 coupon has been added to your account.`,
+      reference_type: 'order',
+      reference_id: order_id,
+    }]);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
