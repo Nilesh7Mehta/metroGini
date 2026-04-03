@@ -1,0 +1,3140 @@
+{
+  "info": {
+    "_postman_id": "ae977ca6-b5b4-4e26-8008-a660e2dc9e2d",
+    "name": "MetroGini",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "40816542"
+  },
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Address",
+          "item": [
+            {
+              "name": "Add Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"address_type\": \"work\",\r\n    \"complete_address\": \"2108/B , Padmavati Nagar\",\r\n    \"floor\":\"2108\",\r\n    \"landmark\":\"Dadar\",\r\n    \"receiver_name\": \"Dablu\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get User Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Addres",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"address_type\": \"home\",\r\n    \"complete_address\": \"2108/B , Mahavir Nagar\",\r\n    \"floor\":\"208\",\r\n    \"landmark\":\"Mumbai\",\r\n    \"receiver_name\": \"Babli\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/3",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "3"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/2",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "2"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Set Default Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/default/3",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "default",
+                    "3"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Order",
+          "item": [
+            {
+              "name": "Create Order",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"service_id\": 1,\r\n    \"clothes_count\":1\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Service in Order table",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"service_type_id\": 1\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/2/service-type",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "2",
+                    "service-type"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Pick Up in Order table",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"pickup_date\": \"2026-03-19\",\r\n  \"pickup_slot_id\": 2\r\n}\r\n\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/pickup",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "pickup"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update DeliveryDate in Order table Copy",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"delivery_date\": \"2026-03-22\",\r\n  \"delivery_slot_id\": 2\r\n}\r\n\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/delivery",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "delivery"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Finalize",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/finalize",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "finalize"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Review",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/review",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "review"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Apply Coupon",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "applyCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Remove Coupon Code",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/2/removeCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "2",
+                    "removeCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get User Order",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/getUserOrder",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "getUserOrder"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "all",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "booked",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "picked_up",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "in_process",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "delivered",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "cancelled",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "time",
+                      "value": "anytime",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "time",
+                      "value": "last_7_days",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "time",
+                      "value": "last_30_days",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "time",
+                      "value": "last_6_months",
+                      "type": "text",
+                      "disabled": true
+                    },
+                    {
+                      "key": "time",
+                      "value": "last_year",
+                      "type": "text",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Reschedule PickupOrder",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"pickup_date\": \"2026-03-20\",\r\n  \"pickup_slot_id\": 1\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/rescheduleOrderPickup",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "rescheduleOrderPickup"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Reschedule DeliveryOrder Copy",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"delivery_date\": \"2026-03-03\",\r\n  \"delivery_slot_id\": 2\r\n}\r\n\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/4/rescheduleOrderDelivery",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "4",
+                    "rescheduleOrderDelivery"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel Service",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"reason_type\": \"changed_mind\",\r\n  \"reason_description\": null\r\n}\r\n\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/4/cancelService",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "4",
+                    "cancelService"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Report Order",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"order_id\": 5,\r\n  \"issue_type\": \"rider_issue\",\r\n  \"issue_reason\": \"Could not reach rider\",\r\n  \"description\": \"Rider was not responding to calls\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/report-order",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "report-order"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Payment Gateway",
+          "item": [
+            {
+              "name": "Dummy",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/payment/1/pay",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "payment",
+                    "1",
+                    "pay"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Login Or Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"9004186460\"\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/login-or-register",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "login-or-register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"9004186460\",\r\n    \"otp\":\"1234\"\r\n\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/verify-otp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "verify-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "full_name",
+                  "value": "Nileshkumar Prakash Mehta",
+                  "type": "text",
+                  "uuid": "bea61557-4ed7-44ec-ba73-8e805c34e0b7"
+                },
+                {
+                  "key": "email",
+                  "value": "mehtanilesh811@gmail.com",
+                  "type": "text",
+                  "uuid": "6bcc094b-ed36-4aed-a841-aa7bb8cd4219"
+                },
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "type": "text",
+                  "uuid": "2ee4aa48-ea2a-48a4-a5a0-ec46b2965883"
+                },
+                {
+                  "key": "alternate_phone",
+                  "value": "8876567890",
+                  "type": "text",
+                  "uuid": "fb3a73ed-84f2-41cb-9025-ffb3cbd5b845"
+                },
+                {
+                  "key": "profile_image",
+                  "type": "file",
+                  "uuid": "5d11aaf8-008e-4cbf-ac03-ed728eb46a84",
+                  "src": "/C:/Users/DELL/Downloads/avatar.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Terms and Conditions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/terms-and-conditions",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "terms-and-conditions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Need HElp",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"message\": \"I was facing issue in PAYMEnt\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "refresh token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n     \"refresh_token\": \"a80c631d8bdae5c8712c1c88da612d2ec6685e57373861406654cdc929bdf9c8756e556bc61ffbda\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/refresh-token",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "refresh-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n     \"refresh_token\": \"a80c631d8bdae5c8712c1c88da612d2ec6685e57373861406654cdc929bdf9c8756e556bc61ffbda\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/logout",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Allow Notificattion",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"is_notification_allowed\" : true\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/allowNotification",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "allowNotification"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Coupons",
+          "item": [
+            {
+              "name": "Add Coupon",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 10,\r\n  \"usage_limit\": null\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/createCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "createCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Coupon",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 5,\r\n  \"usage_limit\": null\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateCoupon/4",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateCoupon",
+                    "4"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Coupon",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/getCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "getCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Coupon by Id",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"SAVE20\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 30,\r\n  \"minimum_amount_value\": 1000,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-01T23:59:59Z\",\r\n  \"is_active\": true\r\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/getCoupon/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "getCoupon",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Banners",
+          "item": [
+            {
+              "name": "Add Banner",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "/C:/Users/DELL/Downloads/banner1.jpg"
+                    },
+                    {
+                      "key": "heading",
+                      "value": " Festival Offer",
+                      "type": "text"
+                    },
+                    {
+                      "key": "subheading",
+                      "value": " Earn more today",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": " Get bonus for deliveries",
+                      "type": "text"
+                    },
+                    {
+                      "key": "status",
+                      "value": " true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addBanner",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addBanner"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Banner",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "/C:/Users/DELL/Downloads/banner1.jpg"
+                    },
+                    {
+                      "key": "heading",
+                      "value": " Festival Offer 1st",
+                      "type": "text"
+                    },
+                    {
+                      "key": "subheading",
+                      "value": " Earn more today",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": " Get bonus for deliveries",
+                      "type": "text"
+                    },
+                    {
+                      "key": "status",
+                      "value": " true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateBanner/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateBanner",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Active Banners",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "/C:/Users/DELL/Downloads/banner1.jpg"
+                    },
+                    {
+                      "key": "heading",
+                      "value": " Festival Offer 1st",
+                      "type": "text"
+                    },
+                    {
+                      "key": "subheading",
+                      "value": " Earn more today",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": " Get bonus for deliveries",
+                      "type": "text"
+                    },
+                    {
+                      "key": "status",
+                      "value": " true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/common/banners",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "banners"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Vendor",
+          "item": [
+            {
+              "name": "Add Vendor",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admintoken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "owner_contact_name",
+                      "value": "John Doe",
+                      "type": "text"
+                    },
+                    {
+                      "key": "mobile_number",
+                      "value": "9876543210",
+                      "type": "text"
+                    },
+                    {
+                      "key": "email",
+                      "value": "john@gmail.com",
+                      "type": "text"
+                    },
+                    {
+                      "key": "aadhar_number",
+                      "value": "123412341234",
+                      "type": "text"
+                    },
+                    {
+                      "key": "pan_card_number",
+                      "value": "ABCDE1234F",
+                      "type": "text"
+                    },
+                    {
+                      "key": "laundry_shop_name",
+                      "value": "Quick Wash Laundry",
+                      "type": "text"
+                    },
+                    {
+                      "key": "shop_address",
+                      "value": "23 Main Street, City",
+                      "type": "text"
+                    },
+                    {
+                      "key": "gst_number",
+                      "value": "22ABCDE1234F1Z5",
+                      "type": "text"
+                    },
+                    {
+                      "key": "account_holder_name",
+                      "value": "John Doe",
+                      "type": "text"
+                    },
+                    {
+                      "key": "bank_name",
+                      "value": "HDFC Bank",
+                      "type": "text"
+                    },
+                    {
+                      "key": "account_number",
+                      "value": "123456789012",
+                      "type": "text"
+                    },
+                    {
+                      "key": "ifsc_code",
+                      "value": "HDFC0001234",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "/C:/Users/DELL/Downloads/avatar.png"
+                    },
+                    {
+                      "key": "pincode",
+                      "value": "400602",
+                      "type": "text",
+                      "uuid": "b22f15ff-57cb-4f0e-86b5-3f5a6745c177"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addVendor",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addVendor"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Vendor",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "owner_contact_name",
+                      "value": "Vendor One",
+                      "type": "text"
+                    },
+                    {
+                      "key": "mobile_number",
+                      "value": "9876543210",
+                      "type": "text"
+                    },
+                    {
+                      "key": "email",
+                      "value": "v1@gmail.com",
+                      "type": "text"
+                    },
+                    {
+                      "key": "aadhar_number",
+                      "value": "123412341234",
+                      "type": "text"
+                    },
+                    {
+                      "key": "pan_card_number",
+                      "value": "ABCDE1234F",
+                      "type": "text"
+                    },
+                    {
+                      "key": "laundry_shop_name",
+                      "value": "Quick Wash Laundry",
+                      "type": "text"
+                    },
+                    {
+                      "key": "shop_address",
+                      "value": "23 Main Street, City",
+                      "type": "text"
+                    },
+                    {
+                      "key": "gst_number",
+                      "value": "22ABCDE1234F1Z5",
+                      "type": "text"
+                    },
+                    {
+                      "key": "account_holder_name",
+                      "value": "John Doe",
+                      "type": "text"
+                    },
+                    {
+                      "key": "bank_name",
+                      "value": "HDFC Bank",
+                      "type": "text"
+                    },
+                    {
+                      "key": "account_number",
+                      "value": "123456789012",
+                      "type": "text"
+                    },
+                    {
+                      "key": "ifsc_code",
+                      "value": "HDFC0001234",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "/C:/Users/DELL/Downloads/avatar.png"
+                    },
+                    {
+                      "key": "pincode",
+                      "value": "400602",
+                      "type": "text",
+                      "uuid": "b22f15ff-57cb-4f0e-86b5-3f5a6745c177"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateVendor/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateVendor",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\":\"admin@gmail.com\",\r\n    \"password\":\"admin@123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/admin/login",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "admin",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Common APIS",
+      "item": [
+        {
+          "name": "Get Cities",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/cities",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "cities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Services",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/services",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "services"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Service types",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/service-types",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "service-types"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Time Slots",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/time-slots",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "time-slots"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user FAQ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/faq",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "faq"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "shifts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/shift",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "shift"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Banners Copy",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/C:/Users/DELL/Downloads/banner1.jpg"
+                },
+                {
+                  "key": "heading",
+                  "value": " Festival Offer 1st",
+                  "type": "text"
+                },
+                {
+                  "key": "subheading",
+                  "value": " Earn more today",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": " Get bonus for deliveries",
+                  "type": "text"
+                },
+                {
+                  "key": "status",
+                  "value": " true",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/banners",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "banners"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rider",
+      "item": [
+        {
+          "name": "Rider Orders",
+          "item": [
+            {
+              "name": "Get Today Orders",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/getTodayOrder?page=1&limit=10",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "getTodayOrder"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Dashboard Count",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/getDashboardCount",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "getDashboardCount"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Start Delivery",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/1/startOrderDelivery",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "1",
+                    "startOrderDelivery"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify Pickup OTP",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : \"1\" ,\r\n    \"otp\" : 1747\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/verifyPickupOtp",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "verifyPickupOtp"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Resend Pickup OTP",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : \"5\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/resendPickupOtp",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "resendPickupOtp"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Order History",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/getOrderHistory",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "getOrderHistory"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Handover to vendor",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : 1,\r\n    \"vendor_id\" : 1\r\n    \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/handOverOrder",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "handOverOrder"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PICKUP FROM VENDOR",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : 1\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/pickupFromVendor",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "pickupFromVendor"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Collect Payment",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : 1\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/collectPayment",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "collectPayment"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Complete delivey",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"order_id\" : 1,\r\n    \"otp\" : 6884\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/completeDelivery",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "completeDelivery"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Login or Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"mobile_number\" : \"6666666666\"  \r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/login-or-register",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "login-or-register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify otp",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"mobile_number\" : \"6666666666\",\r\n  \"otp\": \"1234\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/verifyOtp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "verifyOtp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Choose Shift",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"shift_id\" : 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/chooseShift",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "chooseShift"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GO ACTIVE",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/goActive",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "goActive"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accept terms",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/terms-and-conditions",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "terms-and-conditions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "full_name",
+                  "value": "Rahul Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "alternate_contact_number",
+                  "value": "9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "aadhaar_number",
+                  "value": "123412341234",
+                  "type": "text"
+                },
+                {
+                  "key": "pan_card_number",
+                  "value": "ABCDE1234F",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_birth",
+                  "value": "1995-05-20",
+                  "type": "text"
+                },
+                {
+                  "key": "residential_address",
+                  "value": "Mumbai Maharashtra",
+                  "type": "text"
+                },
+                {
+                  "key": "vehicle_type",
+                  "value": "Bike",
+                  "type": "text"
+                },
+                {
+                  "key": "vehicle_registration_number",
+                  "value": "MH12AB1234",
+                  "type": "text"
+                },
+                {
+                  "key": "licence_validity_date",
+                  "value": "2030-12-31",
+                  "type": "text"
+                },
+                {
+                  "key": "account_holder_name",
+                  "value": "Rahul Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "bank_name",
+                  "value": "HDFC Bank",
+                  "type": "text"
+                },
+                {
+                  "key": "account_number",
+                  "value": "123456789012",
+                  "type": "text"
+                },
+                {
+                  "key": "ifsc_code",
+                  "value": "HDFC0001234",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/C:/Users/DELL/Downloads/avatar.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/updateProfile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "updateProfile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "full_name",
+                  "value": " Rahul Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "alternate_contact_number",
+                  "value": " 9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "aadhaar_number",
+                  "value": " 123412341234",
+                  "type": "text"
+                },
+                {
+                  "key": "pan_card_number",
+                  "value": " ABCDE1234F",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_birth",
+                  "value": " 1995-05-20",
+                  "type": "text"
+                },
+                {
+                  "key": "residential_address",
+                  "value": " Mumbai Maharashtra",
+                  "type": "text"
+                },
+                {
+                  "key": "vehicle_type",
+                  "value": " Bike",
+                  "type": "text"
+                },
+                {
+                  "key": "vehicle_registration_number",
+                  "value": " MH12AB1234",
+                  "type": "text"
+                },
+                {
+                  "key": "licence_validity_date",
+                  "value": " 2030-12-31",
+                  "type": "text"
+                },
+                {
+                  "key": "account_holder_name",
+                  "value": " Rahul Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "bank_name",
+                  "value": " HDFC Bank",
+                  "type": "text"
+                },
+                {
+                  "key": "account_number",
+                  "value": " 123456789012",
+                  "type": "text"
+                },
+                {
+                  "key": "ifsc_code",
+                  "value": " HDFC0001234",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/C:/Users/DELL/Downloads/avatar.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/getProfile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "getProfile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "need help",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"report_issue\": \"Accident / Injury\",\r\n  \"message\": \"I met with a small accident during delivery\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/rider/needRiderHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "needRiderHelp"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Vendor",
+      "item": [
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "orderDashboard",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderDashboard?filter=this_week",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderDashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "filter",
+                      "value": "this_week"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "order By Id",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Confirm Clothes",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"items\": [\r\n    { \"category\": \"tops\", \"quantity\": 8 },\r\n    { \"category\": \"bottoms\", \"quantity\": 8 }\r\n  ]\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1/confirm-clothes",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1",
+                    "confirm-clothes"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Confirm Weigt",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"actual_weight\": 11.7\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1/confirm-weight",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1",
+                    "confirm-weight"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Finalize",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"actual_weight\": 11.7\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1/finalize",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1",
+                    "finalize"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "mark-ready",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1/mark-ready",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1",
+                    "mark-ready"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "this_month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "item": [
+            {
+              "name": "Get Notifcations",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/notifications",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "notifications"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Login-Or-verify",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile_number\" : \"7777777777\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/loginOrVerify",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "loginOrVerify"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Otp",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile_number\" : \"7777777777\",\r\n    \"otp\" : 1234\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/verifyOtp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "verifyOtp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GO active",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/goActive",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "goActive"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GO active Copy",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/acceptTerms",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "acceptTerms"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
