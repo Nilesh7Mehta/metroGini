@@ -31,6 +31,8 @@ export const createDraftOrderService = async ({
       [user_id],
     );
 
+    const order_code = `MG${Math.floor(100000 + Math.random() * 900000)}`;
+
     let orderId;
     if (existingDraft.rows.length > 0) {
       const updateResult = await client.query(
@@ -50,16 +52,17 @@ export const createDraftOrderService = async ({
     } else {
       const insertResult = await client.query(
         `INSERT INTO orders (user_id, service_id, clothes_count, estimated_weight_min,
-         estimated_weight_max, address_id, status)
-         VALUES ($1,$2,$3,$4,$5,$6,'draft') RETURNING id`,
-        [user_id, service_id, clothes_count, min_weight, max_weight, addressId],
+         estimated_weight_max, address_id, status, order_code)
+         VALUES ($1,$2,$3,$4,$5,$6,'draft',$7) RETURNING id`,
+        [user_id, service_id, clothes_count, min_weight, max_weight, addressId, order_code],
       );
       orderId = insertResult.rows[0].id;
     }
 
     await client.query("COMMIT");
     return {
-      order_id: orderId,
+      id: orderId,
+      order_id : order_code,
       estimated_weight_min: min_weight,
       estimated_weight_max: max_weight,
     };

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     delivery_otp         VARCHAR(6),
     otp_generated_at     TIMESTAMP,
     otp_verified         BOOLEAN DEFAULT false,
+    order_code           VARCHAR(10) UNIQUE,
     vendor_received_at   DATE,
     delivered_at         DATE,
     created_at           TIMESTAMP DEFAULT now(),
