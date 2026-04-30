@@ -14,10 +14,7 @@ export const getProfile = async ({ req, userId }) => {
     [userId],
   );
 
-  // Keep the same ordering as the old controller (image mapping before empty check).
-  const user = result.rows[0];
-  user.image = getImageUrl(req, user.profile_image);
-
+  // Check if user exists first before processing
   if (result.rows.length === 0) {
     return {
       statusCode: 404,
@@ -25,12 +22,15 @@ export const getProfile = async ({ req, userId }) => {
     };
   }
 
+  const user = result.rows[0];
+  // user.image = getImageUrl(req, user.profile_image);
+
   return {
     statusCode: 200,
     body: {
       success: true,
       message: "Profile fetched successfully",
-      data: result.rows[0],
+      data: user,
     },
   };
 };

@@ -3,7 +3,7 @@ import sql from "../../config/db.js";
 // get Address
 export const getAddress = async ({ userId }) => {
   const { rows } = await sql.query(
-    `Select address_type , floor , landmark , receiver_name , contact_number , latitude , longitude , is_selected
+    `Select id, address_type , complete_address, floor , landmark , receiver_name , contact_number , latitude , longitude , is_selected
      from user_address_details
      where user_id = $1`,
     [userId],
@@ -14,7 +14,7 @@ export const getAddress = async ({ userId }) => {
     body: {
       success: true,
       message: "User addresses retrieved successfully",
-      data: { addresses: rows },
+      data: { addresses: rows || [] },
     },
   };
 };
@@ -27,9 +27,9 @@ export const addAddress = async ({ userId, body }) => {
     landmark,
     receiver_name,
     contact_number,
-    latitude,
-    longitude,
-    pincode
+    latitude = "19.0760",
+    longitude = "72.8777",
+    pincode = "400612"
   } = body;
 
   if (
@@ -101,9 +101,9 @@ export const updateAddress = async ({ userId, addressId, body }) => {
     landmark,
     receiver_name,
     contact_number,
-    latitude,
-    longitude,
-    pincode,
+    latitude = "19.0760",
+    longitude = "72.8777",
+    pincode = "400612"
   } = body;
 
   if (
@@ -229,7 +229,6 @@ export const setDefaultAddress = async ({ userId, addressId }) => {
   `;
 
   const result = await sql.query(updateQuery, [addressId, userId]);
-
   if (result.rows.length === 0) {
     return {
       statusCode: 404,
