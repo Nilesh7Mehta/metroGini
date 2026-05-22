@@ -71,16 +71,20 @@ const getServiceDisplayImage = (serviceId, dbImage) => {
 const formatDisplayOrderId = (order) =>
   order.order_code || `ORD-${String(order.id).padStart(3, '0')}`;
 
-const getVendorStatusLabel = (order) => {
-  if (isClassificationPending(order)) return 'Classification Pending';
-  if (['in_process', 'order_finalized'].includes(order.status)) {
-    return 'In Processing';
+/** Vendor-facing status aligned with dashboard operational_distribution */
+const getVendorOperationalStatus = (order) => {
+  if (isClassificationPending(order)) return 'pending_classification';
+  if (
+    order.status === 'order_finalized' ||
+    (order.status === 'in_process' && !isClassificationPending(order))
+  ) {
+    return 'in_processing';
   }
   if (['ready_for_delivery', 'out_for_delivery'].includes(order.status)) {
-    return 'Ready For Dispatch';
+    return 'ready_for_dispatch';
   }
-  if (order.status === 'delivered') return 'Delivered';
-  if (order.status === 'picked_up') return 'Awaiting Handover';
+  if (order.status === 'delivered') return 'delivered';
+  if (order.status === 'picked_up') return 'awaiting_handover';
   return order.status;
 };
 
@@ -113,7 +117,9 @@ const getEstimatedKg = (min, max) => {
 };
 
 const buildOrderDetails = (order) => {
-  const items = Number(order.clothes_count || 0);
+  const items = Number(
+    order.actual_clothes_count || order.clothes_count || 0,
+  );
   const isWash = Number(order.service_id) === 1;
 
   if (isWash) {
@@ -146,7 +152,7 @@ const mapOrderToListItem = (order) => {
     type: typeLabel,
     details: buildOrderDetails(order),
     image: serviceConfig.image || order.service_image,
-    status: getVendorStatusLabel(order),
+    status: getVendorOperationalStatus(order),
   };
 };
 
@@ -244,7 +250,7 @@ const buildShiftPayload = (slotId, orders, lotCode) => {
     operational_distribution: buildOperationalDistribution(shiftOrders),
     todays_batch_overview: {
       total_orders: shiftOrders.length,
-      services: buildServiceBatchOverview(shiftOrders),
+      services: buildDashboardBatchServices(shiftOrders),
     },
     orders: shiftOrders.map(mapOrderToListItem),
   };
@@ -608,7 +614,8 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
         end: order.delivery_slot_end,
       },
     },
-    status: order.status,
+    status: getVendorOperationalStatus(order),
+    workflow_status: order.status,
     estimated_total: parseFloat(order.estimated_total || 0),
     final_total: order.final_total ? parseFloat(order.final_total) : null,
   };
