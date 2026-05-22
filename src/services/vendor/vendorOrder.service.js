@@ -2,9 +2,253 @@ import sql from '../../config/db.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from '../../utils/otp.js';
 
+const PICKUP_SHIFT_SLOTS = [1, 2];
+
+const SHIFT_BY_PICKUP_SLOT = {
+  1: {
+    id: 'morning_shift',
+    shift_type: 'morning',
+    title_prefix: 'Morning Shift',
+  },
+  2: {
+    id: 'evening_shift',
+    shift_type: 'evening',
+    title_prefix: 'Evening Shift',
+  },
+};
+
+const SERVICE_CONFIG = {
+  1: {
+    id: 'wash_by_kilo',
+    type: 'Wash By Kilo',
+    image: '/assets/images/wash.png',
+  },
+  2: {
+    id: 'dry_clean',
+    type: 'Dry Clean',
+    image: '/assets/images/dry-clean.png',
+  },
+};
+
+const hasConfirmedClothes = (order) => {
+  const count = order.actual_clothes_count;
+  return count != null && Number(count) > 0;
+};
+
+const hasConfirmedWeight = (order) => {
+  return order.actual_weight != null && Number(order.actual_weight) > 0;
+};
+
+/** Vendor has received the order but has not confirmed weight/piece count yet */
+const isClassificationPending = (order) => {
+  if (order.status !== 'in_process') return false;
+
+  if (Number(order.service_id) === 2) {
+    return !hasConfirmedClothes(order);
+  }
+
+  return !hasConfirmedWeight(order) || !hasConfirmedClothes(order);
+};
+
+const getClassificationStatus = (order) => {
+  if (order.status === 'picked_up') return 'pending';
+  if (isClassificationPending(order)) return 'pending';
+  if (
+    ['in_process', 'order_finalized', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(
+      order.status,
+    )
+  ) {
+    return 'completed';
+  }
+  return 'pending';
+};
+
+const getServiceDisplayImage = (serviceId, dbImage) => {
+  const config = SERVICE_CONFIG[Number(serviceId)];
+  return config?.image || dbImage || null;
+};
+
+const formatDisplayOrderId = (order) =>
+  order.order_code || `ORD-${String(order.id).padStart(3, '0')}`;
+
+const getVendorStatusLabel = (order) => {
+  if (isClassificationPending(order)) return 'Classification Pending';
+  if (['in_process', 'order_finalized'].includes(order.status)) {
+    return 'In Processing';
+  }
+  if (['ready_for_delivery', 'out_for_delivery'].includes(order.status)) {
+    return 'Ready For Dispatch';
+  }
+  if (order.status === 'delivered') return 'Delivered';
+  if (order.status === 'picked_up') return 'Awaiting Handover';
+  return order.status;
+};
+
 // Returns { start, end } date strings for the given filter
 const formatDate = (date) =>
   date.toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+const formatGeneratedAt = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
+const getBatchOverviewKey = (filter) => {
+  if (filter === 'this_week') return 'weeks_batch_overview';
+  if (filter === 'this_month') return 'months_batch_overview';
+  return 'todays_batch_overview';
+};
+
+const isExpressOrder = (serviceTypeName) =>
+  typeof serviceTypeName === 'string' &&
+  serviceTypeName.toLowerCase().includes('express');
+
+const getEstimatedKg = (min, max) => {
+  const weightMin = Number(min || 0);
+  const weightMax = Number(max || 0);
+  if (weightMin && weightMax) {
+    return parseFloat(((weightMin + weightMax) / 2).toFixed(1));
+  }
+  return parseFloat((weightMax || weightMin || 0).toFixed(1));
+};
+
+const buildOrderDetails = (order) => {
+  const items = Number(order.clothes_count || 0);
+  const isWash = Number(order.service_id) === 1;
+
+  if (isWash) {
+    const estKg = getEstimatedKg(
+      order.estimated_weight_min,
+      order.estimated_weight_max,
+    );
+    const weightPart =
+      estKg > 0 ? `Est. ${estKg} kg/` : order.actual_weight
+        ? `${Number(order.actual_weight)} kg/`
+        : '';
+    return `Weight/Pieces: ${weightPart}${items} Items`.replace(/\/$/, '');
+  }
+
+  return `Weight/Pieces: ${items} Items`;
+};
+
+const mapOrderToListItem = (order) => {
+  const serviceConfig = SERVICE_CONFIG[order.service_id] || {
+    image: order.service_image || null,
+  };
+
+  const typeLabel = isExpressOrder(order.service_type_name)
+    ? 'Express'
+    : 'Regular';
+
+  return {
+    id: order.order_code || `ORD-${order.id}`,
+    customer: `CUST${String(order.user_id).padStart(3, '0')}`,
+    type: typeLabel,
+    details: buildOrderDetails(order),
+    image: serviceConfig.image || order.service_image,
+    status: getVendorStatusLabel(order),
+  };
+};
+
+const buildServiceBatchOverview = (orders) => {
+  const washOrders = orders.filter((o) => Number(o.service_id) === 1);
+  const dryOrders = orders.filter((o) => Number(o.service_id) === 2);
+
+  const services = [];
+
+  if (washOrders.length) {
+    services.push({
+      id: SERVICE_CONFIG[1].id,
+      type: SERVICE_CONFIG[1].type,
+      estimated_kg: washOrders.reduce(
+        (sum, o) =>
+          sum +
+          getEstimatedKg(o.estimated_weight_min, o.estimated_weight_max),
+        0,
+      ),
+      final_kg: washOrders.reduce(
+        (sum, o) => sum + Number(o.actual_weight || 0),
+        0,
+      ),
+      regular_orders: washOrders.filter((o) => !isExpressOrder(o.service_type_name))
+        .length,
+      express_orders: washOrders.filter((o) => isExpressOrder(o.service_type_name))
+        .length,
+    });
+  }
+
+  if (dryOrders.length) {
+    services.push({
+      id: SERVICE_CONFIG[2].id,
+      type: SERVICE_CONFIG[2].type,
+      total_items: dryOrders.reduce(
+        (sum, o) => sum + Number(o.clothes_count || 0),
+        0,
+      ),
+      regular_orders: dryOrders.filter((o) => !isExpressOrder(o.service_type_name))
+        .length,
+      express_orders: dryOrders.filter((o) => isExpressOrder(o.service_type_name))
+        .length,
+    });
+  }
+
+  return services;
+};
+
+const buildDashboardBatchServices = (orders) => {
+  const filled = buildServiceBatchOverview(orders);
+  const byId = Object.fromEntries(filled.map((s) => [s.id, s]));
+
+  return [
+    byId.wash_by_kilo || {
+      id: SERVICE_CONFIG[1].id,
+      type: SERVICE_CONFIG[1].type,
+      estimated_kg: 0,
+      final_kg: 0,
+      regular_orders: 0,
+      express_orders: 0,
+    },
+    byId.dry_clean || {
+      id: SERVICE_CONFIG[2].id,
+      type: SERVICE_CONFIG[2].type,
+      total_items: 0,
+      regular_orders: 0,
+      express_orders: 0,
+    },
+  ];
+};
+
+const buildOperationalDistribution = (orders) => ({
+  pending_classification: orders.filter(isClassificationPending).length,
+  in_processing: orders.filter(
+    (o) =>
+      o.status === 'order_finalized' ||
+      (o.status === 'in_process' && !isClassificationPending(o)),
+  ).length,
+  ready_for_dispatch: orders.filter((o) =>
+    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
+  ).length,
+});
+
+const buildShiftPayload = (slotId, orders, lotCode) => {
+  const config = SHIFT_BY_PICKUP_SLOT[slotId];
+  const shiftOrders = orders.filter(
+    (o) => Number(o.pickup_slot_id) === Number(slotId),
+  );
+
+  return {
+    id: config.id,
+    shift_title: `${config.title_prefix} ${lotCode}`,
+    total_orders: shiftOrders.length,
+    shift_type: config.shift_type,
+    operational_distribution: buildOperationalDistribution(shiftOrders),
+    todays_batch_overview: {
+      total_orders: shiftOrders.length,
+      services: buildServiceBatchOverview(shiftOrders),
+    },
+    orders: shiftOrders.map(mapOrderToListItem),
+  };
+};
 
 const getDateRange = (filter) => {
   const now = new Date();
@@ -51,6 +295,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
       COUNT(*) FILTER (
         WHERE status IN (
           'in_process',
+          'order_finalized',
           'ready_for_delivery',
           'out_for_delivery',
           'delivered'
@@ -61,17 +306,47 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
         WHERE status = 'delivered'
       ) AS orders_delivered,
 
-      COALESCE(SUM(actual_weight) FILTER (
-        WHERE status = 'delivered'
+      COALESCE(SUM(
+        CASE
+          WHEN service_id = 2 AND actual_clothes_count > 0 THEN actual_clothes_count
+          WHEN COALESCE(service_id, 1) <> 2
+            AND actual_weight IS NOT NULL
+            AND actual_clothes_count > 0
+            THEN actual_weight
+          ELSE 0
+        END
+      ) FILTER (
+        WHERE status IN (
+          'order_finalized',
+          'ready_for_delivery',
+          'out_for_delivery',
+          'delivered'
+        )
+        OR (
+          status = 'in_process'
+          AND (
+            (service_id = 2 AND actual_clothes_count > 0)
+            OR (
+              COALESCE(service_id, 1) <> 2
+              AND actual_weight IS NOT NULL
+              AND actual_clothes_count > 0
+            )
+          )
+        )
       ), 0) AS load_processed,
 
       COALESCE(SUM(final_total) FILTER (
-        WHERE status = 'delivered'
+        WHERE status IN (
+          'ready_for_delivery',
+          'out_for_delivery',
+          'delivered'
+        )
+          AND final_total IS NOT NULL
       ), 0) AS revenue
 
     FROM orders
     WHERE vendor_id = $1
-      AND vendor_received_at BETWEEN $2 AND $3
+      AND vendor_received_at BETWEEN $2::date AND $3::date
     `,
     [vendor_id, start, end]
   );
@@ -85,61 +360,25 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
     `
     SELECT
       o.id,
-      s.name AS service_name,
+      o.service_id,
+      o.status,
       o.estimated_weight_min,
       o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
       o.clothes_count,
       st.name AS service_type_name
     FROM orders o
-    JOIN services s ON o.service_id = s.id
     LEFT JOIN service_types st ON o.service_type_id = st.id
     WHERE o.vendor_id = $1
-      AND o.vendor_received_at BETWEEN $2 AND $3
+      AND o.vendor_received_at BETWEEN $2::date AND $3::date
       AND o.status NOT IN ('draft', 'cancelled')
     `,
     [vendor_id, start, end]
   );
 
-  const totalOrders = batchResult.rows.length;
-
-  const serviceMap = {};
-
-  for (const row of batchResult.rows) {
-    const key = row.service_name || 'Unknown';
-
-    if (!serviceMap[key]) {
-      serviceMap[key] = {
-        service_name: key,
-        orders: [],
-      };
-    }
-
-    serviceMap[key].orders.push(row);
-  }
-
-  const services = Object.values(serviceMap).map((svc) => {
-  let min = 0, max = 0, items = 0;
-
-  for (const o of svc.orders) {
-    min += Number(o.estimated_weight_min || 0);
-    max += Number(o.estimated_weight_max || 0);
-    items += Number(o.clothes_count || 0);
-  }
-
-  return {
-    service_name: svc.service_name,
-    service_type: svc.service_type_name, // 👈 important
-
-    estimated_weight: {
-      min,
-      max,
-      unit: 'kg',
-    },
-
-    total_items: items,
-    total_orders: svc.orders.length,
-  };
-});
+  const batchOrders = batchResult.rows;
+  const batchLabel = getBatchOverviewKey(filter);
 
   // =========================
   // 3. OPERATIONAL DISTRIBUTION
@@ -148,40 +387,65 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
     `
     SELECT
       COUNT(*) FILTER (
-        WHERE status = 'picked_up'
+        WHERE status = 'in_process'
+          AND (
+            (
+              service_id = 2
+              AND (actual_clothes_count IS NULL OR actual_clothes_count = 0)
+            )
+            OR (
+              COALESCE(service_id, 1) <> 2
+              AND (
+                actual_weight IS NULL
+                OR actual_clothes_count IS NULL
+                OR actual_clothes_count = 0
+              )
+            )
+          )
       ) AS pending_classification,
 
       COUNT(*) FILTER (
-        WHERE status = 'in_process'
+        WHERE status = 'order_finalized'
+          OR (
+            status = 'in_process'
+            AND (
+              (
+                service_id = 2
+                AND actual_clothes_count IS NOT NULL
+                AND actual_clothes_count > 0
+              )
+              OR (
+                COALESCE(service_id, 1) <> 2
+                AND actual_weight IS NOT NULL
+                AND actual_clothes_count IS NOT NULL
+                AND actual_clothes_count > 0
+              )
+            )
+          )
       ) AS in_processing,
 
       COUNT(*) FILTER (
-        WHERE status = 'ready_for_delivery'
+        WHERE status IN ('ready_for_delivery', 'out_for_delivery')
       ) AS ready_for_dispatch
 
     FROM orders
     WHERE vendor_id = $1
-      AND vendor_received_at BETWEEN $2 AND $3
+      AND vendor_received_at BETWEEN $2::date AND $3::date
+      AND status NOT IN ('draft', 'cancelled')
     `,
     [vendor_id, start, end]
   );
 
   const ops = opsResult.rows[0];
 
-  const batchLabel =
-    filter === 'this_week'
-      ? 'weeks_batch_overview'
-      : filter === 'this_month'
-      ? 'months_batch_overview'
-      : 'todays_batch_overview';
-
   return {
     filter,
+    generated_at: formatGeneratedAt(),
     date_range: { start, end },
 
     performance_overview: {
-      orders_received: parseInt(perf.orders_received),
-      orders_delivered: parseInt(perf.orders_delivered),
+      orders_received: parseInt(perf.orders_received, 10),
+      orders_delivered: parseInt(perf.orders_delivered, 10),
       load_processed: {
         value: parseFloat(perf.load_processed),
         unit: 'kg/pieces',
@@ -190,15 +454,60 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
     },
 
     [batchLabel]: {
-      total_orders: totalOrders,
-      services,
+      total_orders: batchOrders.length,
+      services: buildDashboardBatchServices(batchOrders),
     },
 
     operational_distribution: {
-      pending_classification: parseInt(ops.pending_classification),
-      in_processing: parseInt(ops.in_processing),
-      ready_for_dispatch: parseInt(ops.ready_for_dispatch),
+      pending_classification: parseInt(ops.pending_classification, 10),
+      in_processing: parseInt(ops.in_processing, 10),
+      ready_for_dispatch: parseInt(ops.ready_for_dispatch, 10),
     },
+  };
+};
+
+export const getVendorOrdersService = async (vendor_id, selectedDate) => {
+  const date =
+    selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)
+      ? selectedDate
+      : formatDate(new Date());
+
+  const { rows: orders } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      o.pickup_slot_id,
+      o.status,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.clothes_count,
+      o.service_id,
+      s.name AS service_name,
+      s.image AS service_image,
+      st.name AS service_type_name
+    FROM orders o
+    JOIN services s ON o.service_id = s.id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    WHERE o.vendor_id = $1
+      AND o.pickup_date = $2::date
+      AND o.pickup_slot_id = ANY($3::int[])
+      AND o.status NOT IN ('draft', 'cancelled')
+    ORDER BY o.pickup_slot_id ASC, o.id ASC
+    `,
+    [vendor_id, date, PICKUP_SHIFT_SLOTS],
+  );
+
+  const lotCode = `LOT-${String(vendor_id).padStart(3, '0')}`;
+
+  return {
+    selected_date: date,
+    shifts: PICKUP_SHIFT_SLOTS.map((slotId) =>
+      buildShiftPayload(slotId, orders, lotCode),
+    ),
   };
 };
 
@@ -206,16 +515,20 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
   const result = await sql.query(
     `
     SELECT 
-      o.id AS order_id,
+      o.id,
+      o.user_id,
+      o.order_code,
+      o.service_id,
       u.full_name AS customer_name,
       u.profile_image AS customer_image,
       ua.complete_address AS address,
       o.estimated_weight_min,
       o.estimated_weight_max,
-      o.clothes_count AS clothes_count,
+      o.clothes_count,
       o.actual_clothes_count,
       o.actual_weight,
       s.name AS service_name,
+      s.image AS service_image,
       st.name AS service_type_name,
       TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
       pickup_slot.start_time AS pickup_slot_start,
@@ -244,17 +557,22 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
 
   const order = result.rows[0];
 
-  // Fetch order_items if clothes have been confirmed
   const itemsResult = await sql.query(
     `SELECT category, quantity FROM order_items WHERE order_id = $1 ORDER BY created_at ASC`,
     [order_id]
   );
 
+  const internalId = parseInt(order.id, 10);
+
   return {
-    order_id: order.order_id,
+    id: internalId,
+    display_order_id: formatDisplayOrderId(order),
+    classification_status: getClassificationStatus(order),
+    order_id: internalId,
     customer: {
+      id: `CUST${String(order.user_id).padStart(3, '0')}`,
       name: order.customer_name,
-      image: order.customer_image,
+      image: order.customer_image || '/assets/images/avatar.png',
     },
     address: order.address,
     estimated_weight: {
@@ -262,13 +580,19 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       max: parseFloat(order.estimated_weight_max || 0),
       unit: 'kg',
     },
-    clothes_count: parseInt(order.clothes_count || 0),
-    actual_clothes_count: order.actual_clothes_count ? parseInt(order.actual_clothes_count) : null,
+    clothes_count: parseInt(order.clothes_count || 0, 10),
+    actual_clothes_count: order.actual_clothes_count
+      ? parseInt(order.actual_clothes_count, 10)
+      : null,
     actual_weight: order.actual_weight ? parseFloat(order.actual_weight) : null,
-    order_items: itemsResult.rows,
+    order_items: itemsResult.rows.map((item) => ({
+      category: item.category,
+      quantity: parseInt(item.quantity, 10),
+    })),
     service: {
       name: order.service_name,
       type: order.service_type_name,
+      image: getServiceDisplayImage(order.service_id, order.service_image),
     },
     pickup: {
       date: order.pickup_date,
@@ -286,7 +610,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
     },
     status: order.status,
     estimated_total: parseFloat(order.estimated_total || 0),
-    final_total: parseFloat(order.final_total || 0),
+    final_total: order.final_total ? parseFloat(order.final_total) : null,
   };
 };
 

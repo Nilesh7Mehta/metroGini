@@ -1,4 +1,4 @@
-import { orderDashboardService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
+import { orderDashboardService, getVendorOrdersService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
 
 const VALID_FILTERS = ['today', 'this_week', 'this_month'];
 
@@ -8,7 +8,30 @@ export const orderDashboard = async (req, res, next) => {
     console.log("Vendor Id===============" , vendor_id);
     const filter = VALID_FILTERS.includes(req.query.filter) ? req.query.filter : 'today';
     const data = await orderDashboardService(vendor_id, filter);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({
+      success: true,
+      message: 'Order dashboard fetched successfully',
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getVendorOrders = async (req, res, next) => {
+  try {
+    const vendor_id = req.user.vendor_id;
+    const selectedDate = req.query.date || req.query.selected_date;
+    const data = await getVendorOrdersService(vendor_id, selectedDate);
+    const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+    return res.status(200).json({
+      success: true,
+      message:
+        totalOrders > 0
+          ? 'Orders fetched successfully'
+          : 'No orders found for the selected date',
+      data,
+    });
   } catch (error) {
     next(error);
   }
@@ -20,7 +43,11 @@ export const getOrderDetails = async (req, res, next) => {
     const { order_id } = req.params;
     
     const data = await getOrderDetailsService(vendor_id, order_id);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({
+      success: true,
+      message: 'Order details fetched successfully',
+      data,
+    });
   } catch (error) {
     next(error);
   }

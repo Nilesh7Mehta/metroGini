@@ -2750,6 +2750,56 @@
               "response": []
             },
             {
+              "name": "Get Orders (Shifts)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orders?date=2026-05-18",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2026-05-18",
+                      "description": "Pickup date (YYYY-MM-DD). Defaults to today if omitted."
+                    },
+                    {
+                      "key": "selected_date",
+                      "value": "2026-05-18",
+                      "disabled": true,
+                      "description": "Alias for date"
+                    }
+                  ]
+                },
+                "description": "Returns vendor orders grouped by pickup shift. pickup_slot_id 1 = morning_shift, 2 = evening_shift."
+              },
+              "response": []
+            },
+            {
               "name": "order By Id",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true

@@ -3,10 +3,11 @@
 // out_for_pickup → system scheduled pickup (cron)
 // pickup_in_progress → rider started going to customer
 // picked_up → rider collected order (OTP verified)
-// in_process → vendor weighing and counting clothes
+// in_process → vendor received order; until actual_weight + actual_clothes_count are set, treat as classification pending
+// in_process (weight & pieces confirmed) → vendor processing laundry
 // order_finalized → weight confirmed, final amount locked, user notified to pay
-// ready_for_delivery → washing done, packed and ready for rider
-// out_for_delivery → rider delivering to customer
+// ready_for_delivery → washing done, packed and ready for rider pickup (counts toward vendor revenue)
+// out_for_delivery → rider picked up from vendor, delivering to customer (counts toward vendor revenue)
 // delivered → order handed to customer ✅ (final state)
 // cancelled → order cancelled
 export const PAYMENT_STATUS = {
