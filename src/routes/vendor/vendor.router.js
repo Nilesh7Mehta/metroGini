@@ -20,6 +20,10 @@ router.post('/verifyOtp' , verifyOtpLimiter, vendorController.verifyOtp);
 router.post('/goActive' , authenticate , vendorController.goActive);
 router.post('/acceptTerms' , authenticate , vendorController.acceptTerms);
 
+// Profile
+router.get('/profile', authenticate, vendorController.getProfile);
+router.put('/profile', authenticate, vendorController.updateProfile);
+
 
 
 export default router;

@@ -3239,6 +3239,73 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "profile"
+              ]
+            },
+            "description": "Get vendor profile. Requires Bearer token from vendor login/register."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"merchant\": {\r\n    \"laundry_name\": \"Ramesh Laundry\",\r\n    \"owner_name\": \"Amit Kulkarni\",\r\n    \"mobile\": \"9823456712\",\r\n    \"email\": \"amit.kulkarni@freshfoldlaundry.in\",\r\n    \"gst_number\": \"27AAKPF6789R1Z5\",\r\n    \"pan_number\": \"AAKPF6789R\"\r\n  },\r\n  \"address\": {\r\n    \"shop_address\": \"Shop No. 12, Ground Floor, Sai Plaza, LBS Marg, Mulund West, Mumbai\"\r\n  },\r\n  \"bank_details\": {\r\n    \"account_holder_name\": \"Fresh Fold Laundry Services\",\r\n    \"bank_name\": \"ICICI Bank\",\r\n    \"account_number\": \"456701234567\",\r\n    \"ifsc_code\": \"ICIC0000456\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "profile"
+              ]
+            },
+            "description": "Update vendor profile (partial fields supported). profile_image is always returned as /assets/images/avatar.png."
+          },
+          "response": []
         }
       ]
     }

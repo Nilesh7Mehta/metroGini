@@ -6,6 +6,10 @@ import {
   toggleVendorActiveService,
   verifyVendorOtp,
 } from "../../services/vendor/vendor.service.js";
+import {
+  getVendorProfileService,
+  updateVendorProfileService,
+} from "../../services/vendor/vendorProfile.service.js";
 
 export const register = async (req, res, next) => {
   try {
@@ -80,6 +84,34 @@ export const acceptTerms = async (req, res, next) => {
       success: true,
       message: "Terms and Conditions accepted successfully",
       is_terms_and_condition_verified,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getProfile = async (req, res, next) => {
+  try {
+    const data = await getVendorProfileService(req.user.vendor_id);
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const data = await updateVendorProfileService(
+      req.user.vendor_id,
+      req.body,
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data,
     });
   } catch (error) {
     next(error);
