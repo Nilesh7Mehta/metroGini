@@ -1,4 +1,40 @@
-import { acceptTermsService, loginOrVerifyVendorService, toggleVendorActiveService, verifyVendorOtp } from "../../services/vendor/vendor.service.js";
+import {
+  acceptTermsService,
+  loginOrVerifyVendorService,
+  loginVendorService,
+  registerVendorService,
+  toggleVendorActiveService,
+  verifyVendorOtp,
+} from "../../services/vendor/vendor.service.js";
+
+export const register = async (req, res, next) => {
+  try {
+    const vendor = await registerVendorService(req.body);
+    return res.status(201).json({
+      success: true,
+      message: "Vendor registered successfully",
+      data: vendor,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const login = async (req, res, next) => {
+  try {
+    const { access_token, expiresIn } = await loginVendorService(req.body);
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: {
+        access_token,
+        expiresIn,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const loginVerify = async (req, res, next) => {
   try {

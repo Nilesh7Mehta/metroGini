@@ -1,6 +1,42 @@
 import sql from "../../config/db.js";
 import { cleanupAndThrow, deleteFile } from "../../utils/file.service.js";
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DOB_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const BCRYPT_ROUNDS = 10;
+
+const signVendorToken = (vendor) => {
+  const access_token = jwt.sign(
+    { vendor_id: vendor.id, email: vendor.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || "9d" },
+  );
+  return {
+    access_token,
+    expiresIn: process.env.JWT_EXPIRES_IN || "9d",
+  };
+};
+
+const validateVendorAuthInput = ({ owner_contact_name, dob, email, password }) => {
+  if (!owner_contact_name?.trim()) {
+    throw { status: 400, message: "owner_contact_name is required" };
+  }
+  if (!email?.trim() || !EMAIL_REGEX.test(email.trim())) {
+    throw { status: 400, message: "A valid email is required" };
+  }
+  if (!dob || !DOB_REGEX.test(dob)) {
+    throw { status: 400, message: "dob must be in YYYY-MM-DD format" };
+  }
+  const dobDate = new Date(`${dob}T00:00:00`);
+  if (Number.isNaN(dobDate.getTime()) || dobDate > new Date()) {
+    throw { status: 400, message: "dob must be a valid past date" };
+  }
+  if (!password || String(password).length < 6) {
+    throw { status: 400, message: "password must be at least 6 characters" };
+  }
+};
 
 export const addVendorService = async (body, file) => {
   const {
@@ -257,7 +293,82 @@ export const updateVendorService = async (id, body, file) => {
   }
 };
 
-//Login Otp
+export const registerVendorService = async ({
+  owner_contact_name,
+  dob,
+  email,
+  password,
+}) => {
+  validateVendorAuthInput({ owner_contact_name, dob, email, password });
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const passwordHash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
+
+  const { rows: existing } = await sql.query(
+    `SELECT id FROM vendors WHERE LOWER(email) = $1`,
+    [normalizedEmail],
+  );
+
+  if (existing.length) {
+    throw { status: 409, message: "Email already registered" };
+  }
+
+  const { rows } = await sql.query(
+    `INSERT INTO vendors
+      (owner_contact_name, dob, email, password, status, created_at, updated_at)
+     VALUES ($1, $2::date, $3, $4, 'active', NOW(), NOW())
+     RETURNING id, owner_contact_name, email, dob`,
+    [owner_contact_name.trim(), dob, normalizedEmail, passwordHash],
+  );
+
+  const vendor = rows[0];
+
+  return {
+    id: vendor.id,
+    owner_contact_name: vendor.owner_contact_name,
+    email: vendor.email,
+    dob: vendor.dob,
+  };
+};
+
+export const loginVendorService = async ({ email, password }) => {
+  if (!email?.trim() || !EMAIL_REGEX.test(email.trim())) {
+    throw { status: 400, message: "A valid email is required" };
+  }
+  if (!password) {
+    throw { status: 400, message: "password is required" };
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const { rows } = await sql.query(
+    `SELECT id, email, password FROM vendors WHERE LOWER(email) = $1`,
+    [normalizedEmail],
+  );
+
+  if (!rows.length) {
+    throw { status: 401, message: "Invalid email or password" };
+  }
+
+  const vendor = rows[0];
+
+  if (!vendor.password) {
+    throw {
+      status: 400,
+      message: "Password login is not set up for this account",
+    };
+  }
+
+  const passwordMatch = await bcrypt.compare(String(password), vendor.password);
+
+  if (!passwordMatch) {
+    throw { status: 401, message: "Invalid email or password" };
+  }
+
+  return signVendorToken(vendor);
+};
+
+//Login Otp (legacy)
 export const loginOrVerifyVendorService = async (mobile_number) => {
   if (!mobile_number || !/^\d{10}$/.test(mobile_number)) {
     throw { status: 400, message: "mobile_number must be a 10-digit number" };
@@ -314,26 +425,18 @@ export const verifyVendorOtp = async (mobile_number, otp) => {
     throw { status: 400, message: "Invalid OTP" };
   }
 
-  const access_token = jwt.sign(
-    { vendor_id: vendor.id, mobile_number: vendor.mobile_number },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "9d" }
-  );
-  const expiresIn = process.env.JWT_EXPIRES_IN || "9d";
-
-  // Reset OTP after success
-  // await sql.query(
-  //   `UPDATE vendors SET otp = NULL, otp_expire = NULL WHERE mobile_number = $1`,
-  //   [mobile_number]
-  // );
+  const { access_token, expiresIn } = signVendorToken({
+    id: vendor.id,
+    email: vendor.email,
+  });
 
   return {
-    success : "true",
+    success: true,
     message: "OTP verified successfully",
-    data : {
-      access_token ,
-      expiresIn
-    }
+    data: {
+      access_token,
+      expiresIn,
+    },
   };
 };
 

@@ -1,10 +1,18 @@
 import express from "express";  
 import * as vendorController from '../../controller/vendor/vendor.controller.js'
 import { authenticate } from "../../middleware/auth.middleware.js";
-import { sendOtpLimiter, verifyOtpLimiter } from "../../middleware/rateLimiter.js";
+import {
+  sendOtpLimiter,
+  verifyOtpLimiter,
+  vendorAuthLimiter,
+} from "../../middleware/rateLimiter.js";
 const router=express.Router()
 
-//login Or Verify
+// Email + password auth
+router.post("/register", vendorAuthLimiter, vendorController.register);
+router.post("/login", vendorAuthLimiter, vendorController.login);
+
+// Legacy OTP login
 router.post('/loginOrVerify' , sendOtpLimiter, vendorController.loginVerify);
 router.post('/verifyOtp' , verifyOtpLimiter, vendorController.verifyOtp);
 

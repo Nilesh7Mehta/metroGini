@@ -22,6 +22,18 @@ export const verifyOtpLimiter = rateLimit({
   }
 });
 
+// 🔐 Vendor auth (login / register)
+export const vendorAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: {
+    success: false,
+    message: "Too many auth attempts. Please try again later",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // 🔐 Global API limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

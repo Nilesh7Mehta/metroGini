@@ -13,3 +13,4 @@ Run in order. Each file depends on the ones before it.
 | 007_order_events.sql | order_cancellations, order_reports | 006 |
 | 008_notifications.sql | notifications | — (polymorphic) |
 | 009_helpline.sql | helpline | 001 |
+| 010_vendor_auth.sql | vendors (dob, password columns) | 002 |
