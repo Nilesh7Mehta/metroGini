@@ -1,5 +1,6 @@
 import sql from "../../config/db.js";
 import { updateVendorService } from "./vendor.service.js";
+import { validateVendorFields } from "../../utils/vendorValidation.js";
 
 const DEFAULT_PROFILE_IMAGE = "/assets/images/avatar.png";
 
@@ -16,9 +17,11 @@ export const formatVendorProfile = (vendor) => ({
     status: vendor.status ?? null,
     gst_number: vendor.gst_number ?? null,
     pan_number: vendor.pan_card_number ?? null,
+    aadhar_number: vendor.aadhar_number ?? null,
   },
   address: {
     shop_address: vendor.shop_address ?? null,
+    pincode: vendor.pincode ?? null,
   },
   bank_details: {
     account_holder_name: vendor.account_holder_name ?? null,
@@ -35,7 +38,7 @@ const mapProfileUpdateBody = (body) => {
   const address = body.address || {};
   const bank = body.bank_details || {};
 
-  return {
+  const raw = {
     owner_contact_name:
       merchant.owner_name ?? body.owner_name ?? body.owner_contact_name,
     mobile_number:
@@ -48,21 +51,26 @@ const mapProfileUpdateBody = (body) => {
     gst_number: merchant.gst_number ?? body.gst_number,
     shop_address:
       address.shop_address ?? body.shop_address,
+    pincode: address.pincode ?? body.pincode,
+    aadhar_number:
+      merchant.aadhar_number ?? body.aadhar_number,
     account_holder_name:
       bank.account_holder_name ?? body.account_holder_name,
     bank_name: bank.bank_name ?? body.bank_name,
     account_number: bank.account_number ?? body.account_number,
     ifsc_code: bank.ifsc_code ?? body.ifsc_code,
-    pincode: body.pincode,
-    aadhar_number: body.aadhar_number,
   };
+
+  return Object.fromEntries(
+    Object.entries(raw).filter(([, value]) => value !== undefined),
+  );
 };
 
 export const getVendorProfileService = async (vendorId) => {
   const { rows } = await sql.query(
     `SELECT id, owner_contact_name, mobile_number, email, laundry_shop_name,
-            shop_address, gst_number, pan_card_number, account_holder_name,
-            bank_name, account_number, ifsc_code, status,
+            aadhar_number, shop_address, pincode, gst_number, pan_card_number,
+            account_holder_name, bank_name, account_number, ifsc_code, status,
             is_terms_and_condition, is_active
      FROM vendors
      WHERE id = $1`,
@@ -78,6 +86,13 @@ export const getVendorProfileService = async (vendorId) => {
 
 export const updateVendorProfileService = async (vendorId, body) => {
   const mapped = mapProfileUpdateBody(body);
+
+  if (!Object.keys(mapped).length) {
+    throw { status: 400, message: "No fields provided to update" };
+  }
+
+  validateVendorFields(mapped, { partial: true });
+
   const updated = await updateVendorService(vendorId, mapped, null);
   return formatVendorProfile(updated);
 };

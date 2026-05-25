@@ -1,5 +1,6 @@
 import sql from "../../config/db.js";
 import { cleanupAndThrow, deleteFile } from "../../utils/file.service.js";
+import { validateVendorFields } from "../../utils/vendorValidation.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -39,89 +40,31 @@ const validateVendorAuthInput = ({ owner_contact_name, dob, email, password }) =
 };
 
 export const addVendorService = async (body, file) => {
-  const {
-    owner_contact_name,
-    mobile_number,
-    email,
-    aadhar_number,
-    laundry_shop_name,
-    shop_address,
-    account_holder_name,
-    bank_name,
-    account_number,
-    pincode,
-  } = body;
-
-  const pan_card_number = body.pan_card_number?.toUpperCase();
-  const gst_number = body.gst_number?.toUpperCase();
-  const ifsc_code = body.ifsc_code?.toUpperCase();
-
   const imagePath = file ? file.path : null;
 
-  if (!owner_contact_name || !mobile_number || !email || !laundry_shop_name) {
+  let fields;
+  try {
+    fields = validateVendorFields(body, { partial: false });
+  } catch (err) {
     if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw {
-      status: 400,
-      message:
-        "owner_contact_name, mobile_number, email and laundry_shop_name are required",
-    };
-  }
-  if (!mobile_number ||!/^\d{10}$/.test(mobile_number)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw { status: 400, message: "mobile_number must be a 10-digit number" };
-  }
-  // Email format
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw { status: 400, message: "email must be a valid email address" };
+    throw err;
   }
 
-  // Aadhar: exactly 12 digits
-  if (aadhar_number && !/^\d{12}$/.test(aadhar_number)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw { status: 400, message: "aadhar_number must be exactly 12 digits" };
-  }
-
-  // PAN: 5 uppercase letters, 4 digits, 1 uppercase letter
-  if (pan_card_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_card_number)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw {
-      status: 400,
-      message: "pan_card_number must be in valid format (e.g. ABCDE1234F) ",
-    };
-  }
-
-  // GST: 15-character alphanumeric, all uppercase
-  if (gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gst_number)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw {
-      status: 400,
-      message: "gst_number must be a valid 15-character GST number (e.g. 22ABCDE1234F1Z5)",
-    };
-  }
-  // Account number: 9–18 digits
-  if (account_number && !/^\d{9,18}$/.test(account_number)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw {
-      status: 400,
-      message: "account_number must be a valid numeric bank account number (9–18 digits)",
-    };
-  }
-
-  // IFSC: 4 uppercase letters, 0, then 6 alphanumeric chars
-  if (ifsc_code && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw {
-      status: 400,
-      message: "ifsc_code must be a valid IFSC code (e.g. SBIN0001234) in uppercase",
-    };
-  }
-
-  // Pincode: exactly 6 digits
-  if (pincode && !/^\d{6}$/.test(pincode)) {
-    if (imagePath) await deleteFile(imagePath).catch(() => {});
-    throw { status: 400, message: "pincode must be a valid 6-digit pincode" };
-  }
+  const {
+    owner_contact_name: validatedOwner,
+    mobile_number: validatedMobile,
+    email: validatedEmail,
+    aadhar_number: validatedAadhar,
+    pan_card_number,
+    gst_number,
+    laundry_shop_name: validatedLaundry,
+    shop_address: validatedAddress,
+    account_holder_name: validatedAccountHolder,
+    bank_name: validatedBank,
+    account_number: validatedAccountNumber,
+    ifsc_code,
+    pincode: validatedPincode,
+  } = fields;
 
   try {
     const { rows } = await sql.query(
@@ -132,20 +75,20 @@ export const addVendorService = async (body, file) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13 , $14 , active)
        RETURNING *`,
       [
-        owner_contact_name,
-        mobile_number,
-        email.trim(),
-        aadhar_number || null,
+        validatedOwner,
+        validatedMobile,
+        validatedEmail,
+        validatedAadhar || null,
         pan_card_number || null,
-        laundry_shop_name,
-        shop_address || null,
+        validatedLaundry,
+        validatedAddress || null,
         gst_number || null,
-        account_holder_name || null,
-        bank_name || null,
-        account_number || null,
+        validatedAccountHolder || null,
+        validatedBank || null,
+        validatedAccountNumber || null,
         ifsc_code || null,
         imagePath,
-        pincode || null,
+        validatedPincode || null,
       ],
     );
     return rows[0];
@@ -156,67 +99,26 @@ export const addVendorService = async (body, file) => {
 };
 
 export const updateVendorService = async (id, body, file) => {
-  const {
-    owner_contact_name,
-    mobile_number,
-    email,
-    aadhar_number,
-    laundry_shop_name,
-    shop_address,
-    account_holder_name,
-    bank_name,
-    account_number,
-    pincode,
-  } = body;
-
-  const pan_card_number = body.pan_card_number?.toUpperCase();
-  const gst_number = body.gst_number?.toUpperCase();
-  const ifsc_code = body.ifsc_code?.toUpperCase();
-
   const newImagePath = file ? file.path : null;
 
-  if (mobile_number && !/^\d{10}$/.test(mobile_number)) {
-    await cleanupAndThrow(newImagePath , newImagePath ,"mobile_number must be 10 digits");
+  let fields;
+  try {
+    fields = validateVendorFields(body, { partial: true });
+  } catch (err) {
+    if (newImagePath) await deleteFile(newImagePath).catch(() => {});
+    throw err;
   }
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-    await cleanupAndThrow(newImagePath ,"Invalid email format");
-  }
-
-  if (aadhar_number && !/^\d{12}$/.test(aadhar_number)) {
-    await cleanupAndThrow(newImagePath ,"aadhar_number must be 12 digits");
-  }
-
-  if (pan_card_number && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan_card_number)) {
-    await cleanupAndThrow(newImagePath ,"Invalid PAN format");
-  }
-
-  if (gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst_number)) {
-    await cleanupAndThrow(newImagePath ,"Invalid GST format");
-  }
-
-  if (account_number && !/^\d{9,18}$/.test(account_number)) {
-    await cleanupAndThrow(newImagePath ,"Invalid account number");
-  }
-
-  if (ifsc_code && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
-    await cleanupAndThrow(newImagePath ,"Invalid IFSC code");
-  }
-
-  if (pincode && !/^\d{6}$/.test(pincode)) {
-    await cleanupAndThrow(newImagePath ,"Invalid pincode");
-  }
-
-  if (email) {
-    const normalizedEmail = email.trim().toLowerCase();
+  if (fields.email) {
+    const normalizedEmail = fields.email.trim().toLowerCase();
 
     const { rows } = await sql.query(
       `SELECT id FROM vendors WHERE email = $1 AND id != $2`,
-      [normalizedEmail, id]
+      [normalizedEmail, id],
     );
 
     if (rows.length) {
-      await cleanupAndThrow(newImagePath ,"Email already exists");
+      await cleanupAndThrow(newImagePath, "Email already exists");
     }
   }
 
@@ -228,14 +130,13 @@ export const updateVendorService = async (id, body, file) => {
     );
 
     if (!existing.length) {
-      await cleanupAndThrow(newImagePath ,"Vendor not found", 404);
+      await cleanupAndThrow(newImagePath, "Vendor not found", 404);
     }
 
     const vendor = existing[0];
 
-    // =========================
-    // ✅ UPDATE QUERY
-    // =========================
+    const patch = (key) =>
+      body[key] !== undefined ? (fields[key] ?? null) : null;
 
     const { rows } = await sql.query(
       `UPDATE vendors SET
@@ -257,22 +158,24 @@ export const updateVendorService = async (id, body, file) => {
        WHERE id = $15
        RETURNING *`,
       [
-        owner_contact_name ?? null,
-        mobile_number ?? null,
-        email ? email.trim().toLowerCase() : null,
-        aadhar_number ?? null,
-        pan_card_number ?? null,
-        laundry_shop_name ?? null,
-        shop_address ?? null,
-        gst_number ?? null,
-        account_holder_name ?? null,
-        bank_name ?? null,
-        account_number ?? null,
-        ifsc_code ?? null,
+        patch("owner_contact_name"),
+        patch("mobile_number"),
+        body.email !== undefined
+          ? fields.email?.trim().toLowerCase() ?? null
+          : null,
+        patch("aadhar_number"),
+        patch("pan_card_number"),
+        patch("laundry_shop_name"),
+        patch("shop_address"),
+        patch("gst_number"),
+        patch("account_holder_name"),
+        patch("bank_name"),
+        patch("account_number"),
+        patch("ifsc_code"),
         newImagePath,
-        pincode ?? null,
+        patch("pincode"),
         id,
-      ]
+      ],
     );
 
     // =========================
