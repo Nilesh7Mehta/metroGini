@@ -14,3 +14,4 @@ Run in order. Each file depends on the ones before it.
 | 008_notifications.sql | notifications | — (polymorphic) |
 | 009_helpline.sql | helpline | 001 |
 | 010_vendor_auth.sql | vendors (dob, password columns) | 002 |
+| 011_support_requests.sql | support_requests (unified need-help) | 001, 002, 003 |

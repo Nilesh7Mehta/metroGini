@@ -16,32 +16,6 @@ export const acceptTerms = async ({ userId }) => {
   };
 };
 
-// need help
-export const needHelp = async ({ userId, message }) => {
-  if (!message) {
-    return {
-      statusCode: 500,
-      body: { message: "Message Field is required" },
-    };
-  }
-
-  const { rows } = await sql.query(
-    `INSERT into helpline (user_id , message)
-     VALUES ($1 , $2)
-     RETURNING *`,
-    [userId, message.trim()],
-  );
-
-  return {
-    statusCode: 200,
-    body: {
-      status: true,
-      message: "Support request submitted Successfully",
-      data: rows[0],
-    },
-  };
-};
-
 // push_notification
 export const allowNotification = async ({
   userId,

@@ -153,20 +153,6 @@ export const acceptTerms = async(req , res , next)=>{
   }
 }
 
-//need help 
-export const needHelp = async (req , res , next) => {
-  try{
-    const { statusCode, body } = await userSettingsService.needHelp({
-      userId: req.user.id,
-      message: req.body.message,
-    });
-
-    return res.status(statusCode).json(body);
-  }catch(error){
-    next(error); 
-  }
-}
-
 //push_notification
 export const allowNotification = async (req, res, next) => {
   try {

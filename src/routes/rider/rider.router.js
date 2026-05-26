@@ -1,5 +1,6 @@
 import express from "express";
 import * as riderController from '../../controller/rider/rider.controller.js';
+import * as helplineController from '../../controller/helpline.controller.js';
 import {sendOtpLimiter , verifyOtpLimiter}  from '../../middleware/rateLimiter.js';
 import { createUploader } from "../../middleware/upload.js";
 import {authenticate} from '../../middleware/auth.middleware.js'
@@ -15,6 +16,6 @@ router.post('/terms-and-conditions' , authenticate , riderController.acceptTerms
 router.post('/updateProfile' , authenticate , riderUpload.single("image"), riderController.updateProfile);
 router.get('/getProfile' , authenticate , riderController.getProfile);
 
-router.post('/needRiderHelp' ,authenticate ,  riderController.needHelp);
+router.post('/needRiderHelp' ,authenticate ,  helplineController.needHelpAsRider);
 
 export default router;

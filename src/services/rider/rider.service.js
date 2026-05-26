@@ -226,10 +226,3 @@ export const getProfileService = async (rider_id, req) => {
   return rider;
 };
 
-export const needHelpService = async (rider_id, report_issue, message) => {
-  const { rows } = await sql.query(
-    `INSERT INTO rider_helpline (rider_id, report_issue, message) VALUES ($1, $2, $3) RETURNING *`,
-    [rider_id, report_issue, message.trim()],
-  );
-  return rows[0];
-};

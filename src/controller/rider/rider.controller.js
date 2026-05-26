@@ -6,7 +6,6 @@ import {
   acceptTermsService,
   updateProfileService,
   getProfileService,
-  needHelpService,
 } from "../../services/rider/rider.service.js";
 
 export const loginOrVerify = async (req, res, next) => {
@@ -130,24 +129,3 @@ export const getProfile = async (req, res, next) => {
   }
 };
 
-export const needHelp = async (req, res, next) => {
-  try {
-    const { report_issue, message } = req.body;
-    if (!report_issue)
-      return res.status(400).json({ message: "Report issue is required" });
-    if (!message)
-      return res.status(400).json({ message: "Message field is required" });
-    const data = await needHelpService(
-      req.user.rider_id,
-      report_issue,
-      message,
-    );
-    res.status(200).json({
-      status: true,
-      message: "Support request submitted successfully",
-      data,
-    });
-  } catch (error) {
-    next(error);
-  }
-};

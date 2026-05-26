@@ -1882,6 +1882,44 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Need Help (Unified)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"type\": \"vendor\",\r\n  \"message\": \"I need help with my payout settings\",\r\n  \"report_issue\": \"Payment issue\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "needHelp"
+              ]
+            },
+            "description": "Unified support API. type: user | rider | vendor (must match Bearer token). report_issue required when type is rider."
+          },
+          "response": []
         }
       ]
     },
@@ -3304,6 +3342,44 @@
               ]
             },
             "description": "Update vendor profile (partial fields supported). profile_image is always returned as /assets/images/avatar.png."
+          },
+          "response": []
+        },
+        {
+          "name": "Need Help",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"message\": \"I need help updating my shop profile\",\r\n  \"report_issue\": \"Profile issue\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "needHelp"
+              ]
+            },
+            "description": "Vendor shortcut (type fixed to vendor). Prefer POST /api/common/needHelp with type in body for all roles."
           },
           "response": []
         }
