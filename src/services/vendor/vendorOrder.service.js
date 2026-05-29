@@ -1,10 +1,7 @@
 import sql from '../../config/db.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from '../../utils/otp.js';
-import {
-  PICKUP_SHIFT_SLOTS,
-  SHIFT_BY_PICKUP_SLOT,
-} from '../../constants/pickupSlots.js';
+import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
 const SERVICE_CONFIG = {
   1: {
@@ -225,8 +222,8 @@ const buildOperationalDistribution = (orders) => ({
   ).length,
 });
 
-const buildShiftPayload = (slotId, orders, lotCode) => {
-  const config = SHIFT_BY_PICKUP_SLOT[slotId];
+const buildShiftPayload = (slotId, orders, lotCode, shiftByPickupSlot) => {
+  const config = shiftByPickupSlot[slotId];
   const shiftOrders = orders.filter(
     (o) => Number(o.pickup_slot_id) === Number(slotId),
   );
@@ -462,6 +459,8 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
 };
 
 export const getVendorOrdersService = async (vendor_id, selectedDate) => {
+  const { pickupShiftSlotIds, shiftByPickupSlot } =
+    await getPickupShiftConfig();
   const date =
     selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)
       ? selectedDate
@@ -493,15 +492,15 @@ export const getVendorOrdersService = async (vendor_id, selectedDate) => {
       AND o.status NOT IN ('draft', 'cancelled')
     ORDER BY o.pickup_slot_id ASC, o.id ASC
     `,
-    [vendor_id, date, PICKUP_SHIFT_SLOTS],
+    [vendor_id, date, pickupShiftSlotIds],
   );
 
   const lotCode = `LOT-${String(vendor_id).padStart(3, '0')}`;
 
   return {
     selected_date: date,
-    shifts: PICKUP_SHIFT_SLOTS.map((slotId) =>
-      buildShiftPayload(slotId, orders, lotCode),
+    shifts: pickupShiftSlotIds.map((slotId) =>
+      buildShiftPayload(slotId, orders, lotCode, shiftByPickupSlot),
     ),
   };
 };

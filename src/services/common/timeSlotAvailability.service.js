@@ -1,10 +1,9 @@
 import sql from '../../config/db.js';
 import {
-  PICKUP_SHIFT_SLOTS,
   PICKUP_SHIFT_CAPACITY,
   PICKUP_AVAILABILITY_DAYS,
-  SHIFT_BY_PICKUP_SLOT,
 } from '../../constants/pickupSlots.js';
+import { getPickupShiftConfig } from './pickupShiftSlots.service.js';
 
 const formatDate = (date) => {
   if (typeof date === 'string') return date.slice(0, 10);
@@ -43,7 +42,9 @@ export const assertPickupSlotAvailable = async (
   pickup_slot_id,
   excludeOrderId = null,
 ) => {
-  if (!PICKUP_SHIFT_SLOTS.includes(Number(pickup_slot_id))) {
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
+
+  if (!pickupShiftSlotIds.includes(Number(pickup_slot_id))) {
     throw { status: 400, message: 'Invalid pickup slot' };
   }
 
@@ -62,6 +63,7 @@ export const assertPickupSlotAvailable = async (
 };
 
 export const getPickupAvailabilityCalendar = async () => {
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
   const daySpan = PICKUP_AVAILABILITY_DAYS - 1;
 
   const { rows } = await sql.query(
@@ -74,7 +76,7 @@ export const getPickupAvailabilityCalendar = async () => {
       )::date AS pickup_date
     ),
     pickup_slots AS (
-      SELECT id, start_time, end_time, is_peak, peak_extra_charge
+      SELECT id, shift_name, start_time, end_time, is_peak, peak_extra_charge
       FROM time_slots
       WHERE id = ANY($2::int[]) AND is_active = TRUE
     ),
@@ -91,6 +93,7 @@ export const getPickupAvailabilityCalendar = async () => {
     SELECT
       d.pickup_date,
       ts.id,
+      ts.shift_name,
       ts.start_time,
       ts.end_time,
       ts.is_peak,
@@ -102,7 +105,7 @@ export const getPickupAvailabilityCalendar = async () => {
       ON b.pickup_date = d.pickup_date AND b.pickup_slot_id = ts.id
     ORDER BY d.pickup_date, ts.id
     `,
-    [daySpan, PICKUP_SHIFT_SLOTS],
+    [daySpan, pickupShiftSlotIds],
   );
 
   if (rows.length === 0) {
@@ -118,13 +121,13 @@ export const getPickupAvailabilityCalendar = async () => {
 
   for (const row of rows) {
     const dateKey = formatDate(row.pickup_date);
-    const shiftConfig = SHIFT_BY_PICKUP_SLOT[row.id];
     const bookedCount = Number(row.booked_count);
     const remaining = Math.max(0, PICKUP_SHIFT_CAPACITY - bookedCount);
 
     const slot = {
       id: row.id,
-      shift_type: shiftConfig?.shift_type ?? null,
+      shift_name: row.shift_name,
+      shift_type: row.shift_name,
       start_time: row.start_time,
       end_time: row.end_time,
       is_peak: row.is_peak,
