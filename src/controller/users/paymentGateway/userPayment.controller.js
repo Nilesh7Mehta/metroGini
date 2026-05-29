@@ -2,6 +2,8 @@ import sql from "../../../config/db.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { generateOTP } from "../../../utils/otp.js";
 
+
+//Dummy Payment Gateway later on will replace with actual payment gateway
 export const dummyPay = async (req, res, next) => {
   const client = await sql.connect();
 
@@ -109,6 +111,7 @@ export const dummyPay = async (req, res, next) => {
 
     // 8️⃣ Commit
     await client.query("COMMIT");
+
 
     // Notify user — order confirmed
     await createNotificationsBatch([{
