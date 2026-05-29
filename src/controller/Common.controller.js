@@ -1,5 +1,6 @@
 import sql from "../config/db.js";
 import { getImageUrl } from "../utils/getImageUrl.js";
+import { getPickupAvailabilityCalendar } from "../services/common/timeSlotAvailability.service.js";
 
 export const getCities = async (req, res, next) => {
     try {
@@ -43,11 +44,11 @@ export const getServiceTypes = async (req, res, next) => {
 
 export const getTimeSlots = async (req, res, next) => {
     try {
-        const { rows } = await sql.query(`SELECT * FROM time_slots where is_active = true `); 
+        const data = await getPickupAvailabilityCalendar();
         res.status(200).json({
             success: true,
             message: "Time slots retrieved successfully",
-            data: rows,
+            data,
         });
     } catch (error) {
         next(error);

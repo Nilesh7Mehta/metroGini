@@ -1,6 +1,7 @@
 import sql from "../../config/db.js";
 import { calculateOrderPricing } from "../../utils/price.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
+import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -123,6 +124,8 @@ export const updatePickupService = async ({
   );
   if (slot.rows.length === 0)
     throw { status: 400, message: "Invalid or inactive time slot" };
+
+  await assertPickupSlotAvailable(pickup_date, pickup_slot_id, order_id);
 
   const result = await sql.query(
     `UPDATE orders SET pickup_date=$1, pickup_slot_id=$2, updated_at=NOW()
@@ -500,6 +503,8 @@ export const reschedulePickupService = async ({
     );
     if (slotCheck.rows.length === 0)
       throw { status: 400, message: "Invalid or inactive pickup slot" };
+
+    await assertPickupSlotAvailable(pickup_date, pickup_slot_id, order_id);
 
     await client.query(
       `UPDATE orders SET pickup_date=$1, pickup_slot_id=$2, updated_at=NOW() WHERE id=$3`,

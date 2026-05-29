@@ -1,21 +1,10 @@
 import sql from '../../config/db.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from '../../utils/otp.js';
-
-const PICKUP_SHIFT_SLOTS = [1, 2];
-
-const SHIFT_BY_PICKUP_SLOT = {
-  1: {
-    id: 'morning_shift',
-    shift_type: 'morning',
-    title_prefix: 'Morning Shift',
-  },
-  2: {
-    id: 'evening_shift',
-    shift_type: 'evening',
-    title_prefix: 'Evening Shift',
-  },
-};
+import {
+  PICKUP_SHIFT_SLOTS,
+  SHIFT_BY_PICKUP_SLOT,
+} from '../../constants/pickupSlots.js';
 
 const SERVICE_CONFIG = {
   1: {
