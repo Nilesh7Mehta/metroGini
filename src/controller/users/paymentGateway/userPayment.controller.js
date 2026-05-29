@@ -2,6 +2,8 @@ import sql from "../../../config/db.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { generateOTP } from "../../../utils/otp.js";
 
+
+//Dummy Payment Gateway later on will replace with actual payment gateway (Razorpay, Stripe, etc.)
 export const dummyPay = async (req, res, next) => {
   const client = await sql.connect();
 
@@ -46,19 +48,28 @@ export const dummyPay = async (req, res, next) => {
 
     const pincode = addressRes.rows[0].pincode;
 
-    // 3️⃣ Static vendors (MVP)
-    const vendors = [
-      { pincode: "400001", vendor_id: 101 },
-      { pincode: "400010", vendor_id: 102 },
-      { pincode: "400650", vendor_id: 103 },
-      { pincode: "400080", vendor_id: 104 }
-    ];
+    // 3️⃣ Fetch active vendors with pincode
+    const vendorsRes = await client.query(
+      `SELECT id, pincode
+       FROM vendors
+       WHERE is_active = true
+         AND pincode IS NOT NULL`
+    );
+
+    if (vendorsRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "No vendors available",
+      });
+    }
 
     // 4️⃣ Find closest vendor
+    const maxPincodeDiff = Number(process.env.VENDOR_PINCODE_MAX_DIFF) || 100;
+
     let closestVendor = null;
     let minDiff = Infinity;
 
-    vendors.forEach(v => {
+    vendorsRes.rows.forEach((v) => {
       const diff = Math.abs(Number(pincode) - Number(v.pincode));
 
       if (diff < minDiff) {
@@ -67,18 +78,15 @@ export const dummyPay = async (req, res, next) => {
       }
     });
 
-    // 5️⃣ Optional safety check (MVP but important)
-    const MAX_DIFF = 100; // adjust if needed
-
-    if (!closestVendor || minDiff > MAX_DIFF) {
+    // 5️⃣ Service area check
+    if (!closestVendor || minDiff > maxPincodeDiff) {
       await client.query("ROLLBACK");
       return res.status(400).json({
         message: "Service not available in your area",
       });
     }
-    console.log("Closetst" , closestVendor);
 
-    const vendor_id = closestVendor.vendor_id;
+    const vendor_id = closestVendor.id;
 
     const advanceAmount = 500;
 
@@ -103,6 +111,7 @@ export const dummyPay = async (req, res, next) => {
 
     // 8️⃣ Commit
     await client.query("COMMIT");
+
 
     // Notify user — order confirmed
     await createNotificationsBatch([{
