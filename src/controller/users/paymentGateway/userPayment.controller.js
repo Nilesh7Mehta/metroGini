@@ -3,7 +3,7 @@ import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { generateOTP } from "../../../utils/otp.js";
 
 
-//Dummy Payment Gateway later on will replace with actual payment gateway
+//Dummy Payment Gateway later on will replace with actual payment gateway (Razorpay, Stripe, etc.)
 export const dummyPay = async (req, res, next) => {
   const client = await sql.connect();
 
