@@ -26,6 +26,9 @@ router.put('/:id/delivery', userOrderController.updateDelivery);
 //step 5 : finalize order
 router.post('/:id/finalize', userOrderController.finalizeOrder);
 
+// Combined step: service type + pickup + auto delivery (+3 days) + finalize
+router.post('/:id/complete-order', userOrderController.completeOrderSetup);
+
 //step 5: review order
 router.get('/:id/review', userOrderController.reviewOrder);
 

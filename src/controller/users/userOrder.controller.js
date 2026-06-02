@@ -4,6 +4,7 @@ import {
   updatePickupService,
   updateDeliveryService,
   finalizeOrderService,
+  completeOrderService,
   reviewOrderService,
   applyCouponService,
   removeCouponService,
@@ -101,6 +102,25 @@ export const finalizeOrder = async (req, res, next) => {
         order_id: req.params.id,
         estimated_total: estimated_total.toFixed(2),
       });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const completeOrderSetup = async (req, res, next) => {
+  try {
+    const { estimated_total, delivery_date } = await completeOrderService({
+      order_id: req.params.id,
+      user_id: req.user.id,
+      ...req.body,
+    });
+
+    return res.status(200).json({
+      message: "Order completed successfully",
+      order_id: req.params.id,
+      delivery_date,
+      estimated_total: estimated_total.toFixed(2),
+    });
   } catch (error) {
     handleError(error, res, next);
   }

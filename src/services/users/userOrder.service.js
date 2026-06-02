@@ -257,6 +257,152 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
   return estimated_total;
 };
 
+const addDaysToDateString = (dateString, daysToAdd) => {
+  const [year, month, day] = (dateString || "").split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime()))
+    throw { status: 400, message: "Invalid pickup_date format. Use YYYY-MM-DD" };
+
+  date.setDate(date.getDate() + daysToAdd);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+export const completeOrderService = async ({
+  order_id,
+  user_id,
+  service_type_id,
+  pickup_date,
+  pickup_slot_id,
+}) => {
+  if (!service_type_id || !pickup_date || !pickup_slot_id)
+    throw {
+      status: 400,
+      message: "service_type_id, pickup_date and pickup_slot_id are required",
+    };
+  if (isNaN(new Date(pickup_date).getTime()))
+    throw { status: 400, message: "Invalid pickup date" };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selectedDate = new Date(pickup_date);
+  selectedDate.setHours(0, 0, 0, 0);
+  if (selectedDate <= today)
+    throw { status: 400, message: "Pickup date must be a future date" };
+
+  const delivery_date = addDaysToDateString(pickup_date, 3);
+  const delivery_slot_id = pickup_slot_id;
+
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+
+    const slotCheck = await client.query(
+      `SELECT id, start_time, is_peak, peak_extra_charge
+       FROM time_slots
+       WHERE id=$1 AND is_active=TRUE`,
+      [pickup_slot_id],
+    );
+    if (slotCheck.rows.length === 0)
+      throw { status: 400, message: "Invalid or inactive time slot" };
+
+    await assertPickupSlotAvailable(pickup_date, pickup_slot_id, order_id);
+
+    const orderResult = await client.query(
+      `SELECT o.id, o.address_id, o.estimated_weight_min, o.estimated_weight_max,
+              s.base_price_per_kg, st.extra_price_per_kg, st.flat_fee, st.delivery_hours
+       FROM orders o
+       JOIN services s ON o.service_id = s.id
+       JOIN service_types st ON st.id = $3
+       WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'
+       FOR UPDATE`,
+      [order_id, user_id, service_type_id],
+    );
+
+    if (orderResult.rows.length === 0)
+      throw { status: 404, message: "Draft order not found or cannot be updated" };
+
+    const order = orderResult.rows[0];
+
+    if (!order.address_id) {
+      throw {
+        status: 400,
+        message: "Please select a delivery address before completing order",
+      };
+    }
+
+    const pickupDateTime = new Date(
+      `${pickup_date}T${slotCheck.rows[0].start_time}`,
+    );
+    const deliveryDateTime = new Date(
+      `${delivery_date}T${slotCheck.rows[0].start_time}`,
+    );
+    const minDeliveryTime =
+      pickupDateTime.getTime() + Number(order.delivery_hours) * 60 * 60 * 1000;
+
+    if (deliveryDateTime.getTime() < minDeliveryTime) {
+      throw {
+        status: 400,
+        message: `Delivery must be at least ${order.delivery_hours} hours after pickup`,
+      };
+    }
+
+    const avg_weight =
+      (Number(order.estimated_weight_min) + Number(order.estimated_weight_max)) /
+      2;
+    const peak_charge = slotCheck.rows[0].is_peak
+      ? Number(slotCheck.rows[0].peak_extra_charge)
+      : 0;
+
+    const estimated_total =
+      avg_weight * Number(order.base_price_per_kg) +
+      avg_weight * Number(order.extra_price_per_kg) +
+      Number(order.flat_fee) +
+      peak_charge;
+
+    await client.query(
+      `UPDATE orders
+       SET service_type_id=$1,
+           pickup_date=$2,
+           pickup_slot_id=$3,
+           delivery_date=$4,
+           delivery_slot_id=$5,
+           base_price_per_kg=$6,
+           extra_price_per_kg=$7,
+           flat_fee=$8,
+           peak_extra_charge=$9,
+           estimated_total=$10,
+           status='booked',
+           updated_at=NOW()
+       WHERE id=$11`,
+      [
+        service_type_id,
+        pickup_date,
+        pickup_slot_id,
+        delivery_date,
+        delivery_slot_id,
+        order.base_price_per_kg,
+        order.extra_price_per_kg,
+        order.flat_fee,
+        peak_charge,
+        estimated_total,
+        order_id,
+      ],
+    );
+
+    await client.query("COMMIT");
+    return { estimated_total, delivery_date };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 export const reviewOrderService = async ({ order_id, user_id }) => {
   const result = await sql.query(
     `SELECT o.*, s.name AS service_name, s.base_price_per_kg,

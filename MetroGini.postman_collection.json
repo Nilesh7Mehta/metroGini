@@ -372,6 +372,45 @@
               "response": []
             },
             {
+              "name": "Complete Order (Service + Pickup + Finalize)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"service_type_id\": 1,\r\n  \"pickup_date\": \"2026-06-05\",\r\n  \"pickup_slot_id\": 2\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/complete-order",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "complete-order"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
               "name": "Review",
               "request": {
                 "auth": {
