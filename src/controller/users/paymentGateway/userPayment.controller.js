@@ -13,13 +13,20 @@ export const dummyPay = async (req, res, next) => {
     const order_id = req.params.id;
     const user_id = req.user.id;
 
-    // 1️⃣ Validate order + get address_id
+    // 1️⃣ Validate order (must be booked after complete-order/finalize, not yet paid)
     const orderCheck = await client.query(
       `SELECT id, estimated_total, pickup_date, address_id
        FROM orders
        WHERE id = $1
          AND user_id = $2
-         AND status = 'draft'
+         AND status = 'booked'
+         AND (payment_status IS NULL OR payment_status <> 'partially_paid')
+         AND NOT EXISTS (
+           SELECT 1 FROM payments p
+           WHERE p.order_id = orders.id
+             AND p.payment_type = 'advance'
+             AND p.status = 'success'
+         )
        FOR UPDATE`,
       [order_id, user_id]
     );
@@ -27,7 +34,7 @@ export const dummyPay = async (req, res, next) => {
     if (orderCheck.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        message: "Order not found or already paid",
+        message: "Order not found, not ready for payment, or already paid",
       });
     }
 
@@ -90,11 +97,10 @@ export const dummyPay = async (req, res, next) => {
 
     const advanceAmount = 500;
 
-    // 6️⃣ Update order
+    // 6️⃣ Record advance payment + assign vendor
     await client.query(
       `UPDATE orders
-       SET status = 'booked',
-           payment_status = 'partially_paid',
+       SET payment_status = 'partially_paid',
            vendor_id = $2,
            updated_at = NOW()
        WHERE id = $1`,
