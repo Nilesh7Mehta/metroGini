@@ -12,6 +12,7 @@ import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
+import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 
@@ -20,6 +21,7 @@ startPickupCron();
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
 app.use('/uploads' , express.static("uploads"));
@@ -42,6 +44,7 @@ app.get('/', (req, res) => {
 //global error handler next(error) must be last
 app.use((err, req, res, next) => {
   console.error(err);
+  logApiError(err, req);
 
   res.status(err.status || 500).json({
     code: err.status || 500,
