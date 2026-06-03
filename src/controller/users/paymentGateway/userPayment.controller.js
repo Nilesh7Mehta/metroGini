@@ -19,7 +19,6 @@ export const dummyPay = async (req, res, next) => {
        FROM orders
        WHERE id = $1
          AND user_id = $2
-         AND status = 'draft'
        FOR UPDATE`,
       [order_id, user_id]
     );

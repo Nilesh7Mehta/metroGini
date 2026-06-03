@@ -15,9 +15,9 @@ import { apiLimiter } from './middleware/rateLimiter.js';
 import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
-
+import { AssignOrderToRider } from './cron/orderSplitCron.js';
 startPickupCron();
-
+AssignOrderToRider();
 const app = express();
 app.use(express.json());
 app.use(cors());

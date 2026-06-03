@@ -7,7 +7,8 @@ import {authenticate} from '../../middleware/auth.middleware.js'
 const router = express.Router();
 const riderUpload = createUploader("riders");
 
-router.post('/login-or-register' , sendOtpLimiter, riderController.loginOrVerify);
+router.post('/login-or-register' , riderController.loginOrVerify);
+// router.post('/login-or-register' , sendOtpLimiter, riderController.loginOrVerify);
 router.post('/verifyOtp' , verifyOtpLimiter , riderController.verifyOtp);
 
 router.post('/chooseShift' , authenticate, riderController.chooseShift);
