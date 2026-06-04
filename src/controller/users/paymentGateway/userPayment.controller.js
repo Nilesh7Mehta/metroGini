@@ -47,45 +47,81 @@ export const dummyPay = async (req, res, next) => {
 
     const pincode = addressRes.rows[0].pincode;
 
-    // 3️⃣ Fetch active vendors with pincode
-    const vendorsRes = await client.query(
-      `SELECT id, pincode
+    // 3️⃣ Fetch top vendor (primary active vendor)
+    const topVendorRes = await client.query(
+      `SELECT id
        FROM vendors
        WHERE is_active = true
-         AND pincode IS NOT NULL`
+       ORDER BY id ASC
+       LIMIT 1`
     );
 
-    if (vendorsRes.rows.length === 0) {
+    if (topVendorRes.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
         message: "No vendors available",
       });
     }
 
-    // 4️⃣ Find closest vendor
-    const maxPincodeDiff = Number(process.env.VENDOR_PINCODE_MAX_DIFF) || 100;
+    const vendor_id = topVendorRes.rows[0].id;
 
-    let closestVendor = null;
-    let minDiff = Infinity;
-
-    vendorsRes.rows.forEach((v) => {
-      const diff = Math.abs(Number(pincode) - Number(v.pincode));
-
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestVendor = v;
+      // 3️⃣ Fetch top Rider (primary active rider)
+      const topRiderRes = await client.query(
+        `SELECT id
+         FROM riders
+         WHERE is_active = true
+         ORDER BY id ASC
+         LIMIT 1`
+      );
+  
+      if (topRiderRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "No vendors available",
+        });
       }
-    });
+  
+      const rider_id = topVendorRes.rows[0].id;
 
-    // 5️⃣ Service area check
-    if (!closestVendor || minDiff > maxPincodeDiff) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({
-        message: "Service not available in your area",
-      });
-    }
-
-    const vendor_id = closestVendor.id;
+    // // 3️⃣ Fetch active vendors with pincode
+    // const vendorsRes = await client.query(
+    //   `SELECT id, pincode
+    //    FROM vendors
+    //    WHERE is_active = true
+    //      AND pincode IS NOT NULL`
+    // );
+    //
+    // if (vendorsRes.rows.length === 0) {
+    //   await client.query("ROLLBACK");
+    //   return res.status(400).json({
+    //     message: "No vendors available",
+    //   });
+    // }
+    //
+    // // 4️⃣ Find closest vendor
+    // const maxPincodeDiff = Number(process.env.VENDOR_PINCODE_MAX_DIFF) || 100;
+    //
+    // let closestVendor = null;
+    // let minDiff = Infinity;
+    //
+    // vendorsRes.rows.forEach((v) => {
+    //   const diff = Math.abs(Number(pincode) - Number(v.pincode));
+    //
+    //   if (diff < minDiff) {
+    //     minDiff = diff;
+    //     closestVendor = v;
+    //   }
+    // });
+    //
+    // // 5️⃣ Service area check
+    // if (!closestVendor || minDiff > maxPincodeDiff) {
+    //   await client.query("ROLLBACK");
+    //   return res.status(400).json({
+    //     message: "Service not available in your area",
+    //   });
+    // }
+    //
+    // const vendor_id = closestVendor.id;
 
     const advanceAmount = 500;
 
@@ -95,9 +131,10 @@ export const dummyPay = async (req, res, next) => {
        SET status = 'booked',
            payment_status = 'partially_paid',
            vendor_id = $2,
+           assigned_rider_id = $3,
            updated_at = NOW()
        WHERE id = $1`,
-      [order_id, vendor_id]
+      [order_id, vendor_id, rider_id]
     );
 
     // 7️⃣ Insert payment

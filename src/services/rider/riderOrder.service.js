@@ -13,7 +13,7 @@ export const fetchTodayOrders = async (rider_id) => {
 
   const { rows } = await sql.query(
     `SELECT 
-        o.id,TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status,
+        o.id,TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
         ts.start_time, ts.end_time,
         u.full_name AS customer_name, u.id AS customer_id,
         a.complete_address, a.pincode
@@ -94,8 +94,8 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
   const order = rows[0];
   if (order.assigned_rider_id !== rider_id)
     throw { status: 403, message: "You are not assigned to this order" };
-  if (order.status !== "active")
-    throw { status: 400, message: "Order is not in delivery stage" };
+  // if (order.status !== "active")
+  //   throw { status: 400, message: "Order is not in delivery stage" };
   if (order.pickup_otp !== otp) throw { status: 400, message: "Invalid OTP" };
 
   await sql.query(

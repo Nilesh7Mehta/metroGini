@@ -119,7 +119,7 @@ export const goActiveService = async (rider_id) => {
     [rider_id],
   );
 
-  const newStatus = !rows[0].is_active;
+  const newStatus = !rows[0]?.is_active;
 
   await sql.query(`UPDATE riders SET is_active = $1 WHERE id = $2`, [
     newStatus,
