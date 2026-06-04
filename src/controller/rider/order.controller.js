@@ -55,7 +55,7 @@ export const verifyPickupOtp = async (req, res, next) => {
     await verifyOtp(req.user.rider_id, req.body.order_id, req.body.otp);
     return res
       .status(200)
-      .json({ success: true, message: "Delivery completed successfully" });
+      .json({ success: true, message: "Pick up completed successfully" });
   } catch (err) {
     if (err.status)
       return res

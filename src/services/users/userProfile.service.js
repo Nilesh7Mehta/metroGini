@@ -48,7 +48,9 @@ export const updateProfile = async ({ userId, body, file }) => {
 
   const allowedGenders = ["male", "female", "other"];
 
-  if (!allowedGenders.includes(gender.toLowerCase())) {
+  const normalizedGender = gender.toLowerCase();
+
+  if (!allowedGenders.includes(normalizedGender)) {
     return {
       statusCode: 400,
       body: { success: false, message: "Invalid gender value" },
@@ -92,7 +94,7 @@ export const updateProfile = async ({ userId, body, file }) => {
                alternate_phone, profile_image,
                profile_completed,
                terms_and_condition`,
-    [full_name, email, gender, alternate_phone, imagePath, userId],
+    [full_name, email, normalizedGender, alternate_phone, imagePath, userId],
   );
 
   return {

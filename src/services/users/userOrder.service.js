@@ -582,7 +582,7 @@ export const getUserOrdersService = async ({
   );
 
   const result = await sql.query(
-    `SELECT o.id, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+    `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
             s.name AS service_name, s.image AS service_image,
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,

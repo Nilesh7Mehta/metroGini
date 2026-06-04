@@ -217,6 +217,7 @@ export const getUserOrder = async (req, res, next) => {
 
     const formattedOrders = rows.map((order) => ({
       order_id: order.id,
+      status: order.status,
       service_name: order.service_name,
       service_image: order.service_image,
       pickup_slot: {
