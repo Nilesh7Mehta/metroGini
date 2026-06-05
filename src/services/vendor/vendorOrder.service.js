@@ -551,11 +551,6 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
 
   const order = result.rows[0];
 
-  const itemsResult = await sql.query(
-    `SELECT category, quantity FROM order_items WHERE order_id = $1 ORDER BY created_at ASC`,
-    [order_id]
-  );
-
   const internalId = parseInt(order.id, 10);
 
   return {
@@ -579,10 +574,6 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       ? parseInt(order.actual_clothes_count, 10)
       : null,
     actual_weight: order.actual_weight ? parseFloat(order.actual_weight) : null,
-    order_items: itemsResult.rows.map((item) => ({
-      category: item.category,
-      quantity: parseInt(item.quantity, 10),
-    })),
     service: {
       name: order.service_name,
       type: order.service_type_name,
@@ -609,7 +600,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
   };
 };
 
-export const confirmClothesService = async (vendor_id, order_id, items) => {
+export const confirmClothesService = async (vendor_id, order_id, actual_clothes) => {
   const orderCheck = await sql.query(
     `SELECT id, status FROM orders WHERE id = $1 AND vendor_id = $2`,
     [order_id, vendor_id]
@@ -619,48 +610,21 @@ export const confirmClothesService = async (vendor_id, order_id, items) => {
     throw { status: 404, message: 'Order not found or does not belong to this vendor' };
   }
 
- if (orderCheck.rows[0].status !== 'in_process') {
+  if (orderCheck.rows[0].status !== 'in_process') {
     throw { status: 400, message: 'Clothes can only be confirmed when order status is in_process' };
   }
 
-  await sql.query('BEGIN');
+  const actual_clothes_count = parseInt(actual_clothes, 10);
 
-  try {
-    // Delete existing items (supports re-submission)
-    await sql.query('DELETE FROM order_items WHERE order_id = $1', [order_id]);
+  await sql.query(
+    `UPDATE orders SET actual_clothes_count = $1, updated_at = NOW() WHERE id = $2`,
+    [actual_clothes_count, order_id]
+  );
 
-    let total_clothes_count = 0;
-
-    for (const item of items) {
-      if (!item.category || item.quantity === undefined || item.quantity < 0) {
-        throw { status: 400, message: 'Each item must have a category and valid quantity' };
-      }
-
-      await sql.query(
-        `INSERT INTO order_items (order_id, category, quantity) VALUES ($1, $2, $3)`,
-        [order_id, item.category, item.quantity]
-      );
-
-      total_clothes_count += parseInt(item.quantity);
-    }
-
-    // Update actual_clothes_count on orders
-    await sql.query(
-      `UPDATE orders SET actual_clothes_count = $1, updated_at = NOW() WHERE id = $2`,
-      [total_clothes_count, order_id]
-    );
-
-    await sql.query('COMMIT');
-
-    return {
-      order_id: parseInt(order_id),
-      actual_clothes_count: total_clothes_count,
-      items: items.map(item => ({ category: item.category, quantity: parseInt(item.quantity) })),
-    };
-  } catch (error) {
-    await sql.query('ROLLBACK');
-    throw error;
-  }
+  return {
+    order_id: parseInt(order_id),
+    actual_clothes_count,
+  };
 };
 
 export const confirmWeightService = async (vendor_id, order_id, actual_weight) => {

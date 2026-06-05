@@ -57,13 +57,13 @@ export const confirmClothes = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
     const { order_id } = req.params;
-    const { items } = req.body;
+    const { actual_clothes } = req.body;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'items array is required and must not be empty' });
+    if (!actual_clothes || actual_clothes <= 0) {
+      return res.status(400).json({ success: false, message: 'actual_clothes must be a positive number' });
     }
 
-    const data = await confirmClothesService(vendor_id, order_id, items);
+    const data = await confirmClothesService(vendor_id, order_id, actual_clothes);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);

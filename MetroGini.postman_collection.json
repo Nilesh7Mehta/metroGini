@@ -2936,7 +2936,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"items\": [\r\n    { \"category\": \"tops\", \"quantity\": 8 },\r\n    { \"category\": \"bottoms\", \"quantity\": 8 }\r\n  ]\r\n}\r\n",
+                  "raw": "{\r\n  \"actual_clothes\": 16\r\n}\r\n",
                   "options": {
                     "raw": {
                       "language": "json"
