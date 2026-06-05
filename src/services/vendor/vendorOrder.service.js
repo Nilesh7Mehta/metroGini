@@ -133,7 +133,7 @@ const mapOrderToListItem = (order) => {
     : 'Regular';
 
   return {
-    id: order.order_code || `ORD-${order.id}`,
+    id: order.id,
     customer: `CUST${String(order.user_id).padStart(3, '0')}`,
     type: typeLabel,
     details: buildOrderDetails(order),
@@ -559,7 +559,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
   const internalId = parseInt(order.id, 10);
 
   return {
-    id: internalId,
+    id: order.id,
     display_order_id: formatDisplayOrderId(order),
     classification_status: getClassificationStatus(order),
     order_id: internalId,

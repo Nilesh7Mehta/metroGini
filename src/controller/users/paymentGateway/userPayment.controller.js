@@ -77,11 +77,11 @@ export const dummyPay = async (req, res, next) => {
       if (topRiderRes.rows.length === 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          message: "No vendors available",
+          message: "No riders available",
         });
       }
   
-      const rider_id = topVendorRes.rows[0].id;
+      const rider_id = topRiderRes.rows[0].id;
 
     // // 3️⃣ Fetch active vendors with pincode
     // const vendorsRes = await client.query(
