@@ -2,6 +2,8 @@ import express from 'express';
 import * as adminController from '../../controller/admin/admin.controller.js';
 import * as bannerController from '../../controller/admin/banner.controller.js';
 import * as adminvendorController from '../../controller/admin/adminVendor.controller.js';
+import * as adminDashboardController from '../../controller/admin/adminDashboard.controller.js';
+import * as adminOrderController from '../../controller/admin/adminOrder.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
@@ -9,6 +11,8 @@ const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
+router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboard);
+router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.post('/createCoupon',  authenticate,  adminController.createCoupon);
 router.put('/updateCoupon/:id', authenticate,  adminController.updateCoupon);
 // router.delete('/deleteCoupon/:id', adminController.deleteCoupon);

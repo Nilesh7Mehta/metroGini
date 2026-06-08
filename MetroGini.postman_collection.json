@@ -1682,6 +1682,133 @@
           ]
         },
         {
+          "name": "Dashboard",
+          "item": [
+            {
+              "name": "Get Dashboard",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/dashboard?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "dashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "Get Orders",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/orders?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "order_status",
+                      "value": "booked",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-04-01",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-04-07",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Login",
           "request": {
             "method": "POST",
