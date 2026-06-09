@@ -5,7 +5,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Kolkata';
+
+// Return naive PG timestamps as strings so we always interpret them as IST wall-clock.
+types.setTypeParser(1114, (value) => value);
 
 // const pool = new Pool({
 //   host: process.env.DB_HOST,
@@ -23,5 +28,11 @@ const pool = new Pool({
   },
 });
 
+pool.on('connect', (client) => {
+  client.query(`SET TIME ZONE '${APP_TIMEZONE}'`).catch((err) => {
+    console.error('Failed to set database timezone:', err.message);
+  });
+});
 
+export { APP_TIMEZONE };
 export default pool;

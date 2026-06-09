@@ -1,3 +1,5 @@
+import { APP_TIMEZONE } from '../config/db.js';
+
 const LIFECYCLE_TIMESTAMP_KEYS = [
   'booked_at',
   'out_for_pickup_at',
@@ -12,15 +14,49 @@ const LIFECYCLE_TIMESTAMP_KEYS = [
   'payment_completed_at',
 ];
 
-/** @returns {string|null} Formatted as yyyy/mm/dd hh:mm:ss, or null if missing/invalid */
+const IST_OFFSET = '+05:30';
+
+const formatDateParts = (date) => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+};
+
+const parseToDate = (value) => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Naive PG timestamp string — treat as IST wall-clock, not UTC.
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(raw) && !/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+    const normalized = raw.replace(' ', 'T').split('.')[0];
+    const date = new Date(`${normalized}${IST_OFFSET}`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/** @returns {string|null} Formatted as yyyy/mm/dd hh:mm:ss in APP_TIMEZONE, or null if missing/invalid */
 export const formatDateTime = (value) => {
   if (value == null || value === '') return null;
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const date = parseToDate(value);
+  if (!date) return null;
+  return formatDateParts(date);
 };
 
 /** @returns {Record<string, string|null>} All lifecycle timestamps formatted; null when not set */
