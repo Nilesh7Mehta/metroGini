@@ -1832,7 +1832,7 @@
                     "1"
                   ]
                 },
-                "description": "Order details page — batch, service, customer booking, pickup and delivery info."
+                "description": "Order details page — batch, service, customer booking, pickup and delivery info.\n\n**Pickup / delivery timestamps** (format `yyyy/mm/dd hh:mm:ss`):\n- `pickup.timestamp` — formatted `pickup_completed_at`, or `\"Pending\"`\n- `pickup.pickup_completed_at` — null until rider OTP verified\n- `delivery.timestamp` — formatted `delivery_completed_at`, or `\"Pending\"`\n- `delivery.delivery_completed_at` — null until delivery OTP verified\n\n**`timestamps`** — full lifecycle object with keys: `booked_at`, `out_for_pickup_at`, `pickup_started_at`, `pickup_completed_at`, `vendor_received_at`, `order_finalized_at`, `ready_for_delivery_at`, `out_for_delivery_at`, `delivery_completed_at`, `cancelled_at`, `payment_completed_at`, `created_at`, `updated_at`, `otp_generated_at` (null when not yet reached)."
               },
               "response": []
             },
@@ -1863,7 +1863,7 @@
                     "operations"
                   ]
                 },
-                "description": "Order operations — merchant assessment, billing breakdown, and payment summary."
+                "description": "Order operations — merchant assessment, billing breakdown, and payment summary.\n\nIncludes the same **`timestamps`** lifecycle block as Get Order Details (all keys formatted as `yyyy/mm/dd hh:mm:ss`, null when not set)."
               },
               "response": []
             }

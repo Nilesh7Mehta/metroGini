@@ -1,7 +1,13 @@
 import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
+import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { generateOTP } from "../../utils/otp.js";
+
+const attachOrderTimestamps = (row) => ({
+  ...row,
+  timestamps: buildOrderTimestamps(row),
+});
 
 export const fetchTodayOrders = async (rider_id) => {
   const ready = await checkRiderReady(rider_id);
@@ -12,8 +18,12 @@ export const fetchTodayOrders = async (rider_id) => {
     };
 
   const { rows } = await sql.query(
-    `SELECT 
-        o.id,TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
+    `SELECT
+        o.id, TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
+        o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+        o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+        o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+        o.created_at, o.updated_at, o.otp_generated_at,
         ts.start_time, ts.end_time,
         u.full_name AS customer_name, u.id AS customer_id,
         a.complete_address, a.pincode
@@ -25,7 +35,7 @@ export const fetchTodayOrders = async (rider_id) => {
      ORDER BY ts.start_time ASC`,
     [rider_id],
   );
-  return rows;
+  return rows.map(attachOrderTimestamps);
 };
 
 export const fetchTodayDeliveryOrders = async (rider_id) => {
@@ -36,12 +46,16 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
       message: "Rider must select shift and go online first",
     };
   const { rows } = await sql.query(
-    `SELECT 
+    `SELECT
         o.id,
         TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
         o.status,
         o.vendor_id,
         o.payment_status,
+        o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+        o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+        o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+        o.created_at, o.updated_at, o.otp_generated_at,
         ts.start_time,
         ts.end_time,
         u.full_name AS customer_name,
@@ -61,7 +75,7 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
      ORDER BY ts.start_time ASC`,
     [rider_id],
   );
-  return rows;
+  return rows.map(attachOrderTimestamps);
 };
 
 export const fetchDashboardCount = async (rider_id) => {
@@ -100,9 +114,10 @@ export const startDelivery = async (rider_id, order_id) => {
   if (order.status !== "out_for_pickup")
     throw { status: 400, message: "Order cannot be started" };
 
-  await sql.query(`UPDATE orders SET status = 'pickup_in_progress' WHERE id = $1`, [
-    order_id,
-  ]);
+  await sql.query(
+    `UPDATE orders SET status = 'pickup_in_progress', pickup_started_at = NOW() WHERE id = $1`,
+    [order_id],
+  );
 
   // Notify user rider is on the way
   const { rows: orderRows } = await sql.query(
@@ -118,6 +133,14 @@ export const startDelivery = async (rider_id, order_id) => {
       reference_id: order_id,
     }]);
   }
+
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    order_id: parseInt(order_id, 10),
+    status: 'pickup_in_progress',
+    timestamps,
+    pickup_started_at: timestamps.pickup_started_at,
+  };
 };
 
 export const verifyOtp = async (rider_id, order_id, otp) => {
@@ -135,7 +158,7 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
   if (order.pickup_otp !== otp) throw { status: 400, message: "Invalid OTP" };
 
   await sql.query(
-    `UPDATE orders SET status = 'picked_up', otp_verified = 'true' WHERE id = $1`,
+    `UPDATE orders SET status = 'picked_up', otp_verified = 'true', pickup_completed_at = NOW() WHERE id = $1`,
     [order_id],
   );
 
@@ -153,6 +176,14 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
       reference_id: order_id,
     }]);
   }
+
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    order_id: parseInt(order_id, 10),
+    status: 'picked_up',
+    timestamps,
+    pickup_completed_at: timestamps.pickup_completed_at,
+  };
 };
 
 export const resendOtp = async (rider_id, order_id) => {
@@ -217,13 +248,13 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   }
 
   // ✅ Update
- await sql.query(
-  `UPDATE orders 
-   SET status = 'in_process',
-       vendor_received_at = CURRENT_DATE
-   WHERE id = $1`,
-  [order_id]
-);
+  await sql.query(
+    `UPDATE orders
+     SET status = 'in_process',
+         vendor_received_at = NOW()
+     WHERE id = $1`,
+    [order_id],
+  );
 
   // Notify vendor that order has been received
   await createNotificationsBatch([{
@@ -234,6 +265,14 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
     reference_type: 'order',
     reference_id: order_id,
   }]);
+
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    order_id: parseInt(order_id, 10),
+    status: 'in_process',
+    timestamps,
+    vendor_received_at: timestamps.vendor_received_at,
+  };
 };
 
 export const fetchOrderHistory = async (rider_id, query) => {
@@ -288,6 +327,10 @@ export const fetchOrderHistory = async (rider_id, query) => {
   values.push(limit, offset);
   const { rows } = await sql.query(
     `SELECT o.id, o.status, o.created_at,
+            o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+            o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+            o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+            o.updated_at, o.otp_generated_at,
             u.full_name AS customer_name,
             st.name AS service_type,
             uad.complete_address
@@ -301,7 +344,12 @@ export const fetchOrderHistory = async (rider_id, query) => {
     values,
   );
 
-  return { total, page: parseInt(page), limit: parseInt(limit), data: rows };
+  return {
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    data: rows.map(attachOrderTimestamps),
+  };
 };
 
 export const collectPaymentService = async (rider_id, order_id) => {
@@ -347,8 +395,8 @@ export const collectPaymentService = async (rider_id, order_id) => {
   );
 
   await sql.query(
-    `UPDATE orders SET payment_status = 'paid',  updated_at = NOW() WHERE id = $1`,
-    [order_id]
+    `UPDATE orders SET payment_status = 'paid', payment_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [order_id],
   );
 
   await createNotificationsBatch([{
@@ -360,11 +408,14 @@ export const collectPaymentService = async (rider_id, order_id) => {
     reference_id: order_id,
   }]);
 
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
-    order_id: parseInt(order_id),
+    order_id: parseInt(order_id, 10),
     payment_method: 'cash',
     amount_collected: amount_to_collect,
     payment_status: 'paid',
+    timestamps,
+    payment_completed_at: timestamps.payment_completed_at,
   };
 };
 
@@ -387,8 +438,8 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
   }
 
   await sql.query(
-    `UPDATE orders SET status = 'out_for_delivery', updated_at = NOW() WHERE id = $1`,
-    [order_id]
+    `UPDATE orders SET status = 'out_for_delivery', out_for_delivery_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [order_id],
   );
 
   // Notify user their laundry is out for delivery
@@ -405,6 +456,14 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
       reference_id: order_id,
     }]);
   }
+
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    order_id: parseInt(order_id, 10),
+    status: 'out_for_delivery',
+    timestamps,
+    out_for_delivery_at: timestamps.out_for_delivery_at,
+  };
 };
 
 export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
@@ -432,8 +491,8 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
   }
 
   await sql.query(
-    `UPDATE orders SET status = 'delivered', updated_at = NOW() WHERE id = $1`,
-    [order_id]
+    `UPDATE orders SET status = 'delivered', delivery_completed_at = NOW(), delivered_at = CURRENT_DATE, updated_at = NOW() WHERE id = $1`,
+    [order_id],
   );
 
   // Notify user
@@ -461,4 +520,12 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
       reference_id: order_id,
     }]);
   }
+
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    order_id: parseInt(order_id, 10),
+    status: 'delivered',
+    timestamps,
+    delivery_completed_at: timestamps.delivery_completed_at,
+  };
 };

@@ -1,4 +1,5 @@
 import sql from "../../config/db.js";
+import { fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { calculateOrderPricing } from "../../utils/price.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
@@ -242,7 +243,7 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
 
   await sql.query(
     `UPDATE orders SET base_price_per_kg=$1, extra_price_per_kg=$2, flat_fee=$3,
-     peak_extra_charge=$4, estimated_total=$5, status='booked', updated_at=NOW()
+     peak_extra_charge=$4, estimated_total=$5, status='booked', booked_at=NOW(), updated_at=NOW()
      WHERE id=$6`,
     [
       order.base_price_per_kg,
@@ -254,7 +255,12 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     ],
   );
 
-  return estimated_total;
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
+  return {
+    estimated_total,
+    timestamps,
+    booked_at: timestamps.booked_at,
+  };
 };
 
 const addDaysToDateString = (dateString, daysToAdd) => {
@@ -376,6 +382,7 @@ export const completeOrderService = async ({
            peak_extra_charge=$9,
            estimated_total=$10,
            status='booked',
+           booked_at=NOW(),
            updated_at=NOW()
        WHERE id=$11`,
       [
@@ -394,7 +401,13 @@ export const completeOrderService = async ({
     );
 
     await client.query("COMMIT");
-    return { estimated_total, delivery_date };
+    const timestamps = await fetchOrderTimestamps(sql, order_id);
+    return {
+      estimated_total,
+      delivery_date,
+      timestamps,
+      booked_at: timestamps.booked_at,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -583,6 +596,10 @@ export const getUserOrdersService = async ({
 
   const result = await sql.query(
     `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+            o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+            o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+            o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+            o.created_at, o.updated_at, o.otp_generated_at,
             s.name AS service_name, s.image AS service_image,
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
@@ -826,7 +843,7 @@ export const cancelServiceService = async ({
       };
 
     await client.query(
-      `UPDATE orders SET status='cancelled', updated_at=NOW() WHERE id=$1`,
+      `UPDATE orders SET status='cancelled', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`,
       [order_id],
     );
     await client.query(
@@ -853,6 +870,8 @@ export const cancelServiceService = async ({
 
     await client.query("COMMIT");
 
+    const timestamps = await fetchOrderTimestamps(sql, order_id);
+
     await createNotificationsBatch([{
       identity_id: user_id,
       role: 'user',
@@ -861,6 +880,13 @@ export const cancelServiceService = async ({
       reference_type: 'order',
       reference_id: order_id,
     }]);
+
+    return {
+      order_id: parseInt(order_id, 10),
+      status: 'cancelled',
+      timestamps,
+      cancelled_at: timestamps.cancelled_at,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

@@ -48,12 +48,13 @@ export const getDashboardCount = async (req, res, next) => {
 
 export const startOrderDelivery = async (req, res, next) => {
   try {
-    await startDelivery(req.user.rider_id, req.params.id);
+    const data = await startDelivery(req.user.rider_id, req.params.id);
     return res
       .status(200)
       .json({
         success: true,
         message: `Delivery started for Order Id = ORD-${req.params.id}`,
+        data,
       });
   } catch (err) {
     if (err.status)
@@ -66,10 +67,10 @@ export const startOrderDelivery = async (req, res, next) => {
 
 export const verifyPickupOtp = async (req, res, next) => {
   try {
-    await verifyOtp(req.user.rider_id, req.body.order_id, req.body.otp);
+    const data = await verifyOtp(req.user.rider_id, req.body.order_id, req.body.otp);
     return res
       .status(200)
-      .json({ success: true, message: "Pick up completed successfully" });
+      .json({ success: true, message: "Pick up completed successfully", data });
   } catch (err) {
     if (err.status)
       return res
@@ -107,11 +108,12 @@ export const handoverToVendor = async (req, res , next) => {
       });
     }
 
-    const data = await  handoverToVendorService(rider_id, order_id, vendor_id);
+    const data = await handoverToVendorService(rider_id, order_id, vendor_id);
 
     return res.status(200).json({
       success: true,
-      message: "Order successfully handed over to vendor"
+      message: "Order successfully handed over to vendor",
+      data,
     });
 
   } catch (error) {
@@ -164,8 +166,12 @@ export const pickupFromVendor = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'order_id is required' });
     }
 
-    await pickupFromVendorService(rider_id, order_id);
-    return res.status(200).json({ success: true, message: 'Order picked up from vendor, out for delivery' });
+    const data = await pickupFromVendorService(rider_id, order_id);
+    return res.status(200).json({
+      success: true,
+      message: 'Order picked up from vendor, out for delivery',
+      data,
+    });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     next(error);
@@ -181,8 +187,8 @@ export const completeDelivery = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'order_id and otp are required' });
     }
 
-    await verifyDeliveryOtpService(rider_id, order_id, otp);
-    return res.status(200).json({ success: true, message: 'Delivery completed successfully' });
+    const data = await verifyDeliveryOtpService(rider_id, order_id, otp);
+    return res.status(200).json({ success: true, message: 'Delivery completed successfully', data });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     next(error);

@@ -15,3 +15,4 @@ Run in order. Each file depends on the ones before it.
 | 009_helpline.sql | helpline | 001 |
 | 010_vendor_auth.sql | vendors (dob, password columns) | 002 |
 | 011_support_requests.sql | support_requests (unified need-help) | 001, 002, 003 |
+| 012_order_timestamps.sql | orders (lifecycle TIMESTAMP columns) | 006 |

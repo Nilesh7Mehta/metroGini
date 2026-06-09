@@ -1,4 +1,5 @@
 import sql from '../../config/db.js';
+import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from '../../utils/otp.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
@@ -139,6 +140,8 @@ const mapOrderToListItem = (order) => {
     details: buildOrderDetails(order),
     image: serviceConfig.image || order.service_image,
     status: getVendorOperationalStatus(order),
+    pickup_completed_at: formatDateTime(order.pickup_completed_at),
+    delivery_completed_at: formatDateTime(order.delivery_completed_at),
   };
 };
 
@@ -480,6 +483,8 @@ export const getVendorOrdersService = async (vendor_id, selectedDate) => {
       o.actual_clothes_count,
       o.clothes_count,
       o.service_id,
+      o.pickup_completed_at,
+      o.delivery_completed_at,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name
@@ -532,7 +537,21 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       delivery_slot.end_time AS delivery_slot_end,
       o.status,
       o.estimated_total,
-      o.final_total
+      o.final_total,
+      o.booked_at,
+      o.out_for_pickup_at,
+      o.pickup_started_at,
+      o.pickup_completed_at,
+      o.vendor_received_at,
+      o.order_finalized_at,
+      o.ready_for_delivery_at,
+      o.out_for_delivery_at,
+      o.delivery_completed_at,
+      o.cancelled_at,
+      o.payment_completed_at,
+      o.created_at,
+      o.updated_at,
+      o.otp_generated_at
     FROM orders o
     JOIN users u ON o.user_id = u.id
     JOIN services s ON o.service_id = s.id
@@ -585,6 +604,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
         start: order.pickup_slot_start,
         end: order.pickup_slot_end,
       },
+      pickup_completed_at: formatDateTime(order.pickup_completed_at),
     },
     delivery: {
       date: order.delivery_date,
@@ -592,7 +612,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
         start: order.delivery_slot_start,
         end: order.delivery_slot_end,
       },
+      delivery_completed_at: formatDateTime(order.delivery_completed_at),
     },
+    timestamps: buildOrderTimestamps(order),
     status: getVendorOperationalStatus(order),
     workflow_status: order.status,
     estimated_total: parseFloat(order.estimated_total || 0),
@@ -714,8 +736,8 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
 
   // Update status to order_finalized — locks weight/clothes from further edits
   await sql.query(
-    `UPDATE orders SET status = 'order_finalized', updated_at = NOW() WHERE id = $1`,
-    [order_id]
+    `UPDATE orders SET status = 'order_finalized', order_finalized_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [order_id],
   );
 
   // Notify user about final amount
@@ -728,10 +750,13 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     reference_id: order_id,
   }]);
 
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
-    order_id: parseInt(order_id),
+    order_id: parseInt(order_id, 10),
     status: 'order_finalized',
     final_total: parseFloat(order.final_total),
+    timestamps,
+    order_finalized_at: timestamps.order_finalized_at,
   };
 };
 
@@ -757,9 +782,9 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
 
   await sql.query(
     `UPDATE orders
-     SET status = 'ready_for_delivery', delivery_otp = $1, updated_at = NOW()
+     SET status = 'ready_for_delivery', delivery_otp = $1, ready_for_delivery_at = NOW(), updated_at = NOW()
      WHERE id = $2`,
-    [delivery_otp, order_id]
+    [delivery_otp, order_id],
   );
 
   // Send delivery OTP to user
@@ -772,9 +797,12 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     reference_id: order_id,
   }]);
 
+  const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
-    order_id: parseInt(order_id),
+    order_id: parseInt(order_id, 10),
     status: 'ready_for_delivery',
-    delivery_otp //remove in Production
+    delivery_otp, // remove in Production
+    timestamps,
+    ready_for_delivery_at: timestamps.ready_for_delivery_at,
   };
 };

@@ -1,4 +1,5 @@
 import sql from '../../config/db.js';
+import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
@@ -367,17 +368,6 @@ const formatDisplayDate = (dateValue) => {
   });
 };
 
-const formatDisplayTime = (timestamp) => {
-  if (!timestamp) return null;
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-};
-
 const formatShiftLabel = (shiftName) => {
   if (!shiftName) return null;
   const normalized = String(shiftName).trim();
@@ -440,7 +430,20 @@ const fetchAdminOrderById = async (orderId) => {
       o.estimated_total,
       o.final_total,
       o.otp_verified,
+      o.created_at,
       o.updated_at,
+      o.otp_generated_at,
+      o.booked_at,
+      o.out_for_pickup_at,
+      o.pickup_started_at,
+      o.pickup_completed_at,
+      o.vendor_received_at,
+      o.order_finalized_at,
+      o.ready_for_delivery_at,
+      o.out_for_delivery_at,
+      o.delivery_completed_at,
+      o.cancelled_at,
+      o.payment_completed_at,
       o.delivered_at,
       o.vendor_id,
       o.assigned_rider_id,
@@ -495,17 +498,31 @@ const fetchOpenIssueCount = async (orderId) => {
   return rows[0]?.count || 0;
 };
 
-const buildShiftSection = (shiftName, riderName, riderId, otpVerified, timestamp, isDelivered) => ({
-  rider: formatRiderLabel(riderName, riderId),
-  otp_status: isDelivered
-    ? 'Verified'
-    : formatOtpStatus(otpVerified),
-  shift: formatShiftLabel(shiftName),
-  shift_type: formatShiftType(shiftName),
-  timestamp: isDelivered || otpVerified
-    ? formatDisplayTime(timestamp) || 'Pending'
-    : 'Pending',
-});
+const buildPickupSection = (shiftName, riderName, riderId, otpVerified, pickupCompletedAt) => {
+  const pickupCompletedFormatted = formatDateTime(pickupCompletedAt);
+
+  return {
+    rider: formatRiderLabel(riderName, riderId),
+    otp_status: formatOtpStatus(otpVerified),
+    shift: formatShiftLabel(shiftName),
+    shift_type: formatShiftType(shiftName),
+    timestamp: pickupCompletedFormatted || 'Pending',
+    pickup_completed_at: pickupCompletedFormatted,
+  };
+};
+
+const buildDeliverySection = (shiftName, riderName, riderId, deliveryCompleted, deliveryCompletedAt) => {
+  const deliveryCompletedFormatted = formatDateTime(deliveryCompletedAt);
+
+  return {
+    rider: formatRiderLabel(riderName, riderId),
+    otp_status: deliveryCompleted ? 'Verified' : 'Pending',
+    shift: formatShiftLabel(shiftName),
+    shift_type: formatShiftType(shiftName),
+    timestamp: deliveryCompletedFormatted || 'Pending',
+    delivery_completed_at: deliveryCompletedFormatted,
+  };
+};
 
 const buildBillingPayload = (order) => {
   const actualWeight =
@@ -646,22 +663,21 @@ export const getAdminOrderDetailsService = async (orderId) => {
       pickup_shift_type: formatShiftType(order.pickup_shift_name),
       notes: 'N/A',
     },
-    pickup: buildShiftSection(
+    pickup: buildPickupSection(
       order.pickup_shift_name,
       order.rider_name,
       order.assigned_rider_id,
       pickupVerified,
-      order.updated_at,
-      false,
+      order.pickup_completed_at,
     ),
-    delivery: buildShiftSection(
+    delivery: buildDeliverySection(
       order.delivery_shift_name,
       order.rider_name,
       order.assigned_rider_id,
       deliveryCompleted,
-      order.delivered_at || order.updated_at,
-      deliveryCompleted,
+      order.delivery_completed_at,
     ),
+    timestamps: buildOrderTimestamps(order),
   };
 };
 
@@ -707,5 +723,6 @@ export const getAdminOrderOperationsService = async (orderId) => {
     },
     billing,
     payment: buildPaymentPayload(order, billing, payments),
+    timestamps: buildOrderTimestamps(order),
   };
 };

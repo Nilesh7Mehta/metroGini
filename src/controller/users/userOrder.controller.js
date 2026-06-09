@@ -1,3 +1,4 @@
+import { buildOrderTimestamps } from "../../utils/datetime.util.js";
 import {
   createDraftOrderService,
   updateServiceTypeService,
@@ -91,7 +92,7 @@ export const updateDelivery = async (req, res, next) => {
 
 export const finalizeOrder = async (req, res, next) => {
   try {
-    const estimated_total = await finalizeOrderService({
+    const { estimated_total, timestamps, booked_at } = await finalizeOrderService({
       order_id: req.params.id,
       user_id: req.user.id,
     });
@@ -101,6 +102,8 @@ export const finalizeOrder = async (req, res, next) => {
         message: "Order finalized successfully",
         order_id: req.params.id,
         estimated_total: estimated_total.toFixed(2),
+        timestamps,
+        booked_at,
       });
   } catch (error) {
     handleError(error, res, next);
@@ -109,17 +112,20 @@ export const finalizeOrder = async (req, res, next) => {
 
 export const completeOrderSetup = async (req, res, next) => {
   try {
-    const { estimated_total, delivery_date } = await completeOrderService({
-      order_id: req.params.id,
-      user_id: req.user.id,
-      ...req.body,
-    });
+    const { estimated_total, delivery_date, timestamps, booked_at } =
+      await completeOrderService({
+        order_id: req.params.id,
+        user_id: req.user.id,
+        ...req.body,
+      });
 
     return res.status(200).json({
       message: "Order completed successfully",
       order_id: req.params.id,
       delivery_date,
       estimated_total: estimated_total.toFixed(2),
+      timestamps,
+      booked_at,
     });
   } catch (error) {
     handleError(error, res, next);
@@ -233,6 +239,7 @@ export const getUserOrder = async (req, res, next) => {
         estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
       },
       payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
+      timestamps: buildOrderTimestamps(order),
     }));
 
     return res.status(200).json({
@@ -284,14 +291,15 @@ export const rescheduleOrderDelivery = async (req, res, next) => {
 
 export const cancelService = async (req, res, next) => {
   try {
-    await cancelServiceService({
+    const data = await cancelServiceService({
       order_id: req.params.id,
       user_id: req.user.id,
       ...req.body,
     });
-    return res
-      .status(200)
-      .json({ message: "Order cancelled successfully. ₹500 coupon added." });
+    return res.status(200).json({
+      message: "Order cancelled successfully. ₹500 coupon added.",
+      data,
+    });
   } catch (error) {
     handleError(error, res, next);
   }

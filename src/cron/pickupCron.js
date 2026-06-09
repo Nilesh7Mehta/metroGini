@@ -28,7 +28,8 @@ export const startPickupCron = () => {
           `UPDATE orders
            SET status = 'out_for_pickup',
                pickup_otp = $1,
-               otp_generated_at = NOW()
+               otp_generated_at = NOW(),
+               out_for_pickup_at = NOW()
            WHERE id = $2`,
           [otp, order.id]
         );
