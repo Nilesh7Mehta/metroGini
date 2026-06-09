@@ -13,6 +13,8 @@ const router = express.Router();
 router.post('/login', adminController.loginAdmin);
 router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboard);
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
+router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
+router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
 router.post('/createCoupon',  authenticate,  adminController.createCoupon);
 router.put('/updateCoupon/:id', authenticate,  adminController.updateCoupon);
 // router.delete('/deleteCoupon/:id', adminController.deleteCoupon);

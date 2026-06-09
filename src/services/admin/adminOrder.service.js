@@ -186,6 +186,7 @@ const mapAdminOrder = (order) => {
   const issueType = resolveIssueType(order);
 
   return {
+    id: order.id,
     order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
     customer_id: `CUST${String(order.user_id).padStart(3, '0')}`,
     service_type: getServiceKey(order.service_id),
@@ -333,5 +334,378 @@ export const getAdminOrdersService = async (query = {}) => {
     date_label: formatDateLabel(start, end),
     top_stats: buildTopStats(orders),
     shifts,
+  };
+};
+
+const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
+
+const formatEntityId = (prefix, id) =>
+  `${prefix}-${String(id).padStart(3, '0')}`;
+
+const formatRiderLabel = (name, id) =>
+  name ? `${name} | ${formatEntityId('RID', id)}` : null;
+
+const formatMerchantLabel = (name, id) =>
+  name ? `${name} | ${formatEntityId('MER', id)}` : null;
+
+const formatServiceCategory = (serviceTypeName) => {
+  if (!serviceTypeName) return null;
+  return serviceTypeName.replace(/\s+Service$/i, '').trim();
+};
+
+const formatDisplayDate = (dateValue) => {
+  if (!dateValue) return null;
+  const date =
+    dateValue instanceof Date
+      ? dateValue
+      : new Date(`${String(dateValue).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const formatDisplayTime = (timestamp) => {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const formatShiftLabel = (shiftName) => {
+  if (!shiftName) return null;
+  const normalized = String(shiftName).trim();
+  if (/shift$/i.test(normalized)) return normalized;
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} Shift`;
+};
+
+const formatShiftType = (shiftName) =>
+  shiftName ? String(shiftName).trim().toLowerCase() : null;
+
+const formatCountLabel = (count, unit = 'items') => {
+  const value = Number(count || 0);
+  return `${value} ${unit}`;
+};
+
+const formatWeightEstimate = (min, max) => {
+  const estKg = getEstimatedKg(min, max);
+  return `Est. ${estKg}kg`;
+};
+
+const formatWeightDifference = (actualWeight, min, max) => {
+  if (actualWeight == null) return 'N/A';
+  const estimated = getEstimatedKg(min, max);
+  const diff = parseFloat((Number(actualWeight) - estimated).toFixed(1));
+  if (diff === 0) return '0kg';
+  return `${diff > 0 ? '+' : ''}${diff}kg`;
+};
+
+const formatOtpStatus = (verified) => (verified ? 'Verified' : 'Pending');
+
+const resolveLotForPickupSlot = (pickupSlotId, pickupShiftSlotIds) => {
+  const index = pickupShiftSlotIds.indexOf(Number(pickupSlotId));
+  if (index === -1) return null;
+  return `LOT-${String(index + 1).padStart(3, '0')}`;
+};
+
+const fetchAdminOrderById = async (orderId) => {
+  const { rows } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      o.service_id,
+      o.status,
+      o.payment_status,
+      o.pickup_slot_id,
+      o.delivery_slot_id,
+      o.pickup_date,
+      o.delivery_date,
+      o.clothes_count,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.base_price_per_kg,
+      o.extra_price_per_kg,
+      o.flat_fee,
+      o.peak_extra_charge,
+      o.estimated_total,
+      o.final_total,
+      o.otp_verified,
+      o.updated_at,
+      o.delivered_at,
+      o.vendor_id,
+      o.assigned_rider_id,
+      u.full_name AS customer_name,
+      s.name AS service_name,
+      st.name AS service_type_name,
+      pickup_ts.shift_name AS pickup_shift_name,
+      delivery_ts.shift_name AS delivery_shift_name,
+      r.full_name AS rider_name,
+      v.laundry_shop_name AS vendor_name
+    FROM orders o
+    JOIN users u ON o.user_id = u.id
+    JOIN services s ON o.service_id = s.id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    LEFT JOIN time_slots pickup_ts ON o.pickup_slot_id = pickup_ts.id
+    LEFT JOIN time_slots delivery_ts ON o.delivery_slot_id = delivery_ts.id
+    LEFT JOIN riders r ON o.assigned_rider_id = r.id
+    LEFT JOIN vendors v ON o.vendor_id = v.id
+    WHERE o.id = $1
+      AND o.status NOT IN ('draft', 'cancelled')
+  `,
+    [orderId],
+  );
+
+  return rows[0] || null;
+};
+
+const fetchOrderPayments = async (orderId) => {
+  const { rows } = await sql.query(
+    `
+    SELECT amount, payment_type, payment_method, status
+    FROM payments
+    WHERE order_id = $1
+    ORDER BY created_at ASC
+  `,
+    [orderId],
+  );
+
+  return rows;
+};
+
+const fetchOpenIssueCount = async (orderId) => {
+  const { rows } = await sql.query(
+    `
+    SELECT COUNT(*)::int AS count
+    FROM order_reports
+    WHERE order_id = $1 AND status = 'open'
+  `,
+    [orderId],
+  );
+
+  return rows[0]?.count || 0;
+};
+
+const buildShiftSection = (shiftName, riderName, riderId, otpVerified, timestamp, isDelivered) => ({
+  rider: formatRiderLabel(riderName, riderId),
+  otp_status: isDelivered
+    ? 'Verified'
+    : formatOtpStatus(otpVerified),
+  shift: formatShiftLabel(shiftName),
+  shift_type: formatShiftType(shiftName),
+  timestamp: isDelivered || otpVerified
+    ? formatDisplayTime(timestamp) || 'Pending'
+    : 'Pending',
+});
+
+const buildBillingPayload = (order) => {
+  const actualWeight =
+    order.actual_weight != null
+      ? parseFloat(Number(order.actual_weight).toFixed(1))
+      : getEstimatedKg(order.estimated_weight_min, order.estimated_weight_max);
+
+  const ratePerKg =
+    Number(order.base_price_per_kg || 0) + Number(order.extra_price_per_kg || 0);
+  const weightAmount = Math.round(actualWeight * ratePerKg);
+
+  const additionalCharges = [];
+
+  const flatFee = Number(order.flat_fee || 0);
+  if (flatFee > 0) {
+    additionalCharges.push({
+      name: 'Service Fee',
+      qty: 1,
+      rate: String(Math.round(flatFee)),
+      amount: String(Math.round(flatFee)),
+    });
+  }
+
+  const peakCharge = Number(order.peak_extra_charge || 0);
+  if (peakCharge > 0) {
+    additionalCharges.push({
+      name: 'Peak Hour Surcharge',
+      qty: 1,
+      rate: String(Math.round(peakCharge)),
+      amount: String(Math.round(peakCharge)),
+    });
+  }
+
+  const weightMax = Number(order.estimated_weight_max || 0);
+  if (order.actual_weight != null && Number(order.actual_weight) > weightMax && weightMax > 0) {
+    const extraKg = parseFloat((Number(order.actual_weight) - weightMax).toFixed(1));
+    const extraAmount = Math.round(extraKg * ratePerKg);
+    if (extraAmount > 0) {
+      additionalCharges.push({
+        name: 'Extra Weight Charge',
+        qty: 1,
+        rate: String(extraAmount),
+        amount: String(extraAmount),
+      });
+    }
+  }
+
+  const additionalTotal = additionalCharges.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0,
+  );
+  const subtotal = weightAmount + additionalTotal;
+  const gst = Math.round(subtotal * 0.18);
+  const computedTotal = subtotal + gst;
+  const totalAmount =
+    order.final_total != null
+      ? Math.round(Number(order.final_total))
+      : computedTotal;
+
+  return {
+    weight_label: `Total Weight Charges - ${actualWeight}kg`,
+    weight_amount: String(weightAmount),
+    additional_charges: additionalCharges,
+    subtotal: String(subtotal),
+    gst_label: 'GST (18%)',
+    gst: String(gst),
+    total_amount: String(totalAmount),
+  };
+};
+
+const buildPaymentPayload = (order, billing, payments) => {
+  const successfulPayments = payments.filter((payment) => payment.status === 'success');
+  const advancePayments = successfulPayments.filter(
+    (payment) => payment.payment_type === 'advance',
+  );
+  const remainingPayments = successfulPayments.filter(
+    (payment) => payment.payment_type === 'remaining',
+  );
+
+  const preBookingPayment = advancePayments.reduce(
+    (sum, payment) => sum + Number(payment.amount),
+    0,
+  );
+  const remainingPaid = remainingPayments.reduce(
+    (sum, payment) => sum + Number(payment.amount),
+    0,
+  );
+
+  const paymentMethod = advancePayments[0]?.payment_method || null;
+  const modeOfPayment = paymentMethod || 'N/A';
+
+  const totalDue = Number(billing.total_amount);
+  const outstanding = Math.max(0, Math.round(totalDue - preBookingPayment - remainingPaid));
+
+  return {
+    pre_booking_payment: String(Math.round(preBookingPayment)),
+    mode_of_payment: modeOfPayment,
+    outstanding_amount: String(outstanding),
+  };
+};
+
+export const getAdminOrderDetailsService = async (orderId) => {
+  const order = await fetchAdminOrderById(orderId);
+
+  if (!order) {
+    throw { status: 404, message: 'Order not found' };
+  }
+
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
+  const lot = resolveLotForPickupSlot(order.pickup_slot_id, pickupShiftSlotIds);
+  const pickupVerified = Boolean(order.otp_verified);
+  const deliveryCompleted = order.status === 'delivered';
+
+  return {
+    id: order.id,
+    order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
+    status: getAdminDisplayStatus(order.status),
+    payment_status: order.payment_status || 'pending',
+    batch: {
+      lot,
+      shift: formatShiftLabel(order.pickup_shift_name),
+      shift_type: formatShiftType(order.pickup_shift_name),
+    },
+    service: {
+      name: order.service_name,
+      category: formatServiceCategory(order.service_type_name),
+    },
+    customer_booking: {
+      customer_name: order.customer_name,
+      customer_id: formatCustomerId(order.user_id),
+      declared_count: formatCountLabel(order.clothes_count),
+      estimated_weight: formatWeightEstimate(
+        order.estimated_weight_min,
+        order.estimated_weight_max,
+      ),
+      pickup_date: formatDisplayDate(order.pickup_date),
+      pickup_shift: formatShiftLabel(order.pickup_shift_name),
+      pickup_shift_type: formatShiftType(order.pickup_shift_name),
+      notes: 'N/A',
+    },
+    pickup: buildShiftSection(
+      order.pickup_shift_name,
+      order.rider_name,
+      order.assigned_rider_id,
+      pickupVerified,
+      order.updated_at,
+      false,
+    ),
+    delivery: buildShiftSection(
+      order.delivery_shift_name,
+      order.rider_name,
+      order.assigned_rider_id,
+      deliveryCompleted,
+      order.delivered_at || order.updated_at,
+      deliveryCompleted,
+    ),
+  };
+};
+
+export const getAdminOrderOperationsService = async (orderId) => {
+  const order = await fetchAdminOrderById(orderId);
+
+  if (!order) {
+    throw { status: 404, message: 'Order not found' };
+  }
+
+  const [payments, openIssueCount] = await Promise.all([
+    fetchOrderPayments(orderId),
+    fetchOpenIssueCount(orderId),
+  ]);
+
+  const billing = buildBillingPayload(order);
+  const verifiedCount =
+    order.actual_clothes_count != null
+      ? formatCountLabel(order.actual_clothes_count, 'Items')
+      : 'N/A';
+  const actualWeight =
+    order.actual_weight != null
+      ? `${parseFloat(Number(order.actual_weight).toFixed(1))}kg`
+      : 'N/A';
+
+  return {
+    id: order.id,
+    order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
+    merchant_assessment: {
+      merchant: formatMerchantLabel(order.vendor_name, order.vendor_id),
+      verified_count: verifiedCount,
+      actual_weight: actualWeight,
+      count_difference: formatWeightDifference(
+        order.actual_weight,
+        order.estimated_weight_min,
+        order.estimated_weight_max,
+      ),
+      extra_care_items:
+        openIssueCount > 0
+          ? `${openIssueCount} Item${openIssueCount === 1 ? '' : 's'} Flagged`
+          : 'N/A',
+      non_serviceable_items: 'N/A',
+    },
+    billing,
+    payment: buildPaymentPayload(order, billing, payments),
   };
 };

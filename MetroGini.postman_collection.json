@@ -1805,6 +1805,67 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "Get Order Details",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/orders/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "orders",
+                    "1"
+                  ]
+                },
+                "description": "Order details page — batch, service, customer booking, pickup and delivery info."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Order Operations",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/order/1/operations",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "order",
+                    "1",
+                    "operations"
+                  ]
+                },
+                "description": "Order operations — merchant assessment, billing breakdown, and payment summary."
+              },
+              "response": []
             }
           ]
         },
