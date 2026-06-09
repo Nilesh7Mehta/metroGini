@@ -24,5 +24,4 @@ const pool = new Pool({
 });
 
 
-
 export default pool;

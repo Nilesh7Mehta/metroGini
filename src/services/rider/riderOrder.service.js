@@ -28,6 +28,42 @@ export const fetchTodayOrders = async (rider_id) => {
   return rows;
 };
 
+export const fetchTodayDeliveryOrders = async (rider_id) => {
+  const ready = await checkRiderReady(rider_id);
+  if (!ready)
+    throw {
+      status: 400,
+      message: "Rider must select shift and go online first",
+    };
+  const { rows } = await sql.query(
+    `SELECT 
+        o.id,
+        TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+        o.status,
+        o.vendor_id,
+        o.payment_status,
+        ts.start_time,
+        ts.end_time,
+        u.full_name AS customer_name,
+        u.id AS customer_id,
+        a.complete_address,
+        a.pincode,
+        v.laundry_shop_name AS vendor_name,
+        v.shop_address AS shop_address
+     FROM orders o
+     JOIN time_slots ts ON ts.id = o.delivery_slot_id
+     JOIN users u ON u.id = o.user_id
+     JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN vendors v ON v.id = o.vendor_id
+     WHERE o.assigned_rider_id = $1
+       AND o.delivery_date = CURRENT_DATE
+       AND o.status IN ('in_process', 'ready_for_delivery', 'out_for_delivery')
+     ORDER BY ts.start_time ASC`,
+    [rider_id],
+  );
+  return rows;
+};
+
 export const fetchDashboardCount = async (rider_id) => {
   const { rows } = await sql.query(
     `SELECT

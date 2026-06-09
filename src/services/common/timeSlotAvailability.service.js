@@ -66,12 +66,20 @@ export const getPickupAvailabilityCalendar = async () => {
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
   const daySpan = PICKUP_AVAILABILITY_DAYS - 1;
 
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() + 1);
+  const startDateStr = formatDate(startDate);
+
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + daySpan);
+  const endDateStr = formatDate(endDate);
+
   const { rows } = await sql.query(
     `
     WITH date_series AS (
       SELECT generate_series(
-        CURRENT_DATE,
-        CURRENT_DATE + ($1::int * INTERVAL '1 day'),
+        $3::date,
+        $3::date + ($1::int * INTERVAL '1 day'),
         INTERVAL '1 day'
       )::date AS pickup_date
     ),
@@ -83,7 +91,7 @@ export const getPickupAvailabilityCalendar = async () => {
     bookings AS (
       SELECT pickup_date, pickup_slot_id, COUNT(*)::int AS booked_count
       FROM orders
-      WHERE pickup_date BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1::int * INTERVAL '1 day')
+      WHERE pickup_date BETWEEN $3::date AND $3::date + ($1::int * INTERVAL '1 day')
         AND pickup_slot_id = ANY($2::int[])
         AND status <> 'cancelled'
         AND pickup_date IS NOT NULL
@@ -105,14 +113,14 @@ export const getPickupAvailabilityCalendar = async () => {
       ON b.pickup_date = d.pickup_date AND b.pickup_slot_id = ts.id
     ORDER BY d.pickup_date, ts.id
     `,
-    [daySpan, pickupShiftSlotIds],
+    [daySpan, pickupShiftSlotIds, startDateStr],
   );
 
   if (rows.length === 0) {
     return {
       capacity_per_shift: PICKUP_SHIFT_CAPACITY,
-      from_date: formatDate(new Date()),
-      to_date: formatDate(new Date()),
+      from_date: startDateStr,
+      to_date: endDateStr,
       days: [],
     };
   }

@@ -1,5 +1,6 @@
 import {
   fetchTodayOrders,
+  fetchTodayDeliveryOrders,
   fetchDashboardCount,
   startDelivery,
   verifyOtp,
@@ -13,6 +14,19 @@ import {
 export const getTodayOrderList = async (req, res, next) => {
   try {
     const data = await fetchTodayOrders(req.user.rider_id);
+    return res.status(200).json({ status: true, data });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ status: false, message: err.message });
+    next(err);
+  }
+};
+
+export const getTodayDeliveryOrderList = async (req, res, next) => {
+  try {
+    const data = await fetchTodayDeliveryOrders(req.user.rider_id);
     return res.status(200).json({ status: true, data });
   } catch (err) {
     if (err.status)

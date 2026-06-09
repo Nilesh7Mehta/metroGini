@@ -4,6 +4,7 @@ import { authenticate } from '../../middleware/auth.middleware.js';
 import { sendOtpLimiter, verifyOtpLimiter } from '../../middleware/rateLimiter.js';
 const router = express.Router();
 router.get('/getTodayOrder' , authenticate , riderOrderController.getTodayOrderList);
+router.get('/getTodayDeliveryOrders', authenticate, riderOrderController.getTodayDeliveryOrderList);
 router.get('/getDashboardCount' , authenticate , riderOrderController.getDashboardCount);
 
 //start delivery

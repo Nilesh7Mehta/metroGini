@@ -77,7 +77,7 @@ export const dummyPay = async (req, res, next) => {
       if (topRiderRes.rows.length === 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          message: "No riders available",
+          message: "No rider available",
         });
       }
   
