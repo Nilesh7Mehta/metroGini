@@ -341,7 +341,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
 
     FROM orders
     WHERE vendor_id = $1
-      AND vendor_received_at BETWEEN $2::date AND $3::date
+      AND vendor_received_at::date BETWEEN $2::date AND $3::date
     `,
     [vendor_id, start, end]
   );
@@ -366,7 +366,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
     FROM orders o
     LEFT JOIN service_types st ON o.service_type_id = st.id
     WHERE o.vendor_id = $1
-      AND o.vendor_received_at BETWEEN $2::date AND $3::date
+      AND o.vendor_received_at::date BETWEEN $2::date AND $3::date
       AND o.status NOT IN ('draft', 'cancelled')
     `,
     [vendor_id, start, end]
@@ -425,7 +425,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
 
     FROM orders
     WHERE vendor_id = $1
-      AND vendor_received_at BETWEEN $2::date AND $3::date
+      AND vendor_received_at::date BETWEEN $2::date AND $3::date
       AND status NOT IN ('draft', 'cancelled')
     `,
     [vendor_id, start, end]
