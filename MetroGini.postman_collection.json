@@ -1870,6 +1870,144 @@
           ]
         },
         {
+          "name": "Merchants",
+          "item": [
+            {
+              "name": "Get Merchants",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "inactive",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Admin merchant list with `top_stats` and per-merchant `batches`.\n\nOptional query: `status=active` | `status=inactive` (maps to `vendors.is_active`).\n\nMerchant `id` format: `MER-001`. Batches group active pipeline orders by pickup shift (`LOT-001`, etc.)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Merchant Details",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants/MER-001",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants",
+                    "MER-001"
+                  ]
+                },
+                "description": "Merchant profile — business, equipment, and banking sections.\n\nAccepts `MER-001` or numeric id `1`.\n\nFields not stored in DB (equipment, working hours, UPI) return `N/A`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Merchant Orders",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants/MER-001/orders?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants",
+                    "MER-001",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "order_status",
+                      "value": "in_progress",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-04-01",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-04-07",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Merchant orders grouped by `vendor_received_at` date and pickup shift.\n\nQuery: `period=today|week|month`, `order_status=in_progress`, or `date_from` + `date_to`.\n\nResponse includes `capacity`, `summary`, and `groups[]` with batch workloads and order list."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Login",
           "request": {
             "method": "POST",

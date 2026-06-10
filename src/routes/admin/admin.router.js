@@ -4,6 +4,7 @@ import * as bannerController from '../../controller/admin/banner.controller.js';
 import * as adminvendorController from '../../controller/admin/adminVendor.controller.js';
 import * as adminDashboardController from '../../controller/admin/adminDashboard.controller.js';
 import * as adminOrderController from '../../controller/admin/adminOrder.controller.js';
+import * as adminMerchantController from '../../controller/admin/adminMerchant.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
@@ -15,6 +16,9 @@ router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboar
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
+router.get('/merchants', authenticate, adminMerchantController.getAdminMerchants);
+router.get('/merchants/:id/orders', authenticate, adminMerchantController.getAdminMerchantOrders);
+router.get('/merchants/:id', authenticate, adminMerchantController.getAdminMerchantDetails);
 router.post('/createCoupon',  authenticate,  adminController.createCoupon);
 router.put('/updateCoupon/:id', authenticate,  adminController.updateCoupon);
 // router.delete('/deleteCoupon/:id', adminController.deleteCoupon);
