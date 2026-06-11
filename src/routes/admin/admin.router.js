@@ -16,8 +16,10 @@ router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboar
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
+router.post('/merchants', authenticate, adminMerchantController.createAdminMerchant);
 router.get('/merchants', authenticate, adminMerchantController.getAdminMerchants);
 router.get('/merchants/:id/orders', authenticate, adminMerchantController.getAdminMerchantOrders);
+router.put('/merchants/:id', authenticate, adminMerchantController.updateAdminMerchant);
 router.get('/merchants/:id', authenticate, adminMerchantController.getAdminMerchantDetails);
 router.post('/createCoupon',  authenticate,  adminController.createCoupon);
 router.put('/updateCoupon/:id', authenticate,  adminController.updateCoupon);

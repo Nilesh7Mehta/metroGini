@@ -2,7 +2,47 @@ import {
   getAdminMerchantsService,
   getAdminMerchantDetailsService,
   getAdminMerchantOrdersService,
+  createAdminMerchantService,
+  updateAdminMerchantService,
 } from '../../services/admin/adminMerchant.service.js';
+
+export const createAdminMerchant = async (req, res, next) => {
+  try {
+    const data = await createAdminMerchantService(req.body);
+    return res.status(201).json({
+      success: true,
+      message: 'Merchant created successfully',
+      data,
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+    if (err.status) {
+      return res.status(err.status).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
+export const updateAdminMerchant = async (req, res, next) => {
+  try {
+    const data = await updateAdminMerchantService(req.params.id, req.body);
+    return res.status(200).json({
+      success: true,
+      message: 'Merchant updated successfully',
+      data,
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+    if (err.status) {
+      return res.status(err.status).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
 
 export const getAdminMerchants = async (req, res, next) => {
   try {

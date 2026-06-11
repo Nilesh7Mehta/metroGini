@@ -1873,6 +1873,93 @@
           "name": "Merchants",
           "item": [
             {
+              "name": "Create Merchant",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"profile\": {\n    \"name\": \"Ramesh Laundry Services\",\n    \"address\": \"Shop No. 12, Sai Plaza, Thane West, Mumbai - 400601\",\n    \"phone\": \"+91 98765 43210\"\n  },\n  \"business_details\": {\n    \"business_name\": \"Ramesh Laundry Services\",\n    \"owner_name\": \"Ramesh Gupta\",\n    \"phone\": \"+91 98765 43210\",\n    \"email\": \"rameshlaundry@gmail.com\",\n    \"password\": \"merchant@123\",\n    \"address\": \"Shop No. 12, Sai Plaza, Near Thane Station, Thane West, Mumbai - 400601\",\n    \"pincode\": \"400601\",\n    \"aadhar_number\": \"123456789012\",\n    \"service_area\": \"Thane West, Majiwada, Balkum\",\n    \"working_days\": \"Monday, Tuesday, Wednesday, Thursday, Friday, Saturday\",\n    \"working_hours\": \"Morning Shift\",\n    \"gstin\": \"27ABCDE1234F1Z5\",\n    \"pan_number\": \"ABCDE1234F\",\n    \"business_type\": \"Proprietorship\",\n    \"registration_date\": \"11 Jun 2026\"\n  },\n  \"equipment_details\": {\n    \"washing_machines\": \"5 Industrial (20kg capacity each)\",\n    \"washing_capacity_kg\": \"100\",\n    \"dryers\": \"3 Industrial Dryers\",\n    \"iron_stations\": \"4 Steam Iron Tables\",\n    \"dry_cleaning_machines\": \"2 Units\",\n    \"detergents_used\": \"Ariel Industrial | Tide Professional\",\n    \"fabric_conditioners\": \"Comfort\",\n    \"special_chemicals\": \"Stain Removers (Vanish Pro) | Dry Clean Solvents\",\n    \"special_handling\": \"Delicate fabrics supported\",\n    \"quality_checks\": \"Manual inspection before dispatch\",\n    \"water_supply\": \"Borewell + Municipal\",\n    \"power_backup\": \"Generator Available (8 hrs backup)\"\n  },\n  \"banking_details\": {\n    \"account_holder\": \"Ramesh Gupta\",\n    \"bank\": \"HDFC Bank\",\n    \"account_number\": \"1234567894582\",\n    \"ifsc_code\": \"HDFC0001234\",\n    \"upi_id\": \"ramesh@hdfc\"\n  },\n  \"capacity\": {\n    \"max_wash_kg\": 150,\n    \"max_dry_pcs\": 60\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants"
+                  ]
+                },
+                "description": "Create a merchant (vendor) with profile, business, equipment, banking, and capacity.\n\n**Required:** `business_details.email`, `business_details.password` (min 6 chars), `business_details.owner_name`, `business_details.business_name` (or `profile.name`), and a valid 10-digit phone. Password is hashed before storage and never returned in the response.\n\n`account_number` must be the full number (not masked). Returns the created merchant profile (same shape as Get Merchant Details)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Merchant",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"profile\": {\n    \"name\": \"Ramesh Laundry Services\",\n    \"address\": \"Shop No. 12, Sai Plaza, Thane West, Mumbai - 400601\",\n    \"phone\": \"+91 98765 43210\"\n  },\n  \"business_details\": {\n    \"business_name\": \"Ramesh Laundry Services\",\n    \"owner_name\": \"Ramesh Gupta\",\n    \"phone\": \"+91 98765 43210\",\n    \"email\": \"rameshlaundry@gmail.com\",\n    \"address\": \"Shop No. 12, Sai Plaza, Near Thane Station, Thane West, Mumbai - 400601\",\n    \"pincode\": \"400601\",\n    \"aadhar_number\": \"123456789012\",\n    \"service_area\": \"Thane West, Majiwada, Balkum\",\n    \"working_days\": \"Monday, Tuesday, Wednesday, Thursday, Friday, Saturday\",\n    \"working_hours\": \"Morning Shift\",\n    \"gstin\": \"27ABCDE1234F1Z5\",\n    \"pan_number\": \"ABCDE1234F\",\n    \"business_type\": \"Proprietorship\",\n    \"registration_date\": \"11 Jun 2026\"\n  },\n  \"equipment_details\": {\n    \"washing_machines\": \"5 Industrial (20kg capacity each)\",\n    \"washing_capacity_kg\": \"100\",\n    \"dryers\": \"3 Industrial Dryers\",\n    \"iron_stations\": \"4 Steam Iron Tables\",\n    \"dry_cleaning_machines\": \"2 Units\",\n    \"detergents_used\": \"Ariel Industrial | Tide Professional\",\n    \"fabric_conditioners\": \"Comfort\",\n    \"special_chemicals\": \"Stain Removers (Vanish Pro) | Dry Clean Solvents\",\n    \"special_handling\": \"Delicate fabrics supported\",\n    \"quality_checks\": \"Manual inspection before dispatch\",\n    \"water_supply\": \"Borewell + Municipal\",\n    \"power_backup\": \"Generator Available (8 hrs backup)\"\n  },\n  \"banking_details\": {\n    \"account_holder\": \"Ramesh Gupta\",\n    \"bank\": \"HDFC Bank\",\n    \"account_number\": \"XXXX XXXX 4582\",\n    \"ifsc_code\": \"HDFC0001234\",\n    \"upi_id\": \"ramesh@hdfc\"\n  },\n  \"capacity\": {\n    \"max_wash_kg\": 150,\n    \"max_dry_pcs\": 60\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants/MER-001",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants",
+                    "MER-001"
+                  ]
+                },
+                "description": "Update a merchant — same body shape as Create Merchant.\n\n- `password` is optional; omit to keep the current password.\n- Masked `account_number` (`XXXX XXXX 4582`) keeps the existing stored value.\n- `status`: `active` | `inactive` toggles `is_active`.\n- Accepts `MER-001` or numeric id `1`."
+              },
+              "response": []
+            },
+            {
               "name": "Get Merchants",
               "request": {
                 "auth": {
