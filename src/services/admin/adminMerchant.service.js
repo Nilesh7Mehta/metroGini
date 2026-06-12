@@ -1,14 +1,20 @@
 import bcrypt from 'bcrypt';
 import sql from '../../config/db.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
+import {
+  getShiftScheduleForLaundry,
+  getShiftSchedulesForLaundries,
+  parseShiftScheduleFromBody,
+  resolveShiftScheduleUpdate,
+  saveShiftScheduleForLaundry,
+  clearShiftScheduleForLaundry,
+} from '../common/laundryGroupShiftSchedule.service.js';
 import { validateVendorFields } from '../../utils/vendorValidation.js';
 
 const BCRYPT_ROUNDS = 10;
 
 const VENDOR_PROFILE_COLUMNS = `
   v.service_area,
-  v.working_days,
-  v.working_hours,
   v.business_type,
   v.registration_date,
   v.washing_machines,
@@ -375,7 +381,6 @@ const fetchVendorById = async (vendorId) => {
       v.bank_name,
       v.account_number,
       v.ifsc_code,
-      v.pincode,
       v.is_active,
       v.created_at,
       ${VENDOR_PROFILE_COLUMNS}
@@ -529,6 +534,18 @@ const buildDetailKeyValue = (key, value) => ({
   value: value != null && String(value).trim() !== '' ? String(value) : 'N/A',
 });
 
+const summarizeShiftScheduleLocation = (shiftSchedule = []) => {
+  const groupNames = [
+    ...new Set(
+      shiftSchedule
+        .map((entry) => entry.group_name || entry.group_code)
+        .filter(Boolean),
+    ),
+  ];
+
+  return groupNames.length ? groupNames.join(', ') : null;
+};
+
 const parsePhoneDigits = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
@@ -637,10 +654,6 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       || (isUpdate ? existing?.gst_number : null),
     laundry_shop_name,
     shop_address,
-    pincode:
-      pickString(business.pincode)
-      || pickString(profile.pincode)
-      || (isUpdate ? existing?.pincode : null),
     account_holder_name:
       pickString(banking.account_holder)
       || (isUpdate ? existing?.account_holder_name : null),
@@ -690,12 +703,6 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       pickString(business.service_area)
       || pickString(business.service_areas)
       || (isUpdate ? existing?.service_area : null),
-    working_days:
-      pickString(business.working_days)
-      || (isUpdate ? existing?.working_days : null),
-    working_hours:
-      pickString(business.working_hours)
-      || (isUpdate ? existing?.working_hours : null),
     business_type:
       pickString(business.business_type)
       || (isUpdate ? existing?.business_type : null),
@@ -757,7 +764,7 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
   };
 };
 
-const buildMerchantDetailResponse = (vendor) => ({
+const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => ({
   id: vendor.id,
   merchant_id: formatMerchantId(vendor.id),
   name: vendor.laundry_shop_name || 'N/A',
@@ -765,17 +772,15 @@ const buildMerchantDetailResponse = (vendor) => ({
   status: formatMerchantStatus(vendor.is_active),
   avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
   address: vendor.shop_address || 'N/A',
+  shift_schedule: shiftSchedule,
   business_details: [
     buildDetailKeyValue('business_name', vendor.laundry_shop_name),
     buildDetailKeyValue('owner_name', vendor.owner_contact_name),
     buildDetailKeyValue('phone', formatPhone(vendor.mobile_number)),
     buildDetailKeyValue('email', vendor.email),
     buildDetailKeyValue('address', vendor.shop_address),
-    buildDetailKeyValue('pincode', vendor.pincode),
     buildDetailKeyValue('aadhar_number', vendor.aadhar_number),
     buildDetailKeyValue('service_areas', vendor.service_area),
-    buildDetailKeyValue('working_days', vendor.working_days),
-    buildDetailKeyValue('working_hours', vendor.working_hours),
     buildDetailKeyValue('gst_number', vendor.gst_number),
     buildDetailKeyValue('pan_number', vendor.pan_card_number),
     buildDetailKeyValue('business_type', vendor.business_type),
@@ -838,21 +843,31 @@ export const getAdminMerchantsService = async (query = {}) => {
     return acc;
   }, {});
 
+  const scheduleMap = await getShiftSchedulesForLaundries(vendorIds);
+
   return {
     top_stats: buildTopStats(statsOrders),
-    merchants: vendors.map((vendor) => ({
-      id: vendor.id,
-      merchant_id: formatMerchantId(vendor.id),
-      name: vendor.laundry_shop_name || 'N/A',
-      location: vendor.shop_address || vendor.pincode || 'N/A',
-      contact: formatPhone(vendor.mobile_number),
-      status: formatMerchantStatus(vendor.is_active),
-      avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-      batches: buildMerchantBatches(
-        ordersByVendor[vendor.id] || [],
-        pickupShiftSlotIds,
-      ),
-    })),
+    merchants: vendors.map((vendor) => {
+      const shiftSchedule = scheduleMap.get(vendor.id) || [];
+
+      return {
+        id: vendor.id,
+        merchant_id: formatMerchantId(vendor.id),
+        name: vendor.laundry_shop_name || 'N/A',
+        location:
+          vendor.shop_address
+          || summarizeShiftScheduleLocation(shiftSchedule)
+          || 'N/A',
+        contact: formatPhone(vendor.mobile_number),
+        status: formatMerchantStatus(vendor.is_active),
+        avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
+        shift_schedule: shiftSchedule,
+        batches: buildMerchantBatches(
+          ordersByVendor[vendor.id] || [],
+          pickupShiftSlotIds,
+        ),
+      };
+    }),
   };
 };
 
@@ -864,78 +879,158 @@ export const getAdminMerchantDetailsService = async (rawId) => {
     throw { status: 404, message: 'Merchant not found' };
   }
 
-  return buildMerchantDetailResponse(vendor);
+  const shiftSchedule = await getShiftScheduleForLaundry(vendorId);
+  return buildMerchantDetailResponse(vendor, shiftSchedule);
 };
 
 export const createAdminMerchantService = async (body) => {
   const payload = mapMerchantPayload(body, { isUpdate: false });
+  const shiftSchedule = parseShiftScheduleFromBody(body);
   const passwordHash = await bcrypt.hash(String(payload.password), BCRYPT_ROUNDS);
 
-  const { rows } = await sql.query(
-    `
-    INSERT INTO vendors (
-      owner_contact_name,
-      mobile_number,
-      email,
-      password,
-      aadhar_number,
-      pan_card_number,
-      gst_number,
-      laundry_shop_name,
-      shop_address,
-      pincode,
-      account_holder_name,
-      bank_name,
-      account_number,
-      ifsc_code,
-      service_area,
-      working_days,
-      working_hours,
-      business_type,
-      registration_date,
-      washing_machines,
-      washing_capacity_kg,
-      dryers,
-      iron_stations,
-      dry_cleaning_machines,
-      detergents_used,
-      fabric_conditioners,
-      special_chemicals,
-      special_handling,
-      quality_checks,
-      water_supply,
-      power_backup,
-      upi_id,
-      max_wash_kg,
-      max_dry_pcs,
-      status,
-      is_active
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-      $13, $14, $15, $16, $17, $18::date, $19, $20, $21, $22,
-      $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
-      'active', TRUE
-    )
-    RETURNING id
-    `,
-    [
+  const client = await sql.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `
+      INSERT INTO vendors (
+        owner_contact_name,
+        mobile_number,
+        email,
+        password,
+        aadhar_number,
+        pan_card_number,
+        gst_number,
+        laundry_shop_name,
+        shop_address,
+        account_holder_name,
+        bank_name,
+        account_number,
+        ifsc_code,
+        service_area,
+        business_type,
+        registration_date,
+        washing_machines,
+        washing_capacity_kg,
+        dryers,
+        iron_stations,
+        dry_cleaning_machines,
+        detergents_used,
+        fabric_conditioners,
+        special_chemicals,
+        special_handling,
+        quality_checks,
+        water_supply,
+        power_backup,
+        upi_id,
+        max_wash_kg,
+        max_dry_pcs,
+        status,
+        is_active
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        $13, $14, $15, $16::date, $17, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
+        'active', TRUE
+      )
+      RETURNING id
+      `,
+      [
+        payload.owner_contact_name,
+        payload.mobile_number,
+        payload.email,
+        passwordHash,
+        payload.aadhar_number,
+        payload.pan_card_number,
+        payload.gst_number,
+        payload.laundry_shop_name,
+        payload.shop_address,
+        payload.account_holder_name,
+        payload.bank_name,
+        payload.account_number,
+        payload.ifsc_code,
+        payload.service_area,
+        payload.business_type,
+        payload.registration_date,
+        payload.washing_machines,
+        payload.washing_capacity_kg,
+        payload.dryers,
+        payload.iron_stations,
+        payload.dry_cleaning_machines,
+        payload.detergents_used,
+        payload.fabric_conditioners,
+        payload.special_chemicals,
+        payload.special_handling,
+        payload.quality_checks,
+        payload.water_supply,
+        payload.power_backup,
+        payload.upi_id,
+        payload.max_wash_kg,
+        payload.max_dry_pcs,
+      ],
+    );
+
+    const vendorId = rows[0].id;
+
+    if (shiftSchedule?.length) {
+      await saveShiftScheduleForLaundry(vendorId, shiftSchedule, { client });
+    }
+
+    await client.query('COMMIT');
+
+    const vendor = await fetchVendorById(vendorId);
+    const savedSchedule = await getShiftScheduleForLaundry(vendorId);
+    return buildMerchantDetailResponse(vendor, savedSchedule);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const updateAdminMerchantService = async (rawId, body) => {
+  const vendorId = parseMerchantId(rawId);
+  const existing = await fetchVendorById(vendorId);
+
+  if (!existing) {
+    throw { status: 404, message: 'Merchant not found' };
+  }
+
+  const payload = mapMerchantPayload(body, { isUpdate: true, existing });
+  const shiftScheduleUpdate = resolveShiftScheduleUpdate(body);
+
+  if (payload.email !== existing.email) {
+    const { rows: emailCheck } = await sql.query(
+      `SELECT id FROM vendors WHERE LOWER(email) = $1 AND id != $2`,
+      [payload.email, vendorId],
+    );
+    if (emailCheck.length) {
+      throw { status: 400, message: 'Email already exists' };
+    }
+  }
+
+  const client = await sql.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const params = [
       payload.owner_contact_name,
       payload.mobile_number,
       payload.email,
-      passwordHash,
       payload.aadhar_number,
       payload.pan_card_number,
       payload.gst_number,
       payload.laundry_shop_name,
       payload.shop_address,
-      payload.pincode,
       payload.account_holder_name,
       payload.bank_name,
       payload.account_number,
       payload.ifsc_code,
       payload.service_area,
-      payload.working_days,
-      payload.working_hours,
       payload.business_type,
       payload.registration_date,
       payload.washing_machines,
@@ -953,127 +1048,81 @@ export const createAdminMerchantService = async (body) => {
       payload.upi_id,
       payload.max_wash_kg,
       payload.max_dry_pcs,
-    ],
-  );
+      payload.is_active,
+    ];
 
-  const vendor = await fetchVendorById(rows[0].id);
-  return buildMerchantDetailResponse(vendor);
-};
-
-export const updateAdminMerchantService = async (rawId, body) => {
-  const vendorId = parseMerchantId(rawId);
-  const existing = await fetchVendorById(vendorId);
-
-  if (!existing) {
-    throw { status: 404, message: 'Merchant not found' };
-  }
-
-  const payload = mapMerchantPayload(body, { isUpdate: true, existing });
-
-  if (payload.email !== existing.email) {
-    const { rows: emailCheck } = await sql.query(
-      `SELECT id FROM vendors WHERE LOWER(email) = $1 AND id != $2`,
-      [payload.email, vendorId],
-    );
-    if (emailCheck.length) {
-      throw { status: 400, message: 'Email already exists' };
+    let passwordClause = '';
+    if (payload.password) {
+      const passwordHash = await bcrypt.hash(String(payload.password), BCRYPT_ROUNDS);
+      passwordClause = `, password = $${params.length + 1}`;
+      params.push(passwordHash);
     }
+
+    params.push(vendorId);
+    const vendorIdParam = `$${params.length}`;
+
+    await client.query(
+      `
+      UPDATE vendors SET
+        owner_contact_name = $1,
+        mobile_number = $2,
+        email = $3,
+        aadhar_number = $4,
+        pan_card_number = $5,
+        gst_number = $6,
+        laundry_shop_name = $7,
+        shop_address = $8,
+        account_holder_name = $9,
+        bank_name = $10,
+        account_number = $11,
+        ifsc_code = $12,
+        service_area = $13,
+        business_type = $14,
+        registration_date = $15::date,
+        washing_machines = $16,
+        washing_capacity_kg = $17,
+        dryers = $18,
+        iron_stations = $19,
+        dry_cleaning_machines = $20,
+        detergents_used = $21,
+        fabric_conditioners = $22,
+        special_chemicals = $23,
+        special_handling = $24,
+        quality_checks = $25,
+        water_supply = $26,
+        power_backup = $27,
+        upi_id = $28,
+        max_wash_kg = $29,
+        max_dry_pcs = $30,
+        is_active = $31,
+        status = CASE WHEN $31 THEN 'active' ELSE 'inactive' END,
+        updated_at = NOW()
+        ${passwordClause}
+      WHERE id = ${vendorIdParam}
+      `,
+      params,
+    );
+
+    if (shiftScheduleUpdate?.mode === 'clear') {
+      await clearShiftScheduleForLaundry(vendorId, client);
+    } else if (shiftScheduleUpdate?.mode === 'replace') {
+      await saveShiftScheduleForLaundry(vendorId, shiftScheduleUpdate.entries, {
+        client,
+        replace: true,
+      });
+    }
+
+    await client.query('COMMIT');
+
+    const vendor = await fetchVendorById(vendorId);
+    const savedSchedule = await getShiftScheduleForLaundry(vendorId);
+    return buildMerchantDetailResponse(vendor, savedSchedule);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const params = [
-    payload.owner_contact_name,
-    payload.mobile_number,
-    payload.email,
-    payload.aadhar_number,
-    payload.pan_card_number,
-    payload.gst_number,
-    payload.laundry_shop_name,
-    payload.shop_address,
-    payload.pincode,
-    payload.account_holder_name,
-    payload.bank_name,
-    payload.account_number,
-    payload.ifsc_code,
-    payload.service_area,
-    payload.working_days,
-    payload.working_hours,
-    payload.business_type,
-    payload.registration_date,
-    payload.washing_machines,
-    payload.washing_capacity_kg,
-    payload.dryers,
-    payload.iron_stations,
-    payload.dry_cleaning_machines,
-    payload.detergents_used,
-    payload.fabric_conditioners,
-    payload.special_chemicals,
-    payload.special_handling,
-    payload.quality_checks,
-    payload.water_supply,
-    payload.power_backup,
-    payload.upi_id,
-    payload.max_wash_kg,
-    payload.max_dry_pcs,
-    payload.is_active,
-  ];
-
-  let passwordClause = '';
-  if (payload.password) {
-    const passwordHash = await bcrypt.hash(String(payload.password), BCRYPT_ROUNDS);
-    passwordClause = `, password = $${params.length + 1}`;
-    params.push(passwordHash);
-  }
-
-  params.push(vendorId);
-  const vendorIdParam = `$${params.length}`;
-
-  await sql.query(
-    `
-    UPDATE vendors SET
-      owner_contact_name = $1,
-      mobile_number = $2,
-      email = $3,
-      aadhar_number = $4,
-      pan_card_number = $5,
-      gst_number = $6,
-      laundry_shop_name = $7,
-      shop_address = $8,
-      pincode = $9,
-      account_holder_name = $10,
-      bank_name = $11,
-      account_number = $12,
-      ifsc_code = $13,
-      service_area = $14,
-      working_days = $15,
-      working_hours = $16,
-      business_type = $17,
-      registration_date = $18::date,
-      washing_machines = $19,
-      washing_capacity_kg = $20,
-      dryers = $21,
-      iron_stations = $22,
-      dry_cleaning_machines = $23,
-      detergents_used = $24,
-      fabric_conditioners = $25,
-      special_chemicals = $26,
-      special_handling = $27,
-      quality_checks = $28,
-      water_supply = $29,
-      power_backup = $30,
-      upi_id = $31,
-      max_wash_kg = $32,
-      max_dry_pcs = $33,
-      is_active = $34,
-      status = CASE WHEN $34 THEN 'active' ELSE 'inactive' END,
-      updated_at = NOW()
-      ${passwordClause}
-    WHERE id = ${vendorIdParam}
-    `,
-    params,
-  );
-
-  const vendor = await fetchVendorById(vendorId);
-  return buildMerchantDetailResponse(vendor);
 };
 
 export const getAdminMerchantOrdersService = async (rawId, query = {}) => {

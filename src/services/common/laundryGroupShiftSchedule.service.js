@@ -1,0 +1,207 @@
+import sql from '../../config/db.js';
+
+const DAY_LABELS = {
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+  7: 'Sunday',
+};
+
+const formatShiftScheduleRow = (row) => ({
+  id: row.id,
+  pincode_group_id: row.pincode_group_id,
+  group_code: row.group_code,
+  group_name: row.group_name,
+  day_of_week: row.day_of_week,
+  day_label: DAY_LABELS[row.day_of_week] || null,
+  shift_id: row.shift_id,
+  shift_name: row.shift_name,
+  start_time: row.start_time,
+  end_time: row.end_time,
+});
+
+const normalizeShiftScheduleInput = (entries, { allowEmpty = false } = {}) => {
+  if (entries === undefined || entries === null) return null;
+
+  if (!Array.isArray(entries)) {
+    throw { status: 400, message: 'shift_schedule must be an array' };
+  }
+
+  if (!entries.length) {
+    if (allowEmpty) return [];
+    throw { status: 400, message: 'shift_schedule must contain at least one entry' };
+  }
+
+  const seen = new Set();
+  const normalized = entries.map((entry, index) => {
+    const pincodeGroupId = Number(entry.pincode_group_id);
+    const dayOfWeek = Number(entry.day_of_week);
+    const shiftId = Number(entry.shift_id);
+
+    if (!Number.isInteger(pincodeGroupId) || pincodeGroupId <= 0) {
+      throw {
+        status: 400,
+        message: `shift_schedule[${index}].pincode_group_id must be a positive integer`,
+      };
+    }
+
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+      throw {
+        status: 400,
+        message: `shift_schedule[${index}].day_of_week must be between 1 (Monday) and 7 (Sunday)`,
+      };
+    }
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+      throw {
+        status: 400,
+        message: `shift_schedule[${index}].shift_id must be a positive integer`,
+      };
+    }
+
+    const key = `${pincodeGroupId}:${dayOfWeek}:${shiftId}`;
+    if (seen.has(key)) {
+      throw {
+        status: 400,
+        message: 'shift_schedule contains duplicate pincode_group_id, day_of_week, and shift_id entries',
+      };
+    }
+    seen.add(key);
+
+    return {
+      pincode_group_id: pincodeGroupId,
+      day_of_week: dayOfWeek,
+      shift_id: shiftId,
+    };
+  });
+
+  return normalized;
+};
+
+const insertShiftScheduleRows = async (laundryId, entries, client) => {
+  for (const entry of entries) {
+    await client.query(
+      `INSERT INTO laundry_group_shift_schedule
+         (pincode_group_id, day_of_week, shift_id, laundry_id)
+       VALUES ($1, $2, $3, $4)`,
+      [entry.pincode_group_id, entry.day_of_week, entry.shift_id, laundryId],
+    );
+  }
+};
+
+export const getShiftScheduleForLaundry = async (laundryId) => {
+  const { rows } = await sql.query(
+    `SELECT
+       lgss.id,
+       lgss.pincode_group_id,
+       pg.group_code,
+       pg.name AS group_name,
+       lgss.day_of_week,
+       lgss.shift_id,
+       s.shift_name,
+       s.start_time,
+       s.end_time
+     FROM laundry_group_shift_schedule lgss
+     JOIN pincode_groups pg ON pg.id = lgss.pincode_group_id
+     JOIN shifts s ON s.id = lgss.shift_id
+     WHERE lgss.laundry_id = $1
+     ORDER BY lgss.pincode_group_id, lgss.day_of_week, lgss.shift_id`,
+    [laundryId],
+  );
+
+  return rows.map(formatShiftScheduleRow);
+};
+
+export const getShiftSchedulesForLaundries = async (laundryIds = []) => {
+  if (!laundryIds.length) return new Map();
+
+  const { rows } = await sql.query(
+    `SELECT
+       lgss.id,
+       lgss.laundry_id,
+       lgss.pincode_group_id,
+       pg.group_code,
+       pg.name AS group_name,
+       lgss.day_of_week,
+       lgss.shift_id,
+       s.shift_name,
+       s.start_time,
+       s.end_time
+     FROM laundry_group_shift_schedule lgss
+     JOIN pincode_groups pg ON pg.id = lgss.pincode_group_id
+     JOIN shifts s ON s.id = lgss.shift_id
+     WHERE lgss.laundry_id = ANY($1::bigint[])
+     ORDER BY lgss.laundry_id, lgss.pincode_group_id, lgss.day_of_week, lgss.shift_id`,
+    [laundryIds],
+  );
+
+  const scheduleMap = new Map();
+  for (const row of rows) {
+    if (!scheduleMap.has(row.laundry_id)) {
+      scheduleMap.set(row.laundry_id, []);
+    }
+    scheduleMap.get(row.laundry_id).push(formatShiftScheduleRow(row));
+  }
+
+  return scheduleMap;
+};
+
+export const clearShiftScheduleForLaundry = async (laundryId, client = sql) => {
+  await client.query(
+    `DELETE FROM laundry_group_shift_schedule WHERE laundry_id = $1`,
+    [laundryId],
+  );
+};
+
+export const saveShiftScheduleForLaundry = async (
+  laundryId,
+  entries,
+  { client = sql, replace = false } = {},
+) => {
+  const normalized = normalizeShiftScheduleInput(entries, { allowEmpty: true });
+  if (!normalized) return [];
+
+  if (replace) {
+    await clearShiftScheduleForLaundry(laundryId, client);
+  }
+
+  if (!normalized.length) return [];
+
+  await insertShiftScheduleRows(laundryId, normalized, client);
+  return normalized;
+};
+
+export const parseShiftScheduleFromBody = (body = {}) => {
+  if (body.shift_schedule === undefined || body.shift_schedule === null) return null;
+  return normalizeShiftScheduleInput(body.shift_schedule, { allowEmpty: true });
+};
+
+export const resolveShiftScheduleUpdate = (body = {}) => {
+  if (body.shift_schedule === undefined) return null;
+
+  const entries = normalizeShiftScheduleInput(body.shift_schedule, { allowEmpty: true });
+  if (!entries.length) return { mode: 'clear' };
+  return { mode: 'replace', entries };
+};
+
+export const mapShiftScheduleError = (err) => {
+  if (err.code === '23505') {
+    return {
+      status: 400,
+      message:
+        'This pincode group, day, and shift combination is already assigned to another merchant',
+    };
+  }
+
+  if (err.code === '23503') {
+    return {
+      status: 400,
+      message: 'Invalid pincode_group_id or shift_id in shift_schedule',
+    };
+  }
+
+  return null;
+};

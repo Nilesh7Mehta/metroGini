@@ -5,6 +5,7 @@ import {
   createAdminMerchantService,
   updateAdminMerchantService,
 } from '../../services/admin/adminMerchant.service.js';
+import { mapShiftScheduleError } from '../../services/common/laundryGroupShiftSchedule.service.js';
 
 export const createAdminMerchant = async (req, res, next) => {
   try {
@@ -15,6 +16,10 @@ export const createAdminMerchant = async (req, res, next) => {
       data,
     });
   } catch (err) {
+    const shiftErr = mapShiftScheduleError(err);
+    if (shiftErr) {
+      return res.status(shiftErr.status).json({ success: false, message: shiftErr.message });
+    }
     if (err.code === '23505') {
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
@@ -34,6 +39,10 @@ export const updateAdminMerchant = async (req, res, next) => {
       data,
     });
   } catch (err) {
+    const shiftErr = mapShiftScheduleError(err);
+    if (shiftErr) {
+      return res.status(shiftErr.status).json({ success: false, message: shiftErr.message });
+    }
     if (err.code === '23505') {
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
