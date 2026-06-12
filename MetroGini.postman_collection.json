@@ -2095,6 +2095,222 @@
           ]
         },
         {
+          "name": "Riders",
+          "item": [
+            {
+              "name": "Get Riders",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders?status=active",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "description": "Optional: active | inactive"
+                    },
+                    {
+                      "key": "status",
+                      "value": "inactive",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Admin rider list with `top_stats`, per-rider `rider_schedule`, and `batch` for today's pickup orders.\n\nOptional query: `status=active` | `status=inactive` (maps to `riders.is_active`).\n\nRider `id` format: `RID-001`. Inactive riders return `batch: null`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Rider Details",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders/RID-001",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders",
+                    "RID-001"
+                  ]
+                },
+                "description": "Rider profile with header info, `rider_schedule`, key-value detail sections, and lifetime stats.\n\nAccepts `RID-001` or numeric id `1`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Rider Orders",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders/RID-001/orders?period=week",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders",
+                    "RID-001",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "description": "today | week | month (default: week)"
+                    },
+                    {
+                      "key": "order_status",
+                      "value": "in_progress",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-04-01",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-04-07",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Rider pickup batches grouped by date and shift.\n\nQuery: `period=today|week|month`, `order_status`, or `date_from` + `date_to`.\n\nAccepts `RID-001` or numeric id `1`."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Rider",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"profile\": {\n    \"name\": \"Rohan Sharma\",\n    \"zone\": \"Zone 1\",\n    \"phone\": \"+91 98765 43210\"\n  },\n  \"rider_details\": {\n    \"full_name\": \"Rohan Sharma\",\n    \"phone\": \"+91 98765 43210\",\n    \"alternate_number\": \"+91 91234 56789\",\n    \"address\": \"Flat No. 203, Sai Residency, Thane West, Mumbai - 400601\",\n    \"joining_date\": \"2026-06-12\",\n    \"aadhar_number\": \"123456789012\",\n    \"pan_number\": \"ABCDE1234F\",\n    \"driving_license\": \"MH-0420230001234\",\n    \"valid_till\": \"2030-12-12\"\n  },\n  \"rider_schedule\": [\n    { \"pincode_group_id\": 1, \"day_of_week\": 1, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 1, \"shift_id\": 2 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 2, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 3, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 4, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 5, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 6, \"shift_id\": 1 }\n  ],\n  \"vehicle_details\": {\n    \"vehicle_type\": \"3 Wheeler (EV tempo)\",\n    \"vehicle_number\": \"MH-04-AB-1234\",\n    \"fuel_type\": \"Electric\",\n    \"insurance_status\": \"Active\"\n  },\n  \"banking_details\": {\n    \"account_holder\": \"Rohan Sharma\",\n    \"bank\": \"HDFC Bank\",\n    \"account_number\": \"1234567894582\",\n    \"ifsc_code\": \"HDFC0001234\",\n    \"upi_id\": \"rohan@hdfc\"\n  },\n  \"stats\": {\n    \"pickups\": { \"assigned\": 0, \"completed\": 0 },\n    \"deliveries\": { \"assigned\": 0, \"completed\": 0 }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders"
+                  ]
+                },
+                "description": "Create a rider from admin with profile, rider details, vehicle, banking, and `rider_schedule`.\n\n`rider_schedule` rows are stored in `rider_group_shift_schedule` with `rider_id` = created rider id.\n\n**Required:** valid 10-digit phone and full_name in `profile` or `rider_details`.\n\n`stats` in the request body is ignored on create; response returns computed stats (zeros for a new rider)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Rider",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"profile\": {\n    \"name\": \"Rohan Sharma\",\n    \"zone\": \"Zone 1\",\n    \"phone\": \"+91 98765 43210\"\n  },\n  \"rider_details\": {\n    \"full_name\": \"Rohan Sharma\",\n    \"phone\": \"+91 98765 43210\",\n    \"alternate_number\": \"+91 91234 56789\",\n    \"address\": \"Flat No. 203, Sai Residency, Thane West, Mumbai - 400601\",\n    \"joining_date\": \"2026-06-12\",\n    \"aadhar_number\": \"XXXX XXXX 4582\",\n    \"pan_number\": \"ABCDE1234F\",\n    \"driving_license\": \"MH-0420230001234\",\n    \"valid_till\": \"2030-12-12\"\n  },\n  \"rider_schedule\": [\n    { \"pincode_group_id\": 1, \"day_of_week\": 1, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 2, \"shift_id\": 1 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 3, \"shift_id\": 2 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 4, \"shift_id\": 2 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 5, \"shift_id\": 2 },\n    { \"pincode_group_id\": 1, \"day_of_week\": 6, \"shift_id\": 1 }\n  ],\n  \"vehicle_details\": {\n    \"vehicle_type\": \"3 Wheeler (EV tempo)\",\n    \"vehicle_number\": \"MH-04-AB-1234\",\n    \"fuel_type\": \"Electric\",\n    \"insurance_status\": \"Active\"\n  },\n  \"banking_details\": {\n    \"account_holder\": \"Rohan Sharma\",\n    \"bank\": \"HDFC Bank\",\n    \"account_number\": \"XXXX XXXX 4582\",\n    \"ifsc_code\": \"HDFC0001234\",\n    \"upi_id\": \"rohan@hdfc\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders/RID-001",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders",
+                    "RID-001"
+                  ]
+                },
+                "description": "Update a rider — same body shape as Create Rider.\n\n- `status`: `active` | `inactive` toggles `is_active`.\n- Masked `aadhar_number` / `account_number` (`XXXX XXXX 4582`) keeps existing stored values.\n- Send `rider_schedule` to replace schedule rows; send `[]` to clear; omit to keep current schedule.\n- Returns the same profile shape as Get Rider Details.\n- Accepts `RID-001` or numeric id `5`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Login",
           "request": {
             "method": "POST",
