@@ -64,7 +64,7 @@ export const removeBanner = async (id) => {
 
 export const fetchBanners = async () => {
   const { rows } = await sql.query(
-    `SELECT * FROM banners WHERE status = true ORDER BY created_at DESC`,
+    `SELECT * FROM banners WHERE status = true ORDER BY id DESC`,
   );
   return rows;
 };

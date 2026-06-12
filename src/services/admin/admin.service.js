@@ -114,7 +114,7 @@ export const editCoupon = async (id, body) => {
 
 export const getAllCoupons = async () => {
   const { rows } = await sql.query(
-    `SELECT * FROM coupons ORDER BY created_at DESC`,
+    `SELECT * FROM coupons ORDER BY id DESC`,
   );
   return rows;
 };

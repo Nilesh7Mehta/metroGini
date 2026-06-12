@@ -4,8 +4,9 @@ import sql from "../../config/db.js";
 export const getAddress = async ({ userId }) => {
   const { rows } = await sql.query(
     `Select id, address_type , complete_address, floor , landmark , receiver_name , contact_number , latitude , longitude , is_selected
-     from user_address_details
-     where user_id = $1`,
+     FROM user_address_details
+     WHERE user_id = $1
+     ORDER BY id DESC`,
     [userId],
   );
 

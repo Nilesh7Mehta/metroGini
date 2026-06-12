@@ -32,7 +32,7 @@ export const fetchTodayOrders = async (rider_id) => {
      JOIN users u ON u.id = o.user_id
      JOIN user_address_details a ON a.id = o.address_id
      WHERE o.assigned_rider_id = $1 AND o.pickup_date = CURRENT_DATE
-     ORDER BY ts.start_time ASC`,
+     ORDER BY o.id DESC`,
     [rider_id],
   );
   return rows.map(attachOrderTimestamps);
@@ -72,7 +72,7 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
      WHERE o.assigned_rider_id = $1
        AND o.delivery_date = CURRENT_DATE
        AND o.status IN ('in_process', 'ready_for_delivery', 'out_for_delivery')
-     ORDER BY ts.start_time ASC`,
+     ORDER BY o.id DESC`,
     [rider_id],
   );
   return rows.map(attachOrderTimestamps);
@@ -339,7 +339,7 @@ export const fetchOrderHistory = async (rider_id, query) => {
      INNER JOIN service_types st ON st.id = o.service_type_id
      INNER JOIN user_address_details uad ON uad.id = o.address_id
      WHERE ${where}
-     ORDER BY o.created_at DESC
+     ORDER BY o.id DESC
      LIMIT $${index} OFFSET $${index + 1}`,
     values,
   );

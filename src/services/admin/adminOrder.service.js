@@ -308,7 +308,7 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
       AND o.pickup_slot_id = ANY($3::int[])
       AND o.status NOT IN ('draft', 'cancelled')
       ${statusClause}
-    ORDER BY o.pickup_slot_id ASC, o.id ASC
+    ORDER BY o.id DESC
     `,
     params,
   );

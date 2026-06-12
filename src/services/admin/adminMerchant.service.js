@@ -356,7 +356,7 @@ const fetchVendors = async (isActiveFilter) => {
       v.is_active
     FROM vendors v
     ${whereClause}
-    ORDER BY v.id ASC
+    ORDER BY v.id DESC
     `,
     params,
   );
@@ -458,7 +458,7 @@ const fetchMerchantOrders = async ({
       LIMIT 1
     ) ir ON TRUE
     WHERE ${conditions.join(' AND ')}
-    ORDER BY o.vendor_received_at DESC NULLS LAST, o.pickup_slot_id ASC, o.id ASC
+    ORDER BY o.id DESC
     `,
     params,
   );

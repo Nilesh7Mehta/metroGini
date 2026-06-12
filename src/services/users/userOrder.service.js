@@ -612,7 +612,7 @@ export const getUserOrdersService = async ({
      LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
      WHERE ${whereClause}
-     ORDER BY o.created_at DESC
+     ORDER BY o.id DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
     [...values, limit, offset],
   );

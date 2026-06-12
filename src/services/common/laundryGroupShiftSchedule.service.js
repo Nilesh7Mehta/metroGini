@@ -108,7 +108,7 @@ export const getShiftScheduleForLaundry = async (laundryId) => {
      JOIN pincode_groups pg ON pg.id = lgss.pincode_group_id
      JOIN shifts s ON s.id = lgss.shift_id
      WHERE lgss.laundry_id = $1
-     ORDER BY lgss.pincode_group_id, lgss.day_of_week, lgss.shift_id`,
+     ORDER BY lgss.id DESC`,
     [laundryId],
   );
 
@@ -134,7 +134,7 @@ export const getShiftSchedulesForLaundries = async (laundryIds = []) => {
      JOIN pincode_groups pg ON pg.id = lgss.pincode_group_id
      JOIN shifts s ON s.id = lgss.shift_id
      WHERE lgss.laundry_id = ANY($1::bigint[])
-     ORDER BY lgss.laundry_id, lgss.pincode_group_id, lgss.day_of_week, lgss.shift_id`,
+     ORDER BY lgss.id DESC`,
     [laundryIds],
   );
 

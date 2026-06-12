@@ -101,7 +101,7 @@ export const userFaq = async(req , res ,next) =>{
 
 export const shift = async(req , res , next) =>{
     try{
-        const {rows} = await sql.query(`SELECT * from shifts`);
+        const {rows} = await sql.query(`SELECT * FROM shifts ORDER BY id DESC`);
         res.status(200).json({
             success:true,
             message: 'Shift retrieved Successfully',
@@ -116,7 +116,7 @@ export const getBanners = async (req, res, next) => {
   try {
 
     const { rows } = await sql.query(
-      `SELECT * FROM banners WHERE status = true ORDER BY created_at DESC`
+      `SELECT * FROM banners WHERE status = true ORDER BY id DESC`
     );
 
     const banners = rows.map(banner => ({

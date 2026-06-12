@@ -19,7 +19,7 @@ export const getVendorNotificationsService = async (vendor_id, { category, page,
       `SELECT id, title, message, reference_type, reference_id, is_read, created_at
        FROM notifications n
        WHERE ${where}
-       ORDER BY created_at DESC
+       ORDER BY id DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     ),

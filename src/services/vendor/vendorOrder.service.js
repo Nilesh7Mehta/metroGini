@@ -495,7 +495,7 @@ export const getVendorOrdersService = async (vendor_id, selectedDate) => {
       AND o.pickup_date = $2::date
       AND o.pickup_slot_id = ANY($3::int[])
       AND o.status NOT IN ('draft', 'cancelled')
-    ORDER BY o.pickup_slot_id ASC, o.id ASC
+    ORDER BY o.id DESC
     `,
     [vendor_id, date, pickupShiftSlotIds],
   );
