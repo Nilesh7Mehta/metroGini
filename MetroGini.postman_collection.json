@@ -2336,6 +2336,329 @@
           "response": []
         },
         {
+          "name": "Pincode Groups",
+          "item": [
+            {
+              "name": "List Pincode Groups",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-groups?status=ACTIVE",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-groups"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "ACTIVE",
+                      "description": "Optional: ACTIVE | INACTIVE"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Pincode Group By ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-groups/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-groups",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Pincode Group",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"group_code\": \"MUM_WEST\",\r\n  \"name\": \"Mumbai West\",\r\n  \"status\": \"ACTIVE\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-groups",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-groups"
+                  ]
+                },
+                "description": "Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Pincode Group",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"group_code\": \"MUM_WEST\",\r\n  \"name\": \"Mumbai West Zone\",\r\n  \"status\": \"ACTIVE\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-groups/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-groups",
+                    "1"
+                  ]
+                },
+                "description": "Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Pincode Group",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-groups/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-groups",
+                    "1"
+                  ]
+                },
+                "description": "Requires admin Bearer token. Fails if pincodes are still assigned to the group."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pincodes",
+          "item": [
+            {
+              "name": "List Pincodes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincodes?pincode_group_id=1&serviceable=true",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincodes"
+                  ],
+                  "query": [
+                    {
+                      "key": "pincode_group_id",
+                      "value": "1",
+                      "description": "Optional filter by group"
+                    },
+                    {
+                      "key": "serviceable",
+                      "value": "true",
+                      "description": "Optional: true | false"
+                    },
+                    {
+                      "key": "pincode",
+                      "value": "400612",
+                      "description": "Optional exact pincode lookup",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Pincode By ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincodes/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincodes",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Pincode",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"pincode\": \"400612\",\r\n  \"pincode_group_id\": 1,\r\n  \"serviceable\": true\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincodes",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincodes"
+                  ]
+                },
+                "description": "Requires admin Bearer token. pincode must be a 6-digit number."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Pincode",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"pincode\": \"400612\",\r\n  \"pincode_group_id\": 1,\r\n  \"serviceable\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincodes/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincodes",
+                    "1"
+                  ]
+                },
+                "description": "Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Pincode",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincodes/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincodes",
+                    "1"
+                  ]
+                },
+                "description": "Requires admin Bearer token."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Need Help (Unified)",
           "request": {
             "auth": {
