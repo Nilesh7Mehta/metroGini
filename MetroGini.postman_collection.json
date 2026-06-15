@@ -2095,6 +2095,78 @@
           ]
         },
         {
+          "name": "Payments",
+          "item": [
+            {
+              "name": "Get Payments",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/payments?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "payments"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "payment_status",
+                      "value": "pending",
+                      "disabled": true,
+                      "description": "paid | partially_paid | pending | failed | refunded"
+                    },
+                    {
+                      "key": "method",
+                      "value": "upi",
+                      "disabled": true,
+                      "description": "upi | paypal | debit_card | net_banking | cash"
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-04-01",
+                      "disabled": true
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-04-30",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Admin payments dashboard grouped by pickup shift.\n\nQuery: `period=today|week|month`, optional `payment_status`, `method`, or `date_from` + `date_to`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Riders",
           "item": [
             {

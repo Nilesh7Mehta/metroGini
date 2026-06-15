@@ -6,6 +6,7 @@ import * as adminDashboardController from '../../controller/admin/adminDashboard
 import * as adminOrderController from '../../controller/admin/adminOrder.controller.js';
 import * as adminMerchantController from '../../controller/admin/adminMerchant.controller.js';
 import * as adminRiderController from '../../controller/admin/adminRider.controller.js';
+import * as adminPaymentController from '../../controller/admin/adminPayment.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
@@ -14,6 +15,7 @@ const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
 router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboard);
+router.get('/payments', authenticate, adminPaymentController.getAdminPayments);
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
