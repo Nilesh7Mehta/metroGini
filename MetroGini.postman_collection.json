@@ -2167,6 +2167,136 @@
           ]
         },
         {
+          "name": "Issues",
+          "item": [
+            {
+              "name": "Get Issues",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/issues?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "issues"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "pending",
+                      "disabled": true,
+                      "description": "pending | resolved"
+                    },
+                    {
+                      "key": "priority",
+                      "value": "high",
+                      "disabled": true,
+                      "description": "high | medium | low"
+                    },
+                    {
+                      "key": "raised_by",
+                      "value": "Merchant",
+                      "disabled": true,
+                      "description": "Merchant | Rider | System | Customer"
+                    }
+                  ]
+                },
+                "description": "Admin issues list with top stats.\n\nQuery: `period=today|week|month`, optional `status`, `priority`, `raised_by`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Help and Support",
+          "item": [
+            {
+              "name": "Get Help and Support",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/help-support?period=today",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "help-support"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "period",
+                      "value": "week",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "pending",
+                      "disabled": true,
+                      "description": "pending | resolved"
+                    },
+                    {
+                      "key": "type",
+                      "value": "vendor",
+                      "disabled": true,
+                      "description": "user | rider | vendor"
+                    }
+                  ]
+                },
+                "description": "Admin help and support requests from `support_requests` table.\n\nQuery: `period=today|week|month`, optional `status`, `type`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Riders",
           "item": [
             {
