@@ -1572,6 +1572,120 @@
           ]
         },
         {
+          "name": "Services",
+          "item": [
+            {
+              "name": "Add Service",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "name",
+                      "value": "Wash by Kilo",
+                      "type": "text"
+                    },
+                    {
+                      "key": "base_price_per_kg",
+                      "value": "60",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "is_active",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addService",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addService"
+                  ]
+                },
+                "description": "Add a service. `name` and `base_price_per_kg` are required. Optional `image` file and `is_active`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Service",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "name",
+                      "value": "Wash by Kilo",
+                      "type": "text"
+                    },
+                    {
+                      "key": "base_price_per_kg",
+                      "value": "65",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "is_active",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateService/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateService",
+                    "1"
+                  ]
+                },
+                "description": "Update a service by id. All fields optional except route `:id`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Vendor",
           "item": [
             {
