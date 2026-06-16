@@ -1468,6 +1468,110 @@
           ]
         },
         {
+          "name": "Cities",
+          "item": [
+            {
+              "name": "Add City",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "city_name",
+                      "value": "Thane",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "is_available",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addCity",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addCity"
+                  ]
+                },
+                "description": "Add a city. `city_name` is required. Optional `image` file and `is_available` (true/false)."
+              },
+              "response": []
+            },
+            {
+              "name": "Update City",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "city_name",
+                      "value": "Thane West",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "is_available",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateCity/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateCity",
+                    "1"
+                  ]
+                },
+                "description": "Update a city by id. All fields optional except route `:id`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Vendor",
           "item": [
             {
@@ -2291,6 +2395,62 @@
                   ]
                 },
                 "description": "Admin help and support requests from `support_requests` table.\n\nQuery: `period=today|week|month`, optional `status`, `type`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Marketing",
+          "item": [
+            {
+              "name": "Get Marketing",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/marketing?period=week",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "marketing"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "week"
+                    },
+                    {
+                      "key": "period",
+                      "value": "today",
+                      "disabled": true
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "active_customers",
+                      "disabled": true,
+                      "description": "active_customers | at_risk_customers | inactive_customers"
+                    }
+                  ]
+                },
+                "description": "Growth and marketing dashboard with top stats, user segments, active users trend, and segment details.\n\nQuery: `period=today|week|month`, optional `status` segment filter."
               },
               "response": []
             }

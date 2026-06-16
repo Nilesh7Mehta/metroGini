@@ -9,10 +9,13 @@ import * as adminRiderController from '../../controller/admin/adminRider.control
 import * as adminPaymentController from '../../controller/admin/adminPayment.controller.js';
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
+import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
+import * as adminCityController from '../../controller/admin/adminCity.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
 const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
+const cityUpload = createUploader("cities", 500 * 1024);
 
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
@@ -20,6 +23,9 @@ router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboar
 router.get('/payments', authenticate, adminPaymentController.getAdminPayments);
 router.get('/issues', authenticate, adminIssueController.getAdminIssues);
 router.get('/help-support', authenticate, adminHelpSupportController.getAdminHelpSupport);
+router.get('/marketing', authenticate, adminMarketingController.getAdminMarketing);
+router.post('/addCity', authenticate, cityUpload.single('image'), adminCityController.addCity);
+router.post('/updateCity/:id', authenticate, cityUpload.single('image'), adminCityController.updateCityById);
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
