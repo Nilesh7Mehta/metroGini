@@ -1575,6 +1575,83 @@
           "name": "Services",
           "item": [
             {
+              "name": "Add Service Type",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"service_id\": 1,\n  \"name\": \"Regular Service\",\n  \"extra_price_per_kg\": 0,\n  \"flat_fee\": 100,\n  \"delivery_hours\": 72,\n  \"is_active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addServiceType",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addServiceType"
+                  ]
+                },
+                "description": "`service_id` and `name` are required. `extra_price_per_kg` and `flat_fee` default to 0."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Service Type",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Express Service\",\n  \"extra_price_per_kg\": 20,\n  \"flat_fee\": 150,\n  \"delivery_hours\": 24,\n  \"is_active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateServiceType/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateServiceType",
+                    "1"
+                  ]
+                },
+                "description": "Update a service type by id. All fields optional except route `:id`."
+              },
+              "response": []
+            },
+            {
               "name": "Add Service",
               "request": {
                 "auth": {
