@@ -13,6 +13,8 @@ import * as adminMarketingController from '../../controller/admin/adminMarketing
 import * as adminCityController from '../../controller/admin/adminCity.controller.js';
 import * as adminServiceController from '../../controller/admin/adminService.controller.js';
 import * as adminServiceTypeController from '../../controller/admin/adminServiceType.controller.js';
+import * as adminShiftController from '../../controller/admin/adminShift.controller.js';
+import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
@@ -33,6 +35,11 @@ router.post('/addService', authenticate, serviceUpload.single('image'), adminSer
 router.put('/updateService/:id', authenticate, serviceUpload.single('image'), adminServiceController.updateServiceById);
 router.post('/addServiceType', authenticate, adminServiceTypeController.addServiceType);
 router.put('/updateServiceType/:id', authenticate, adminServiceTypeController.updateServiceTypeById);
+router.post('/addShift', authenticate, adminShiftController.addShift);
+router.put('/updateShift/:id', authenticate, adminShiftController.updateShiftById);
+router.get('/getTimeSlot', authenticate, adminTimeSlotController.getTimeSlot);
+router.post('/addTimeSlot', authenticate, adminTimeSlotController.addTimeSlot);
+router.put('/updateTimeSlot/:id', authenticate, adminTimeSlotController.updateTimeSlotById);
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);

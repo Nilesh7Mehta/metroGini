@@ -1763,6 +1763,199 @@
           ]
         },
         {
+          "name": "Shifts",
+          "item": [
+            {
+              "name": "Add Shift",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"shift_name\": \"Morning\",\n  \"start_time\": \"07:30\",\n  \"end_time\": \"13:00\",\n  \"status\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addShift",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addShift"
+                  ]
+                },
+                "description": "`shift_name`, `start_time`, and `end_time` are required. Times accept `HH:MM` or `HH:MM:SS`. `status` defaults to `true`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Shift",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"shift_name\": \"Morning Shift\",\n  \"start_time\": \"08:00\",\n  \"end_time\": \"14:00\",\n  \"status\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateShift/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateShift",
+                    "1"
+                  ]
+                },
+                "description": "Update a shift by id. All fields optional except route `:id`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Time Slots",
+          "item": [
+            {
+              "name": "Get Time Slots",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/getTimeSlot",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "getTimeSlot"
+                  ]
+                },
+                "description": "List all time slots from `time_slots` table, ordered by start time."
+              },
+              "response": []
+            },
+            {
+              "name": "Add Time Slot",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start_time\": \"07:00\",\n  \"end_time\": \"11:00\",\n  \"is_peak\": false,\n  \"peak_extra_charge\": 0,\n  \"is_active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addTimeSlot",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addTimeSlot"
+                  ]
+                },
+                "description": "`start_time` and `end_time` are required. Times accept `HH:MM` or `HH:MM:SS`. `is_peak` defaults to `false`, `peak_extra_charge` to `0`, `is_active` to `true`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Time Slot",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start_time\": \"08:00\",\n  \"end_time\": \"12:00\",\n  \"is_peak\": true,\n  \"peak_extra_charge\": 50,\n  \"is_active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateTimeSlot/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateTimeSlot",
+                    "1"
+                  ]
+                },
+                "description": "Update a time slot by id. All fields optional except route `:id`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Vendor",
           "item": [
             {

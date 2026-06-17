@@ -57,8 +57,19 @@ const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 const formatOrderId = (orderId, orderCode) =>
   orderCode || `ORD-${String(orderId).padStart(3, '0')}`;
 
+const parseDateValue = (dateValue) => {
+  if (!dateValue) return null;
+  if (dateValue instanceof Date) {
+    return Number.isNaN(dateValue.getTime()) ? null : dateValue;
+  }
+  const parsed = new Date(`${String(dateValue).slice(0, 10)}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const daysBetween = (fromDate, toDate = new Date()) => {
-  const from = new Date(`${String(fromDate).slice(0, 10)}T12:00:00`);
+  const from = parseDateValue(fromDate);
+  if (!from) return null;
+
   const to = new Date(`${formatDate(toDate)}T12:00:00`);
   return Math.floor((to - from) / (1000 * 60 * 60 * 24));
 };
@@ -67,6 +78,7 @@ const formatRelativeOrderDate = (dateValue) => {
   if (!dateValue) return null;
 
   const days = daysBetween(dateValue);
+  if (days === null) return null;
   if (days === 0) return 'Today';
   if (days === 1) return '1 day ago';
   if (days < 30) return `${days} days ago`;
@@ -79,10 +91,11 @@ const formatRelativeOrderDate = (dateValue) => {
   return years === 1 ? '1 year ago' : `${years} years ago`;
 };
 
-const resolveSegment = (lastOrderDate) => {
-  if (!lastOrderDate) return 'inactive_customers';
+const resolveSegment = (lastOrderDate, totalOrders) => {
+  if (totalOrders <= 0 || !lastOrderDate) return 'inactive_customers';
 
   const days = daysBetween(lastOrderDate);
+  if (days === null) return 'inactive_customers';
   if (days <= ACTIVE_DAYS) return 'active_customers';
   if (days <= AT_RISK_DAYS) return 'at_risk_customers';
   return 'inactive_customers';
@@ -139,7 +152,8 @@ const fetchCustomerMetrics = async () => {
   );
 
   return rows.map((row) => {
-    const segment = resolveSegment(row.last_order_date);
+    const totalOrders = Number(row.total_orders);
+    const segment = resolveSegment(row.last_order_date, totalOrders);
 
     return {
       id: row.id,
@@ -148,7 +162,7 @@ const fetchCustomerMetrics = async () => {
         ? formatOrderId(row.last_order_id, row.order_code)
         : null,
       last_order_date: formatRelativeOrderDate(row.last_order_date),
-      total_orders: Number(row.total_orders),
+      total_orders: totalOrders,
       total_spend: String(Math.round(Number(row.total_spend))),
       status: segment,
       action: resolveSegmentAction(segment),
@@ -319,9 +333,12 @@ export const getAdminMarketingService = async (query = {}) => {
   }
 
   const customers = await fetchCustomerMetrics();
+  const customersWithOrders = customers.filter(
+    (customer) => customer.total_orders > 0,
+  );
   const segmentDetails = filters.segment
-    ? customers.filter((customer) => customer.status === filters.segment)
-    : customers;
+    ? customersWithOrders.filter((customer) => customer.status === filters.segment)
+    : customersWithOrders;
 
   const topStats = await buildTopStats(customers);
   const userSegments = buildUserSegments(customers);
