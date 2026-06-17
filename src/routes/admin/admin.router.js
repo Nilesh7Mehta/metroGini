@@ -15,6 +15,7 @@ import * as adminServiceController from '../../controller/admin/adminService.con
 import * as adminServiceTypeController from '../../controller/admin/adminServiceType.controller.js';
 import * as adminShiftController from '../../controller/admin/adminShift.controller.js';
 import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.controller.js';
+import * as configController from '../../controller/common/config.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
@@ -68,5 +69,6 @@ router.delete("/deleteBanner/:id",  authenticate, bannerController.deleteBanner)
 // Vendor
 router.post('/addVendor', authenticate, vendorUpload.single('image'), adminvendorController.addVendor);
 router.put('/updateVendor/:id', authenticate, vendorUpload.single('image'), adminvendorController.updateVendor);
+router.put('/updateConfig/:id', authenticate, configController.updateConfig);
 
 export default router;

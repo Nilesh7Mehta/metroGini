@@ -3,6 +3,7 @@ import * as CommonController from '../controller/Common.controller.js';
 import * as helplineController from '../controller/helpline.controller.js';
 import * as pincodeGroupController from '../controller/common/pincodeGroup.controller.js';
 import * as pincodeController from '../controller/common/pincode.controller.js';
+import * as configController from '../controller/common/config.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { isAdmin } from '../middleware/checkRole.middleware.js';
 
@@ -12,6 +13,7 @@ router.get('/cities', CommonController.getCities);
 router.get('/services', CommonController.getServices);
 router.get('/service-types', CommonController.getServiceTypes);
 router.get('/time-slots', CommonController.getTimeSlots);
+router.get('/config', configController.getConfig);
 
 
 router.get('/userfaq',  CommonController.userFaq);
