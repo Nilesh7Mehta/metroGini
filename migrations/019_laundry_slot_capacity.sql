@@ -1,7 +1,7 @@
 -- ============================================================
 -- MIGRATION 019: Laundry slot capacity
 -- Tables: laundry_slot_capacity
--- Run after: 003_riders.sql, laundries table
+-- Run after: 003_riders.sql, Vendors table
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.laundry_slot_capacity (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.laundry_slot_capacity (
     updated_at       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_lsc_laundry
         FOREIGN KEY (laundry_id)
-        REFERENCES public.laundries(id)
+        REFERENCES public.vendors(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
     CONSTRAINT fk_lsc_shift

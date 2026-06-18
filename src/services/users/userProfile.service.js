@@ -2,18 +2,50 @@ import sql from "../../config/db.js";
 import { deleteFile } from "../../utils/file.service.js";
 import { getImageUrl } from "../../utils/getImageUrl.js";
 
+const mapProfileRow = (row) => ({
+  id: row.id,
+  mobile: row.mobile,
+  full_name: row.full_name,
+  email: row.email,
+  gender: row.gender,
+  alternate_phone: row.alternate_phone,
+  profile_completed: row.profile_completed,
+  profile_image: row.profile_image,
+  terms_and_condition: row.terms_and_condition,
+  push_notification: row.push_notification,
+  pincode: row.pincode ?? null,
+  pincode_serviceable: row.pincode_serviceable ?? null,
+  pincode_group: row.pincode_group_id
+    ? {
+        id: row.pincode_group_id,
+        group_code: row.pincode_group_code,
+        name: row.pincode_group_name,
+        status: row.pincode_group_status,
+      }
+    : null,
+});
+
 // GET USER PROFILE
 export const getProfile = async ({ req, userId }) => {
   const result = await sql.query(
-    `SELECT id, mobile, full_name, email, gender,
-            alternate_phone, profile_completed,
-            profile_image,
-            terms_and_condition , push_notification 
-     FROM users
-     WHERE id = $1`,
+    `SELECT u.id, u.mobile, u.full_name, u.email, u.gender,
+            u.alternate_phone, u.profile_completed,
+            u.profile_image,
+            u.terms_and_condition, u.push_notification,
+            ua.pincode,
+            p.serviceable AS pincode_serviceable,
+            pg.id AS pincode_group_id,
+            pg.group_code AS pincode_group_code,
+            pg.name AS pincode_group_name,
+            pg.status AS pincode_group_status
+     FROM users u
+     LEFT JOIN user_address_details ua
+       ON ua.user_id = u.id AND ua.is_selected = TRUE
+     LEFT JOIN pincodes p ON p.pincode = ua.pincode
+     LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
+     WHERE u.id = $1`,
     [userId],
   );
-
   // Check if user exists first before processing
   if (result.rows.length === 0) {
     return {
@@ -22,7 +54,7 @@ export const getProfile = async ({ req, userId }) => {
     };
   }
 
-  const user = result.rows[0];
+  const user = mapProfileRow(result.rows[0]);
   // user.image = getImageUrl(req, user.profile_image);
 
   return {

@@ -1,6 +1,6 @@
 import sql from '../../config/db.js';
 
-const DAY_LABELS = {
+export const DAY_LABELS = {
   1: 'Monday',
   2: 'Tuesday',
   3: 'Wednesday',
