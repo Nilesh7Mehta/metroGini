@@ -25,6 +25,8 @@ const serviceUpload = createUploader("services", 500 * 1024);
 
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
+router.get('/profile', authenticate, adminController.getProfile);
+router.post('/changePassword', authenticate, adminController.changePassword);
 router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboard);
 router.get('/payments', authenticate, adminPaymentController.getAdminPayments);
 router.get('/issues', authenticate, adminIssueController.getAdminIssues);
