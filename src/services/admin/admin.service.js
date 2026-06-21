@@ -2,6 +2,8 @@ import sql from "../../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+const BCRYPT_ROUNDS = 10;
+
 export const adminLogin = async (email, password) => {
   const { rows } = await sql.query(
     `SELECT * FROM users WHERE email = $1 AND role = 'admin'`,
@@ -20,6 +22,66 @@ export const adminLogin = async (email, password) => {
     { expiresIn: "1d" },
   );
   return { token, data: { id: admin.id, email: admin.email } };
+};
+
+export const getAdminProfile = async (adminId) => {
+  const { rows } = await sql.query(
+    `SELECT id, full_name, email, role
+     FROM users
+     WHERE id = $1 AND role = 'admin'`,
+    [adminId],
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Admin not found" };
+  }
+
+  const admin = rows[0];
+  return {
+    id: admin.id,
+    name: admin.full_name,
+    email: admin.email,
+    role: admin.role,
+  };
+};
+
+export const changeAdminPassword = async (adminId, body) => {
+  const { current_password, new_password, confirm_password } = body;
+
+  if (!current_password || !new_password || !confirm_password) {
+    throw { status: 400, message: "All password fields are required" };
+  }
+
+  if (new_password !== confirm_password) {
+    throw { status: 400, message: "New password and confirm password do not match" };
+  }
+
+  if (new_password.length < 6) {
+    throw { status: 400, message: "New password must be at least 6 characters" };
+  }
+
+  const { rows } = await sql.query(
+    `SELECT id, user_password FROM users WHERE id = $1 AND role = 'admin'`,
+    [adminId],
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Admin not found" };
+  }
+
+  const admin = rows[0];
+  const isMatch = await bcrypt.compare(current_password, admin.user_password);
+  if (!isMatch) {
+    throw { status: 400, message: "Current password is incorrect" };
+  }
+
+  const passwordHash = await bcrypt.hash(String(new_password), BCRYPT_ROUNDS);
+  await sql.query(
+    `UPDATE users
+     SET user_password = $1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $2 AND role = 'admin'`,
+    [passwordHash, adminId],
+  );
 };
 
 export const insertCoupon = async (body) => {

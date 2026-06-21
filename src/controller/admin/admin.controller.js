@@ -1,5 +1,7 @@
 import {
   adminLogin,
+  getAdminProfile,
+  changeAdminPassword,
   insertCoupon,
   editCoupon,
   getAllCoupons,
@@ -16,6 +18,34 @@ export const loginAdmin = async (req, res, next) => {
         message: "Admin logged in successfully",
         ...result,
       });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+export const getProfile = async (req, res, next) => {
+  try {
+    const data = await getAdminProfile(req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    await changeAdminPassword(req.user.id, req.body);
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
   } catch (err) {
     if (err.status)
       return res
