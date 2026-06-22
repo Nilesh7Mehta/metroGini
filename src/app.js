@@ -12,24 +12,34 @@ import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
 // import { apiLimiter } from './middleware/rateLimiter.js';
-import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
+import { logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
-import allowedOrigins from './utils/corsOrigin.js';
+// import allowedOrigins from './utils/corsOrigin.js';
 startPickupCron();
 AssignOrderToRider();
 const app = express();
 app.use(express.json());
-app.set('trust proxy', 1);
-// app.use(cors());
 app.use(
   cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
+    origin: "*",
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "ngrok-skip-browser-warning",
+    ],
+  }),
 );
-app.use(apiLogger);
+app.set('trust proxy', 1); // trust first proxy for rate limiting and secure cookies
+// app.use(cors());
+// app.use(
+//   cors({
+//     origin: allowedOrigins,
+//     credentials: true,
+//   })
+// );
+// app.use(apiLogger);
 app.use(morgan("dev"));
 // app.use('/api' , apiLimiter);
 app.use('/uploads' , express.static("uploads"));
