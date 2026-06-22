@@ -381,7 +381,7 @@ export const completeOrderService = async ({
            flat_fee=$8,
            peak_extra_charge=$9,
            estimated_total=$10,
-           status='booked',
+           status='draft',
            booked_at=NOW(),
            updated_at=NOW()
        WHERE id=$11`,
@@ -435,7 +435,7 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
      LEFT JOIN user_address_details ua ON o.address_id = ua.id
      LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
-     WHERE o.id=$1 AND o.user_id=$2 AND o.status='booked'`,
+     WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'`,
     [order_id, user_id],
   );
 

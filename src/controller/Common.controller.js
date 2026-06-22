@@ -30,7 +30,7 @@ export const getServices = async (req, res, next) => {
 
 export const getServiceTypes = async (req, res, next) => {
     try {
-        const { rows } = await sql.query(`SELECT * FROM service_types order by id desc`);
+        const { rows } = await sql.query(`SELECT * FROM service_types where is_active = TRUE order by id desc`);
         res.status(200).json({
             success: true,
             message: "Service types retrieved successfully",

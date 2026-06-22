@@ -3,6 +3,7 @@ import * as CommonController from '../controller/Common.controller.js';
 import * as helplineController from '../controller/helpline.controller.js';
 import * as pincodeGroupController from '../controller/common/pincodeGroup.controller.js';
 import * as pincodeController from '../controller/common/pincode.controller.js';
+import slotsRouter from './common/slots.router.js';
 import * as configController from '../controller/common/config.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { isAdmin } from '../middleware/checkRole.middleware.js';
@@ -33,6 +34,8 @@ router.get('/pincodes/:id', pincodeController.getPincode);
 router.post('/pincodes', authenticate, isAdmin, pincodeController.addPincode);
 router.put('/pincodes/:id', authenticate, isAdmin, pincodeController.editPincode);
 router.delete('/pincodes/:id', authenticate, isAdmin, pincodeController.removePincode);
+
+router.use('/slots', slotsRouter);
 
 // Unified need help — body: { type: "user"|"rider"|"vendor", message, report_issue? }
 router.post('/needHelp', authenticate, helplineController.needHelp);

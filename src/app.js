@@ -5,7 +5,7 @@ import newUserRouter from './routes/users/user.router.js';
 import newCommonRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
 import newAdminRouter from './routes/admin/admin.router.js';
-import newUserPaymentRouter from './routes/users/userPayment.router.js'
+// import newUserPaymentRouter from './routes/users/userPayment.router.js'
 import newRiderRouter from './routes/rider/rider.router.js';
 import riderOrderRoute from './routes/rider/riderOrder.router.js';
 import newVendorRoute from './routes/vendor/vendor.router.js';
@@ -37,7 +37,7 @@ app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
 app.use('/api/user/order', userOrderRouter);
 app.use('/api/admin', newAdminRouter);
-app.use('/api/user/order/payment' , newUserPaymentRouter);
+// app.use('/api/user/order/payment' , newUserPaymentRouter);
 app.use('/api/rider' , newRiderRouter);
 app.use('/api/rider/order' , riderOrderRoute);
 app.use('/api/vendor' , newVendorRoute);
