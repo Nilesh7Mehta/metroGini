@@ -2,46 +2,22 @@ import { orderDashboardService, getVendorOrdersService, getOrderDetailsService, 
 
 const VALID_FILTERS = ['today', 'this_week', 'this_month'];
 
-// export const orderDashboard = async (req, res, next) => {
-//   try {
-//     const vendor_id = req.user.vendor_id;
-//     console.log("Vendor Id===============" , vendor_id);
-//     const filter = VALID_FILTERS.includes(req.query.filter) ? req.query.filter : 'today';
-//     const data = await orderDashboardService(vendor_id, filter);
-//     return res.status(200).json({
-//       success: true,
-//       message: 'Order dashboard fetched successfully',
-//       data,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 export const orderDashboard = async (req, res, next) => {
   try {
-    console.log("Dashboard controller hit");
-
     const vendor_id = req.user.vendor_id;
-    const filter = VALID_FILTERS.includes(req.query.filter)
-      ? req.query.filter
-      : "today";
-
-    console.log("Before service");
-
+    // console.log("Vendor Id===============" , vendor_id);
+    const filter = VALID_FILTERS.includes(req.query.filter) ? req.query.filter : 'today';
     const data = await orderDashboardService(vendor_id, filter);
-
-    console.log("After service");
-
     return res.status(200).json({
       success: true,
-      message: "Order dashboard fetched successfully",
+      message: 'Order dashboard fetched successfully',
       data,
     });
   } catch (error) {
-    console.error("Dashboard Error:", error);
     next(error);
   }
 };
+
 
 export const getVendorOrders = async (req, res, next) => {
   try {

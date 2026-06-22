@@ -11,12 +11,11 @@ import riderOrderRoute from './routes/rider/riderOrder.router.js';
 import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
-// import { apiLimiter } from './middleware/rateLimiter.js';
+import { apiLimiter } from './middleware/rateLimiter.js';
 import { logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
-// import allowedOrigins from './utils/corsOrigin.js';
 startPickupCron();
 AssignOrderToRider();
 const app = express();
@@ -27,7 +26,7 @@ app.use(
     allowedHeaders: [
       "Content-Type",
       "Authorization",
-      "ngrok-skip-browser-warning",
+      "Access-Control-Allow-Origin",
     ],
   }),
 );
@@ -41,7 +40,7 @@ app.set('trust proxy', 1); // trust first proxy for rate limiting and secure coo
 // );
 // app.use(apiLogger);
 app.use(morgan("dev"));
-// app.use('/api' , apiLimiter);
+app.use('/api' , apiLimiter);
 app.use('/uploads' , express.static("uploads"));
 
 app.use('/api/user', newUserRouter);
