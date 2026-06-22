@@ -11,7 +11,7 @@ import riderOrderRoute from './routes/rider/riderOrder.router.js';
 import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
-import { apiLimiter } from './middleware/rateLimiter.js';
+// import { apiLimiter } from './middleware/rateLimiter.js';
 import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
@@ -31,7 +31,7 @@ app.use(
 );
 app.use(apiLogger);
 app.use(morgan("dev"));
-app.use('/api' , apiLimiter);
+// app.use('/api' , apiLimiter);
 app.use('/uploads' , express.static("uploads"));
 
 app.use('/api/user', newUserRouter);
