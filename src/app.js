@@ -16,11 +16,18 @@ import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
+import allowedOrigins from './utils/corsOrigins.js';
 startPickupCron();
 AssignOrderToRider();
 const app = express();
 app.use(express.json());
-app.use(cors());
+// app.use(cors());
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
