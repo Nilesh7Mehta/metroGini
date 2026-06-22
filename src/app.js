@@ -16,7 +16,7 @@ import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
-import allowedOrigins from './utils/corsOrigins.js';
+import allowedOrigins from './utils/corsOrigin.js';
 startPickupCron();
 AssignOrderToRider();
 const app = express();
