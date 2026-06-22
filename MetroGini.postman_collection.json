@@ -3084,6 +3084,42 @@
           "response": []
         },
         {
+          "name": "Update Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"support_email\": \"support@example.com\",\r\n  \"support_phone_no\": \"+919999999999\",\r\n  \"advance_amount\": 100\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/admin/updateConfig/1",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "admin",
+                "updateConfig",
+                "1"
+              ]
+            }
+          },
+          "response": []
           "name": "Profile",
           "item": [
             {
@@ -3732,6 +3768,24 @@
               ]
             },
             "description": "Unified support API. type: user | rider | vendor (must match Bearer token). report_issue required when type is rider."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/config",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "config"
+              ]
+            }
           },
           "response": []
         }
