@@ -1,10 +1,8 @@
+import crypto from "crypto";
 import sql from "../../../config/db.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { reserveSlotCapacity } from "../../../services/common/slotAvailability.service.js";
-import {
-  createRazorpayOrderService,
-  verifyRazorpayPaymentService,
-} from "../../../services/users/userPayment.service.js";
+import razorpay from "../../../config/razorpay.js";
 
 const formatDate = (date) => {
   if (typeof date === "string") return date.slice(0, 10);
@@ -213,5 +211,71 @@ export const dummyPay = async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+};
+
+export const createOrderRazorPay = async (req, res, next) => {
+  try {
+    const amount = Number(req.body?.amount ?? 500);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "amount must be a positive number" });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: `order_${req.params.id}`,
+    });
+
+    return res.status(200).json({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyOrderRazorPay = async (req, res, next) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        message:
+          "razorpay_order_id, razorpay_payment_id, and razorpay_signature are required",
+        verified: false,
+      });
+    }
+
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const signatureBuffer = Buffer.from(razorpay_signature, "hex");
+
+    if (
+      expectedBuffer.length !== signatureBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+    ) {
+      return res.status(400).json({
+        message: "Invalid payment signature",
+        verified: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Payment verified successfully",
+      verified: true,
+    });
+  } catch (error) {
+    next(error);
   }
 };
