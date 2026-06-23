@@ -1,7 +1,7 @@
 -- ============================================================
 -- MIGRATION 017: Laundry group shift schedule
 -- Tables: laundry_group_shift_schedule
--- Run after: 003_riders.sql, 015_pincode_groups.sql, laundries table
+-- Run after: 003_riders.sql, 015_pincode_groups.sql, Vendors table
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.laundry_group_shift_schedule (
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.laundry_group_shift_schedule (
         ON UPDATE CASCADE,
     CONSTRAINT fk_lgss_laundry
         FOREIGN KEY (laundry_id)
-        REFERENCES public.laundries(id)
+        REFERENCES public.vendors(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
     CONSTRAINT uq_lgss_group_day_shift

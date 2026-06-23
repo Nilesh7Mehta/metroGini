@@ -1,6 +1,13 @@
+import crypto from "crypto";
 import sql from "../../../config/db.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
-import { generateOTP } from "../../../utils/otp.js";
+import { reserveSlotCapacity } from "../../../services/common/slotAvailability.service.js";
+import razorpay from "../../../config/razorpay.js";
+
+const formatDate = (date) => {
+  if (typeof date === "string") return date.slice(0, 10);
+  return date.toLocaleDateString("en-CA");
+};
 
 
 //Dummy Payment Gateway later on will replace with actual payment gateway (Razorpay, Stripe, etc.)
@@ -30,7 +37,17 @@ export const dummyPay = async (req, res, next) => {
       });
     }
 
-    const { address_id } = orderCheck.rows[0];
+    const { address_id, pickup_date } = orderCheck.rows[0];
+
+    if (!pickup_date) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Pickup date is required before payment",
+      });
+    }
+
+    const slotDate = formatDate(pickup_date);
+
 
     // 2️⃣ Get pincode
     const addressRes = await client.query(
@@ -47,81 +64,82 @@ export const dummyPay = async (req, res, next) => {
 
     const pincode = addressRes.rows[0].pincode;
 
-    // 3️⃣ Fetch top vendor (primary active vendor)
-    const topVendorRes = await client.query(
-      `SELECT id
-       FROM vendors
-       WHERE is_active = true
-       ORDER BY id ASC
-       LIMIT 1`
-    );
+    const { group_code, shift_id, days, day_of_week } = req.body;
+    const resolvedDay = day_of_week ?? days;
 
-    if (topVendorRes.rows.length === 0) {
+    if (!group_code?.trim()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "group_code is required" });
+    }
+
+    const shiftId = Number(shift_id);
+    const dayOfWeek = Number(resolvedDay);
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "shift_id must be a positive integer" });
+    }
+
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        message: "No vendors available",
+        message: "day_of_week must be between 1 (Monday) and 7 (Sunday)",
       });
     }
 
-    const vendor_id = topVendorRes.rows[0].id;
+    const groupRes = await client.query(
+      `SELECT id FROM pincode_groups WHERE group_code = $1`,
+      [group_code.trim()],
+    );
 
-      // 3️⃣ Fetch top Rider (primary active rider)
-      const topRiderRes = await client.query(
-        `SELECT id
-         FROM riders
-         WHERE is_active = true
-         ORDER BY id ASC
-         LIMIT 1`
-      );
-  
-      if (topRiderRes.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          message: "No rider available",
-        });
-      }
-  
-      const rider_id = topRiderRes.rows[0].id;
+    if (groupRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Invalid group_code" });
+    }
 
-    // // 3️⃣ Fetch active vendors with pincode
-    // const vendorsRes = await client.query(
-    //   `SELECT id, pincode
-    //    FROM vendors
-    //    WHERE is_active = true
-    //      AND pincode IS NOT NULL`
-    // );
-    //
-    // if (vendorsRes.rows.length === 0) {
-    //   await client.query("ROLLBACK");
-    //   return res.status(400).json({
-    //     message: "No vendors available",
-    //   });
-    // }
-    //
-    // // 4️⃣ Find closest vendor
-    // const maxPincodeDiff = Number(process.env.VENDOR_PINCODE_MAX_DIFF) || 100;
-    //
-    // let closestVendor = null;
-    // let minDiff = Infinity;
-    //
-    // vendorsRes.rows.forEach((v) => {
-    //   const diff = Math.abs(Number(pincode) - Number(v.pincode));
-    //
-    //   if (diff < minDiff) {
-    //     minDiff = diff;
-    //     closestVendor = v;
-    //   }
-    // });
-    //
-    // // 5️⃣ Service area check
-    // if (!closestVendor || minDiff > maxPincodeDiff) {
-    //   await client.query("ROLLBACK");
-    //   return res.status(400).json({
-    //     message: "Service not available in your area",
-    //   });
-    // }
-    //
-    // const vendor_id = closestVendor.id;
+    const pincode_group_id = groupRes.rows[0].id;
+
+    const vendorRes = await client.query(
+      `SELECT laundry_id
+       FROM laundry_group_shift_schedule
+       WHERE pincode_group_id = $1
+         AND day_of_week = $2
+         AND shift_id = $3`,
+      [pincode_group_id, dayOfWeek, shiftId],
+    );
+
+    if (vendorRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "No vendor scheduled for this group, day, and shift",
+      });
+    }
+
+    const vendor_id = vendorRes.rows[0].laundry_id;
+
+    const riderRes = await client.query(
+      `SELECT rider_id
+       FROM rider_group_shift_schedule
+       WHERE pincode_group_id = $1
+         AND day_of_week = $2
+         AND shift_id = $3`,
+      [pincode_group_id, dayOfWeek, shiftId],
+    );
+
+    if (riderRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "No rider scheduled for this group, day, and shift",
+      });
+    }
+
+    const rider_id = riderRes.rows[0].rider_id;
+
+    await reserveSlotCapacity(client, {
+      laundryId: vendor_id,
+      slotDate,
+      shiftId,
+    });
 
     const advanceAmount = 500;
 
@@ -134,6 +152,14 @@ export const dummyPay = async (req, res, next) => {
            updated_at = NOW()
        WHERE id = $1`,
       [order_id, vendor_id, rider_id]
+    );
+
+    // update status to confirmed
+    await client.query(
+      `UPDATE orders
+       SET status = 'booked'
+       WHERE id = $1`,
+      [order_id]
     );
 
     // 7️⃣ Insert payment
@@ -153,7 +179,7 @@ export const dummyPay = async (req, res, next) => {
       identity_id: user_id,
       role: 'user',
       title: 'Order Confirmed',
-      message: `Your order #${order_id} has been confirmed and advance payment of ₹${advanceAmount} received. We will assign a rider for pickup.`,
+      message: `Your order #${order_id} has been confirmed and advance payment of ₹${advanceAmount} received. A rider has been assigned for pickup.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
@@ -172,14 +198,84 @@ export const dummyPay = async (req, res, next) => {
       message: "Payment successful. Order booked.",
       order_id,
       assigned_vendor: vendor_id,
+      assigned_rider: rider_id,
       user_pincode: pincode,
       advance_paid: advanceAmount,
     });
 
   } catch (error) {
     await client.query("ROLLBACK");
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     next(error);
   } finally {
     client.release();
+  }
+};
+
+export const createOrderRazorPay = async (req, res, next) => {
+  try {
+    const amount = Number(req.body?.amount ?? 500);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "amount must be a positive number" });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: `order_${req.params.id}`,
+    });
+
+    return res.status(200).json({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyOrderRazorPay = async (req, res, next) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        message:
+          "razorpay_order_id, razorpay_payment_id, and razorpay_signature are required",
+        verified: false,
+      });
+    }
+
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const signatureBuffer = Buffer.from(razorpay_signature, "hex");
+
+    if (
+      expectedBuffer.length !== signatureBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+    ) {
+      return res.status(400).json({
+        message: "Invalid payment signature",
+        verified: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Payment verified successfully",
+      verified: true,
+    });
+  } catch (error) {
+    next(error);
   }
 };

@@ -10,5 +10,8 @@ router.use(authenticate);
 router.use(isUser);
 
 router.post('/:id/pay' , userPaymentGatewayController.dummyPay);
+//create order razor pay api
+router.post('/:id/create-order', userPaymentGatewayController.createOrderRazorPay);
+router.post('/:id/verify', userPaymentGatewayController.verifyOrderRazorPay);
 
 export default router;
