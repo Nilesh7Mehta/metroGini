@@ -263,34 +263,24 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
   };
 };
 
-const addDaysToDateString = (dateString, daysToAdd) => {
-  const [year, month, day] = (dateString || "").split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  if (Number.isNaN(date.getTime()))
-    throw { status: 400, message: "Invalid pickup_date format. Use YYYY-MM-DD" };
-
-  date.setDate(date.getDate() + daysToAdd);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
 export const completeOrderService = async ({
   order_id,
   user_id,
   service_type_id,
   pickup_date,
   pickup_slot_id,
+  next_delivery_date,
 }) => {
-  if (!service_type_id || !pickup_date || !pickup_slot_id)
+  if (!service_type_id || !pickup_date || !pickup_slot_id || !next_delivery_date)
     throw {
       status: 400,
-      message: "service_type_id, pickup_date and pickup_slot_id are required",
+      message:
+        "service_type_id, pickup_date, pickup_slot_id and next_delivery_date are required",
     };
   if (isNaN(new Date(pickup_date).getTime()))
     throw { status: 400, message: "Invalid pickup date" };
+  if (isNaN(new Date(next_delivery_date).getTime()))
+    throw { status: 400, message: "Invalid delivery date" };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -299,7 +289,12 @@ export const completeOrderService = async ({
   if (selectedDate <= today)
     throw { status: 400, message: "Pickup date must be a future date" };
 
-  const delivery_date = addDaysToDateString(pickup_date, 3);
+  const selectedDeliveryDate = new Date(next_delivery_date);
+  selectedDeliveryDate.setHours(0, 0, 0, 0);
+  if (selectedDeliveryDate <= selectedDate)
+    throw { status: 400, message: "Delivery date must be after pickup date" };
+
+  const delivery_date = next_delivery_date;
   const delivery_slot_id = pickup_slot_id;
 
   const client = await sql.connect();
@@ -343,18 +338,18 @@ export const completeOrderService = async ({
     const pickupDateTime = new Date(
       `${pickup_date}T${slotCheck.rows[0].start_time}`,
     );
-    const deliveryDateTime = new Date(
-      `${delivery_date}T${slotCheck.rows[0].start_time}`,
-    );
+    // const deliveryDateTime = new Date(
+    //   `${delivery_date}T${slotCheck.rows[0].start_time}`,
+    // );
     const minDeliveryTime =
       pickupDateTime.getTime() + Number(order.delivery_hours) * 60 * 60 * 1000;
 
-    if (deliveryDateTime.getTime() < minDeliveryTime) {
-      throw {
-        status: 400,
-        message: `Delivery must be at least ${order.delivery_hours} hours after pickup`,
-      };
-    }
+    // if (deliveryDateTime.getTime() < minDeliveryTime) {
+    //   throw {
+    //     status: 400,
+    //     message: `Delivery must be at least ${order.delivery_hours} hours after pickup`,
+    //   };
+    // }
 
     const avg_weight =
       (Number(order.estimated_weight_min) + Number(order.estimated_weight_max)) /
@@ -618,6 +613,35 @@ export const getUserOrdersService = async ({
   );
 
   return { rows: result.rows, total: parseInt(countResult.rows[0].count) };
+};
+
+export const getUserOrderByIdService = async ({ user_id, order_id }) => {
+  const result = await sql.query(
+    `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+            o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+            o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+            o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+            o.created_at, o.updated_at, o.otp_generated_at,
+            s.name AS service_name, s.image AS service_image,
+            pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
+            TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+            delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+            p.amount AS advance_amount, p.payment_method
+     FROM orders o
+     JOIN payments p ON p.order_id=o.id AND p.payment_type='advance' AND p.status='success'
+     JOIN services s ON o.service_id=s.id
+     LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
+     LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
+     WHERE o.id = $1 AND o.user_id = $2`,
+    [order_id, user_id],
+  );
+
+  if (result.rows.length === 0) {
+    throw { status: 404, message: "Order not found" };
+  }
+
+  return result.rows[0];
 };
 
 export const reschedulePickupService = async ({

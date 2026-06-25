@@ -4,5 +4,6 @@ import * as slotsAvailabilityController from '../../controller/common/slotsAvail
 const router = express.Router();
 
 router.get('/availability', slotsAvailabilityController.getAvailability);
+router.get('/delivery-dates', slotsAvailabilityController.getDeliveryDate);
 
 export default router;

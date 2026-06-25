@@ -73,6 +73,32 @@ const validatePincodeGroupId = (value) => {
   return pincodeGroupId;
 };
 
+const validateLaundryId = (value) => {
+  const laundryId = Number(value);
+  if (!Number.isInteger(laundryId) || laundryId < 1) {
+    throw { status: 400, message: 'laundryId must be a positive integer' };
+  }
+  return laundryId;
+};
+
+const validateDateString = (value, fieldName = 'date') => {
+  const dateString = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw {
+      status: 400,
+      message: `${fieldName} must be in YYYY-MM-DD format`,
+    };
+  }
+
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime()) || formatDate(date) !== dateString) {
+    throw { status: 400, message: `Invalid ${fieldName}` };
+  }
+
+  return dateString;
+};
+
 export const reserveSlotCapacity = async (
   client,
   { laundryId, slotDate, shiftId },
@@ -223,6 +249,7 @@ export const getSlotsAvailability = async ({ pincodeGroupId, days } = {}) => {
     daysMap.get(dateKey).slots.push({
       shiftId: row.shift_id,
       shiftName: row.shift_name,
+      laundryId: row.laundry_id ?? null,
       available: Boolean(row.available),
       remaining: Number(row.remaining),
     });
@@ -233,4 +260,105 @@ export const getSlotsAvailability = async ({ pincodeGroupId, days } = {}) => {
     days: validatedDays,
     availability: Array.from(daysMap.values()),
   };
+};
+
+export const getDeliveryDates = async ({
+  laundryId,
+  currentDeliveryDate,
+  days,
+} = {}) => {
+  const validatedLaundryId = validateLaundryId(laundryId);
+  const validatedCurrentDeliveryDate = validateDateString(
+    currentDeliveryDate,
+    'currentDeliveryDate',
+  );
+  const validatedDays = validateDays(days);
+
+  const vendorCheck = await sql.query(
+    `SELECT id FROM vendors WHERE id = $1`,
+    [validatedLaundryId],
+  );
+
+  if (vendorCheck.rows.length === 0) {
+    throw { status: 404, message: 'Laundry not found' };
+  }
+
+  const { rows } = await sql.query(
+    `
+    WITH date_series AS (
+      SELECT
+        d::date AS slot_date,
+        EXTRACT(ISODOW FROM d)::int AS day_of_week
+      FROM generate_series(
+        ($2::date + INTERVAL '1 day')::date,
+        ($2::date + ($3::int * INTERVAL '1 day'))::date,
+        INTERVAL '1 day'
+      ) AS d
+    ),
+    active_shifts AS (
+      SELECT id, shift_name
+      FROM shifts
+      WHERE status IS TRUE
+    ),
+    laundry_schedule AS (
+      SELECT day_of_week, shift_id
+      FROM laundry_group_shift_schedule
+      WHERE laundry_id = $1
+    ),
+    grid AS (
+      SELECT
+        ds.slot_date,
+        ds.day_of_week,
+        s.id AS shift_id,
+        s.shift_name
+      FROM date_series ds
+      CROSS JOIN active_shifts s
+      INNER JOIN laundry_schedule ls
+        ON ls.day_of_week = ds.day_of_week
+       AND ls.shift_id = s.id
+    )
+    SELECT
+      g.slot_date,
+      g.day_of_week,
+      g.shift_id,
+      g.shift_name,
+      lsc.total_capacity,
+      lsc.used_capacity,
+      lsc.status AS capacity_status,
+      v.max_wash_kg,
+      CASE
+        WHEN lsc.id IS NOT NULL THEN GREATEST(0, lsc.total_capacity - lsc.used_capacity)
+        ELSE FLOOR(COALESCE(v.max_wash_kg, $4))
+      END::int AS remaining,
+      CASE
+        WHEN lsc.id IS NOT NULL THEN (
+          lsc.status <> 'CLOSED'
+          AND GREATEST(0, lsc.total_capacity - lsc.used_capacity) > 0
+        )
+        ELSE FLOOR(COALESCE(v.max_wash_kg, $4)) > 0
+      END AS available
+    FROM grid g
+    LEFT JOIN laundry_slot_capacity lsc
+      ON lsc.laundry_id = $1
+     AND lsc.slot_date = g.slot_date
+     AND lsc.shift_id = g.shift_id
+    LEFT JOIN vendors v ON v.id = $1
+    ORDER BY g.slot_date, g.shift_id
+    `,
+    [
+      validatedLaundryId,
+      validatedCurrentDeliveryDate,
+      validatedDays,
+      DEFAULT_VENDOR_WASH_CAPACITY_KG,
+    ],
+  );
+
+  const availableDates = new Set();
+
+  for (const row of rows) {
+    if (!row.available) continue;
+    availableDates.add(formatDate(row.slot_date));
+  }
+
+  return Array.from(availableDates).sort();
 };

@@ -10,6 +10,7 @@ import {
   applyCouponService,
   removeCouponService,
   getUserOrdersService,
+  getUserOrderByIdService,
   reschedulePickupService,
   rescheduleDeliveryService,
   cancelServiceService,
@@ -21,6 +22,27 @@ const handleError = (error, res, next) => {
     return res.status(error.status).json({ message: error.message, ...error });
   next(error);
 };
+
+const formatUserOrder = (order) => ({
+  order_id: order.id,
+  status: order.status,
+  service_name: order.service_name,
+  service_image: order.service_image,
+  pickup_slot: {
+    date: order.pickup_date,
+    time: `${order.pickup_start} - ${order.pickup_end}`,
+  },
+  delivery_slot: {
+    date: order.delivery_date,
+    time: `${order.delivery_start} - ${order.delivery_end}`,
+  },
+  item_details: {
+    clothes_count: order.clothes_count,
+    estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
+  },
+  payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
+  timestamps: buildOrderTimestamps(order),
+});
 
 export const createDraftOrder = async (req, res, next) => {
   try {
@@ -221,26 +243,7 @@ export const getUserOrder = async (req, res, next) => {
       time,
     });
 
-    const formattedOrders = rows.map((order) => ({
-      order_id: order.id,
-      status: order.status,
-      service_name: order.service_name,
-      service_image: order.service_image,
-      pickup_slot: {
-        date: order.pickup_date,
-        time: `${order.pickup_start} - ${order.pickup_end}`,
-      },
-      delivery_slot: {
-        date: order.delivery_date,
-        time: `${order.delivery_start} - ${order.delivery_end}`,
-      },
-      item_details: {
-        clothes_count: order.clothes_count,
-        estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
-      },
-      payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
-      timestamps: buildOrderTimestamps(order),
-    }));
+    const formattedOrders = rows.map(formatUserOrder);
 
     return res.status(200).json({
       status: 200,
@@ -255,6 +258,23 @@ export const getUserOrder = async (req, res, next) => {
         total_pages: Math.ceil(total / limit),
         per_page: limit,
       },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const getUserOrderDetail = async (req, res, next) => {
+  try {
+    const order = await getUserOrderByIdService({
+      user_id: req.user.id,
+      order_id: req.params.id,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      message: "Order fetched successfully",
+      data: formatUserOrder(order),
     });
   } catch (error) {
     handleError(error, res, next);
