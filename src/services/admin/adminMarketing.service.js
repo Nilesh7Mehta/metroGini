@@ -49,8 +49,7 @@ const resolveFilters = (query = {}) => {
   };
 };
 
-const formatStatValue = (value) =>
-  Number(value).toLocaleString('en-IN');
+const formatStatValue = (value) => String(value);
 
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
@@ -81,14 +80,7 @@ const formatRelativeOrderDate = (dateValue) => {
   if (days === null) return null;
   if (days === 0) return 'Today';
   if (days === 1) return '1 day ago';
-  if (days < 30) return `${days} days ago`;
-  if (days < 60) return '1 month ago';
-  const months = Math.floor(days / 30);
-  if (months < 12) {
-    return months === 1 ? '1 month ago' : `${months} months ago`;
-  }
-  const years = Math.floor(months / 12);
-  return years === 1 ? '1 year ago' : `${years} years ago`;
+  return `${days} days ago`;
 };
 
 const resolveSegment = (lastOrderDate, totalOrders) => {
@@ -111,7 +103,7 @@ const fetchCustomerMetrics = async () => {
   const { rows } = await sql.query(
     `
     WITH customer_users AS (
-      SELECT id
+      SELECT id, full_name, mobile, email
       FROM users
       WHERE role = 'user'
     ),
@@ -139,6 +131,9 @@ const fetchCustomerMetrics = async () => {
     )
     SELECT
       u.id,
+      u.full_name,
+      u.mobile,
+      u.email,
       COALESCE(os.total_orders, 0) AS total_orders,
       COALESCE(os.total_spend, 0) AS total_spend,
       lo.last_order_id,
@@ -156,12 +151,15 @@ const fetchCustomerMetrics = async () => {
     const segment = resolveSegment(row.last_order_date, totalOrders);
 
     return {
-      id: row.id,
+      id: String(row.id),
       customer_id: formatCustomerId(row.id),
+      name: row.full_name || null,
+      phone_number: row.mobile || null,
+      email: row.email || null,
       last_order_id: row.last_order_id
         ? formatOrderId(row.last_order_id, row.order_code)
         : null,
-      last_order_date: formatRelativeOrderDate(row.last_order_date),
+      last_order_date: formatRelativeOrderDate(row.last_order_date) || 'Never',
       total_orders: totalOrders,
       total_spend: String(Math.round(Number(row.total_spend))),
       status: segment,
@@ -333,12 +331,9 @@ export const getAdminMarketingService = async (query = {}) => {
   }
 
   const customers = await fetchCustomerMetrics();
-  const customersWithOrders = customers.filter(
-    (customer) => customer.total_orders > 0,
-  );
   const segmentDetails = filters.segment
-    ? customersWithOrders.filter((customer) => customer.status === filters.segment)
-    : customersWithOrders;
+    ? customers.filter((customer) => customer.status === filters.segment)
+    : customers;
 
   const topStats = await buildTopStats(customers);
   const userSegments = buildUserSegments(customers);
