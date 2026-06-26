@@ -1,34 +1,52 @@
 import sql from "../../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { formatAdminPublic, ADMIN_PANEL_ROLE_FILTER } from "../../utils/adminUser.util.js";
 
 const BCRYPT_ROUNDS = 10;
 
 export const adminLogin = async (email, password) => {
   const { rows } = await sql.query(
-    `SELECT * FROM users WHERE email = $1 AND role = 'admin'`,
+    `SELECT id, full_name, email, status, role, permissions, user_password
+     FROM users
+     WHERE email = $1 AND ${ADMIN_PANEL_ROLE_FILTER}`,
     [email],
   );
   if (rows.length === 0)
     throw { status: 401, message: "Invalid email or password" };
 
   const admin = rows[0];
+
+  if (admin.status !== "active") {
+    throw { status: 403, message: "Admin account is inactive" };
+  }
+
   const isMatch = await bcrypt.compare(password, admin.user_password);
   if (!isMatch) throw { status: 401, message: "Invalid email or password" };
 
+  const adminData = formatAdminPublic(admin);
+
   const token = jwt.sign(
-    { id: admin.id, role: "admin" },
+    {
+      id: adminData.id,
+      role: adminData.role,
+      permissions: adminData.permissions,
+    },
     process.env.JWT_SECRET,
     { expiresIn: "1d" },
   );
-  return { token, data: { id: admin.id, email: admin.email } };
+
+  return {
+    token,
+    admin: adminData,
+  };
 };
 
 export const getAdminProfile = async (adminId) => {
   const { rows } = await sql.query(
-    `SELECT id, full_name, email, role
+    `SELECT id, full_name, email, status, role, permissions
      FROM users
-     WHERE id = $1 AND role = 'admin'`,
+     WHERE id = $1 AND ${ADMIN_PANEL_ROLE_FILTER}`,
     [adminId],
   );
 
@@ -36,13 +54,7 @@ export const getAdminProfile = async (adminId) => {
     throw { status: 404, message: "Admin not found" };
   }
 
-  const admin = rows[0];
-  return {
-    id: admin.id,
-    name: admin.full_name,
-    email: admin.email,
-    role: admin.role,
-  };
+  return formatAdminPublic(rows[0]);
 };
 
 export const changeAdminPassword = async (adminId, body) => {
@@ -61,7 +73,7 @@ export const changeAdminPassword = async (adminId, body) => {
   }
 
   const { rows } = await sql.query(
-    `SELECT id, user_password FROM users WHERE id = $1 AND role = 'admin'`,
+    `SELECT id, user_password FROM users WHERE id = $1 AND ${ADMIN_PANEL_ROLE_FILTER}`,
     [adminId],
   );
 
@@ -79,7 +91,7 @@ export const changeAdminPassword = async (adminId, body) => {
   await sql.query(
     `UPDATE users
      SET user_password = $1, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $2 AND role = 'admin'`,
+     WHERE id = $2 AND ${ADMIN_PANEL_ROLE_FILTER}`,
     [passwordHash, adminId],
   );
 };

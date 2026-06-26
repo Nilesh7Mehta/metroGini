@@ -10,6 +10,7 @@ import * as adminPaymentController from '../../controller/admin/adminPayment.con
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
 import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
+import * as adminUserController from '../../controller/admin/adminUser.controller.js';
 import * as adminCityController from '../../controller/admin/adminCity.controller.js';
 import * as adminServiceController from '../../controller/admin/adminService.controller.js';
 import * as adminServiceTypeController from '../../controller/admin/adminServiceType.controller.js';
@@ -18,6 +19,7 @@ import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.c
 import * as configController from '../../controller/common/config.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
+import { isAdmin } from '../../middleware/checkRole.middleware.js';
 const bannerUpload = createUploader("banners", 500 * 1024);
 const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const cityUpload = createUploader("cities", 500 * 1024);
@@ -25,9 +27,13 @@ const serviceUpload = createUploader("services", 500 * 1024);
 
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
-router.get('/profile', authenticate, adminController.getProfile);
-router.post('/changePassword', authenticate, adminController.changePassword);
-router.get('/dashboard', authenticate, adminDashboardController.getAdminDashboard);
+router.get('/profile', authenticate, isAdmin, adminController.getProfile);
+router.post('/changePassword', authenticate, isAdmin, adminController.changePassword);
+router.get('/users', authenticate, isAdmin, adminUserController.listAdminUsers);
+router.post('/users', authenticate, isAdmin, adminUserController.createAdminUser);
+router.put('/users/:id', authenticate, isAdmin, adminUserController.updateAdminUser);
+router.delete('/users/:id', authenticate, isAdmin, adminUserController.deleteAdminUser);
+router.get('/dashboard', authenticate, isAdmin, adminDashboardController.getAdminDashboard);
 router.get('/payments', authenticate, adminPaymentController.getAdminPayments);
 router.get('/issues', authenticate, adminIssueController.getAdminIssues);
 router.get('/help-support', authenticate, adminHelpSupportController.getAdminHelpSupport);

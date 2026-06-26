@@ -10,14 +10,15 @@ import {
 
 export const loginAdmin = async (req, res, next) => {
   try {
-    const result = await adminLogin(req.body.email, req.body.password);
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Admin logged in successfully",
-        ...result,
-      });
+    const { token, admin } = await adminLogin(req.body.email, req.body.password);
+    return res.status(200).json({
+      success: true,
+      message: "Admin logged in successfully",
+      data: {
+        token,
+        admin,
+      },
+    });
   } catch (err) {
     if (err.status)
       return res
