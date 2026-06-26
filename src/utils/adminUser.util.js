@@ -18,8 +18,11 @@ export const ADMIN_SIDEBAR_MODULES = [
   'issues',
   'help_support',
   'banners',
+  'pincodes',
   'coupons',
+  'coupon',
   'users',
+  'admin_users',
   'cities',
   'services',
   'service_types',
@@ -27,16 +30,6 @@ export const ADMIN_SIDEBAR_MODULES = [
   'time_slots',
   'config',
 ];
-
-export const getFullAccessPermissions = () =>
-  Object.fromEntries(
-    ADMIN_SIDEBAR_MODULES.map((module) => [module, 'update']),
-  );
-
-export const FULL_ACCESS_ROLES = ['admin', 'super_admin'];
-
-export const isFullAccessAdmin = (role) =>
-  FULL_ACCESS_ROLES.includes(String(role || '').trim());
 
 export const ADMIN_PANEL_ROLES = [
   'admin',
@@ -94,31 +87,21 @@ export const normalizePermissions = (permissions = {}) => {
   return normalized;
 };
 
-export const permissionsForStorage = (role, permissions = {}) => {
-  if (isFullAccessAdmin(role)) return {};
-  return normalizePermissions(permissions);
-};
+/** Store exactly what super admin assigns — no role-based overrides */
+export const permissionsForStorage = (_role, permissions = {}) =>
+  normalizePermissions(permissions);
 
-export const resolvePermissions = (role, permissions) => {
-  const normalizedRole = String(role || '').trim();
-  const stored = normalizePermissions(permissions);
-
-  if (isFullAccessAdmin(normalizedRole)) {
-    return Object.keys(stored).length > 0 ? stored : getFullAccessPermissions();
-  }
-
-  return stored;
-};
+/** Return stored permissions as-is for login/profile responses */
+export const resolvePermissions = (_role, permissions) =>
+  normalizePermissions(permissions);
 
 export const hasModuleAccess = (
-  role,
+  _role,
   permissions,
   module,
   requiredLevel = 'view',
 ) => {
-  if (isFullAccessAdmin(role)) return true;
-
-  const effective = resolvePermissions(role, permissions);
+  const effective = normalizePermissions(permissions);
   const currentLevel = effective[module] || 'none';
   return PERMISSION_RANK[currentLevel] >= PERMISSION_RANK[requiredLevel];
 };

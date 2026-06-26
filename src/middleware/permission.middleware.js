@@ -1,7 +1,6 @@
 import sql from '../config/db.js';
 import {
   hasModuleAccess,
-  isFullAccessAdmin,
   resolvePermissions,
 } from '../utils/adminUser.util.js';
 
@@ -15,10 +14,6 @@ export const requirePermission = (module, requiredLevel = 'view') => {
           success: false,
           message: 'Access token missing or invalid format',
         });
-      }
-
-      if (isFullAccessAdmin(role)) {
-        return next();
       }
 
       let permissions = req.adminPermissions;

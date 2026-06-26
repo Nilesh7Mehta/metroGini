@@ -43,6 +43,13 @@ export const getProfile = async (req, res, next) => {
 
 export const changePassword = async (req, res, next) => {
   try {
+    if (req.user?.role !== "super_admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only super admin can change password.",
+      });
+    }
+
     await changeAdminPassword(req.user.id, req.body);
     return res
       .status(200)

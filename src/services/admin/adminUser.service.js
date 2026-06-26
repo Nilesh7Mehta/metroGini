@@ -6,7 +6,6 @@ import {
   assertAdminPanelRole,
   ADMIN_PANEL_ROLE_FILTER,
   permissionsForStorage,
-  isFullAccessAdmin,
 } from '../../utils/adminUser.util.js';
 
 const BCRYPT_ROUNDS = 10;
@@ -138,9 +137,7 @@ export const createAdminUserService = async (body) => {
 
 export const updateAdminUserService = async (id, body) => {
   validateUpdatePayload(body);
-  const existing = await fetchAdminById(id);
-  const finalRole =
-    body.role !== undefined ? String(body.role).trim() : existing.role;
+  await fetchAdminById(id);
 
   const fields = [];
   const values = [];
@@ -161,10 +158,7 @@ export const updateAdminUserService = async (id, body) => {
     values.push(body.is_active ? 'active' : 'inactive');
     fields.push(`status = $${values.length}`);
   }
-  if (isFullAccessAdmin(finalRole)) {
-    values.push(JSON.stringify({}));
-    fields.push(`permissions = $${values.length}::jsonb`);
-  } else if (body.permissions !== undefined) {
+  if (body.permissions !== undefined) {
     values.push(JSON.stringify(normalizePermissions(body.permissions)));
     fields.push(`permissions = $${values.length}::jsonb`);
   }
