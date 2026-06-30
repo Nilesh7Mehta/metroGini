@@ -526,6 +526,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       o.clothes_count,
       o.actual_clothes_count,
       o.actual_weight,
+      o.is_stained,
+      o.stain_image,
+      o.vendor_request_amount,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name,
@@ -593,6 +596,11 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       ? parseInt(order.actual_clothes_count, 10)
       : null,
     actual_weight: order.actual_weight ? parseFloat(order.actual_weight) : null,
+    is_stained: order.is_stained ? parseInt(order.is_stained, 10) : 0,
+    stain_image: order.stain_image || null,
+    vendor_request_amount: order.vendor_request_amount
+      ? parseFloat(order.vendor_request_amount)
+      : null,
     service: {
       name: order.service_name,
       type: order.service_type_name,
@@ -649,7 +657,9 @@ export const confirmClothesService = async (vendor_id, order_id, actual_clothes)
   };
 };
 
-export const confirmWeightService = async (vendor_id, order_id, actual_weight) => {
+export const confirmWeightService = async (vendor_id, order_id, payload) => {
+  const { actual_weight, is_stained, stain_image, vendor_request_amount } = payload;
+
   const orderCheck = await sql.query(
     `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
             o.peak_extra_charge, o.applied_coupon_id,
@@ -669,10 +679,26 @@ export const confirmWeightService = async (vendor_id, order_id, actual_weight) =
     throw { status: 400, message: 'Weight can only be confirmed when order status is in_process' };
   }
 
+  const stained = parseInt(is_stained, 10);
+  if (stained !== 0 && stained !== 1) {
+    throw { status: 400, message: 'is_stained must be 0 or 1' };
+  }
+
+  if (stained === 1) {
+    if (!stain_image) {
+      throw { status: 400, message: 'Image is required when is_stained is 1' };
+    }
+    const amount = parseFloat(vendor_request_amount);
+    if (!vendor_request_amount || Number.isNaN(amount) || amount <= 0) {
+      throw { status: 400, message: 'vendor_request_amount must be a positive number when is_stained is 1' };
+    }
+  }
+
   const order = orderCheck.rows[0];
+  const weight = parseFloat(actual_weight);
   const weight_min = Number(order.estimated_weight_min);
   const weight_max = Number(order.estimated_weight_max);
-  const within_range = actual_weight <= weight_max;
+  const within_range = weight <= weight_max;
 
   let final_total;
   let pricing_note;
@@ -684,7 +710,7 @@ export const confirmWeightService = async (vendor_id, order_id, actual_weight) =
   } else {
     // Actual weight exceeds max estimate
     // Only charge extra for the weight beyond estimated_weight_max
-    const extra_kg    = actual_weight - weight_max;
+    const extra_kg    = weight - weight_max;
     const rate_per_kg = Number(order.base_price_per_kg) + Number(order.extra_price_per_kg);
     const extra_cost  = parseFloat((extra_kg * rate_per_kg).toFixed(2));
 
@@ -692,19 +718,31 @@ export const confirmWeightService = async (vendor_id, order_id, actual_weight) =
     pricing_note = 'exceeded_estimate';
   }
 
+  const resolvedImage = stained === 1 ? stain_image : null;
+  const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
+
   await sql.query(
     `UPDATE orders
-     SET actual_weight = $1, final_total = $2, status = 'in_process', updated_at = NOW()
-     WHERE id = $3`,
-    [actual_weight, final_total, order_id]
+     SET actual_weight = $1,
+         final_total = $2,
+         is_stained = $3,
+         stain_image = $4,
+         vendor_request_amount = $5,
+         status = 'in_process',
+         updated_at = NOW()
+     WHERE id = $6`,
+    [weight, final_total, stained, resolvedImage, resolvedAmount, order_id]
   );
 
   return {
     order_id:      parseInt(order_id),
-    actual_weight: parseFloat(actual_weight),
+    actual_weight: weight,
     estimated_range: { min: weight_min, max: weight_max },
     pricing_note,
     final_total:   parseFloat(final_total.toFixed(2)),
+    is_stained: stained,
+    stain_image: resolvedImage,
+    vendor_request_amount: resolvedAmount,
   };
 };
 

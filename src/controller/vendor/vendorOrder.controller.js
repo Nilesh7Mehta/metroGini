@@ -75,13 +75,25 @@ export const confirmWeight = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
     const { order_id } = req.params;
-    const { actual_weight } = req.body;
+    const { actual_weight, is_stained, vendor_request_amount } = req.body;
 
     if (!actual_weight || actual_weight <= 0) {
       return res.status(400).json({ success: false, message: 'actual_weight must be a positive number' });
     }
 
-    const data = await confirmWeightService(vendor_id, order_id, actual_weight);
+    if (is_stained === undefined || is_stained === null || is_stained === '') {
+      return res.status(400).json({ success: false, message: 'is_stained is required (0 or 1)' });
+    }
+
+    const stained = parseInt(is_stained, 10);
+    const stain_image = req.file ? `uploads/order-stains/${req.file.filename}` : null;
+
+    const data = await confirmWeightService(vendor_id, order_id, {
+      actual_weight,
+      is_stained: stained,
+      stain_image,
+      vendor_request_amount,
+    });
     return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);

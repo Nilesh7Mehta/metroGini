@@ -4915,10 +4915,15 @@
                   ]
                 },
                 "method": "POST",
-                "header": [],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"actual_clothes\": 16\r\n}\r\n",
+                  "raw": "{\r\n  \"actual_clothes\": 16\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4935,20 +4940,14 @@
                     "order",
                     "1",
                     "confirm-clothes"
-                  ],
-                  "query": [
-                    {
-                      "key": "filter",
-                      "value": "this_month",
-                      "disabled": true
-                    }
                   ]
-                }
+                },
+                "description": "Confirm actual clothes count for an in_process order.\n\n**Body (JSON):**\n- `actual_clothes` (required) — positive number\n\nOrder must belong to the logged-in vendor and be in `in_process` status."
               },
               "response": []
             },
             {
-              "name": "Confirm Weigt",
+              "name": "Confirm Weight",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -4963,13 +4962,21 @@
                 "method": "POST",
                 "header": [],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n  \"actual_weight\": 11.7\r\n}\r\n",
-                  "options": {
-                    "raw": {
-                      "language": "json"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "actual_weight",
+                      "value": "11.7",
+                      "description": "Required — actual weight in kg",
+                      "type": "text"
+                    },
+                    {
+                      "key": "is_stained",
+                      "value": "0",
+                      "description": "Required — 0 = no stain, 1 = stained",
+                      "type": "text"
                     }
-                  }
+                  ]
                 },
                 "url": {
                   "raw": "{{baseUrl}}api/vendor/order/1/confirm-weight",
@@ -4981,15 +4988,68 @@
                     "order",
                     "1",
                     "confirm-weight"
-                  ],
-                  "query": [
+                  ]
+                },
+                "description": "Confirm actual weight for an in_process order (no stain).\n\n**Body (form-data):**\n- `actual_weight` (required) — positive number\n- `is_stained` (required) — `0` or `1`\n\nWhen `is_stained` is `0`, only the above fields are needed."
+              },
+              "response": []
+            },
+            {
+              "name": "Confirm Weight (Stained)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
                     {
-                      "key": "filter",
-                      "value": "this_month",
-                      "disabled": true
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
                     }
                   ]
-                }
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "actual_weight",
+                      "value": "11.7",
+                      "description": "Required — actual weight in kg",
+                      "type": "text"
+                    },
+                    {
+                      "key": "is_stained",
+                      "value": "1",
+                      "description": "Required — 1 = stained",
+                      "type": "text"
+                    },
+                    {
+                      "key": "vendor_request_amount",
+                      "value": "150",
+                      "description": "Required when is_stained is 1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "description": "Required when is_stained is 1 — stain photo",
+                      "type": "file"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/1/confirm-weight",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "1",
+                    "confirm-weight"
+                  ]
+                },
+                "description": "Confirm actual weight when clothes are stained.\n\n**Body (form-data):**\n- `actual_weight` (required)\n- `is_stained` = `1`\n- `vendor_request_amount` (required) — positive number\n- `image` (required) — stain photo file"
               },
               "response": []
             },

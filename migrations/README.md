@@ -22,3 +22,4 @@ Run in order. Each file depends on the ones before it.
 | 017_laundry_group_shift_schedule.sql | laundry_group_shift_schedule | 003, 015, laundries |
 | 018_rider_group_shift_schedule.sql | rider_group_shift_schedule | 003, 015 |
 | 019_laundry_slot_capacity.sql | laundry_slot_capacity | 003, laundries |
+| 023_order_stain_columns.sql | orders (is_stained, stain_image, vendor_request_amount) | 006 |
