@@ -429,6 +429,9 @@ const fetchAdminOrderById = async (orderId) => {
       o.peak_extra_charge,
       o.estimated_total,
       o.final_total,
+      o.is_stained,
+      o.stain_image,
+      o.vendor_request_amount,
       o.otp_verified,
       o.created_at,
       o.updated_at,
@@ -532,7 +535,6 @@ const buildBillingPayload = (order) => {
 
   const ratePerKg =
     Number(order.base_price_per_kg || 0) + Number(order.extra_price_per_kg || 0);
-  const weightAmount = Math.round(actualWeight * ratePerKg);
 
   const additionalCharges = [];
 
@@ -570,26 +572,47 @@ const buildBillingPayload = (order) => {
     }
   }
 
-  const additionalTotal = additionalCharges.reduce(
-    (sum, item) => sum + Number(item.amount),
-    0,
+  const vendorExtra = Number(order.vendor_request_amount || 0);
+  if (Number(order.is_stained) === 1 && vendorExtra > 0) {
+    additionalCharges.push({
+      name: 'Stain / Vendor Extra Charge',
+      qty: 1,
+      rate: String(Math.round(vendorExtra)),
+      amount: String(Math.round(vendorExtra)),
+    });
+  }
+
+  const estimatedTotal = Math.round(Number(order.estimated_total || 0));
+  const isStained = Number(order.is_stained) === 1;
+  const vendorExtraRounded = isStained ? Math.round(vendorExtra) : 0;
+  const extraWeightLine = additionalCharges.find(
+    (item) => item.name === 'Extra Weight Charge',
   );
-  const subtotal = weightAmount + additionalTotal;
-  const gst = Math.round(subtotal * 0.18);
-  const computedTotal = subtotal + gst;
+  const extraWeightCharge = extraWeightLine ? Number(extraWeightLine.amount) : 0;
+
+  const subtotalBeforeGst = estimatedTotal + extraWeightCharge + vendorExtraRounded;
+  const payableGst = Math.round(subtotalBeforeGst * 0.18);
+  const payableFinal = subtotalBeforeGst + payableGst;
   const totalAmount =
     order.final_total != null
       ? Math.round(Number(order.final_total))
-      : computedTotal;
+      : payableFinal;
 
   return {
-    weight_label: `Total Weight Charges - ${actualWeight}kg`,
-    weight_amount: String(weightAmount),
+     weight_label: `Total Weight Charges - ${actualWeight}kg`,
+     weight_amount: String(Math.round(actualWeight * ratePerKg)),
     additional_charges: additionalCharges,
-    subtotal: String(subtotal),
+    subtotal: String(subtotalBeforeGst),
     gst_label: 'GST (18%)',
-    gst: String(gst),
+    gst: String(payableGst),
     total_amount: String(totalAmount),
+    pricing_summary: {
+      estimated_total: String(estimatedTotal),
+      extra_price_per_kg: String(extraWeightCharge),
+      vendor_request_amount: String(vendorExtraRounded),
+      gst: String(payableGst),
+      final_amount: String(totalAmount),
+    },
   };
 };
 
@@ -715,10 +738,18 @@ export const getAdminOrderOperationsService = async (orderId) => {
         order.estimated_weight_min,
         order.estimated_weight_max,
       ),
+      is_stained: Number(order.is_stained) || 0,
+      stain_image: order.stain_image || null,
+      vendor_request_amount:
+        order.vendor_request_amount != null
+          ? parseFloat(order.vendor_request_amount)
+          : null,
       extra_care_items:
-        openIssueCount > 0
-          ? `${openIssueCount} Item${openIssueCount === 1 ? '' : 's'} Flagged`
-          : 'N/A',
+        Number(order.is_stained) === 1
+          ? '1 Item Stained'
+          : openIssueCount > 0
+            ? `${openIssueCount} Item${openIssueCount === 1 ? '' : 's'} Flagged`
+            : 'N/A',
       non_serviceable_items: 'N/A',
     },
     billing,

@@ -2,6 +2,7 @@ import sql from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { generateOTP } from '../../utils/otp.js';
+import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
 const SERVICE_CONFIG = {
@@ -626,7 +627,20 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
     status: getVendorOperationalStatus(order),
     workflow_status: order.status,
     estimated_total: parseFloat(order.estimated_total || 0),
-    final_total: order.final_total ? parseFloat(order.final_total) : null,
+    pricing: {
+      base_total: order.final_total
+        ? parseFloat(
+            (
+              Number(order.final_total) -
+              Number(order.is_stained ? order.vendor_request_amount || 0 : 0)
+            ).toFixed(2),
+          )
+        : null,
+      vendor_request_amount: order.vendor_request_amount
+        ? parseFloat(order.vendor_request_amount)
+        : null,
+      final_total: order.final_total ? parseFloat(order.final_total) : null,
+    },
   };
 };
 
@@ -700,26 +714,34 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   const weight_max = Number(order.estimated_weight_max);
   const within_range = weight <= weight_max;
 
-  let final_total;
+  let gross_base_total;
+  let extra_weight_charge = 0;
   let pricing_note;
 
   if (within_range) {
-    // Actual weight is within estimated range — keep the estimated_total as-is
-    final_total  = Number(order.estimated_total);
+    gross_base_total = Number(order.estimated_total);
     pricing_note = 'within_estimate';
   } else {
-    // Actual weight exceeds max estimate
-    // Only charge extra for the weight beyond estimated_weight_max
-    const extra_kg    = weight - weight_max;
+    const extra_kg = weight - weight_max;
     const rate_per_kg = Number(order.base_price_per_kg) + Number(order.extra_price_per_kg);
-    const extra_cost  = parseFloat((extra_kg * rate_per_kg).toFixed(2));
-
-    final_total  = parseFloat((Number(order.estimated_total) + extra_cost).toFixed(2));
+    extra_weight_charge = parseFloat((extra_kg * rate_per_kg).toFixed(2));
+    gross_base_total = parseFloat(
+      (Number(order.estimated_total) + extra_weight_charge).toFixed(2),
+    );
     pricing_note = 'exceeded_estimate';
   }
 
+  const { discount, net_total: base_total } = applyCouponDiscount(
+    gross_base_total,
+    order,
+  );
+
   const resolvedImage = stained === 1 ? stain_image : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
+  const subtotalBeforeGst = parseFloat(
+    (base_total + (resolvedAmount || 0)).toFixed(2),
+  );
+  const { gst, final_total } = applyGst(subtotalBeforeGst);
 
   await sql.query(
     `UPDATE orders
@@ -739,10 +761,17 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     actual_weight: weight,
     estimated_range: { min: weight_min, max: weight_max },
     pricing_note,
-    final_total:   parseFloat(final_total.toFixed(2)),
+    gross_base_total,
+    extra_weight_charge,
+    coupon_discount: discount,
+    base_total,
+    vendor_request_amount: resolvedAmount,
+    subtotal_before_gst: subtotalBeforeGst,
+    gst,
+    gst_rate: 18,
+    final_total,
     is_stained: stained,
     stain_image: resolvedImage,
-    vendor_request_amount: resolvedAmount,
   };
 };
 

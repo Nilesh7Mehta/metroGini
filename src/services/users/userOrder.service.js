@@ -1,6 +1,7 @@
 import sql from "../../config/db.js";
 import { fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { calculateOrderPricing } from "../../utils/price.util.js";
+import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeight.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
 
@@ -13,8 +14,8 @@ export const createDraftOrderService = async ({
   try {
     await client.query("BEGIN");
 
-    if (!clothes_count || clothes_count < 10) {
-      throw { status: 400, message: "Minimum 10 clothes required" };
+    if (!clothes_count || clothes_count < 12 || clothes_count > 25) {
+      throw { status: 400, message: "Clothes count must be between 12 and 25" };
     }
 
     const addressResult = await client.query(
@@ -25,8 +26,8 @@ export const createDraftOrderService = async ({
     if (!addressId)
       throw { status: 400, message: "Please select a delivery address" };
 
-    const min_weight = Math.round(clothes_count * 0.4 * 2) / 2;
-    const max_weight = Math.round(clothes_count * 0.7 * 2) / 2;
+    const { min: min_weight, max: max_weight } =
+      getEstimatedWeightRangeFromClothesCount(clothes_count);
 
     const existingDraft = await client.query(
       `SELECT id FROM orders WHERE user_id = $1 AND status = 'draft' LIMIT 1`,
@@ -618,6 +619,7 @@ export const getUserOrdersService = async ({
 export const getUserOrderByIdService = async ({ user_id, order_id }) => {
   const result = await sql.query(
     `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+            o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

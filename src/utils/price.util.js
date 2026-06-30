@@ -1,3 +1,41 @@
+export const applyCouponDiscount = (grossTotal, order) => {
+  const gross = Number(grossTotal);
+  let discount = 0;
+  const hasCoupon = order.coupon_id || order.applied_coupon_id;
+
+  if (hasCoupon && gross >= Number(order.minimum_amount_value || 0)) {
+    if (order.discount_type === 'percentage') {
+      discount = (gross * Number(order.discount_value)) / 100;
+    } else if (order.discount_type === 'flat') {
+      discount = Number(order.discount_value);
+    }
+  }
+
+  let net_total = parseFloat((gross - discount).toFixed(2));
+
+  if (net_total < 500) {
+    discount = gross - 500;
+    net_total = 500;
+  }
+
+  return {
+    gross_total: gross,
+    discount: parseFloat(discount.toFixed(2)),
+    net_total,
+  };
+};
+
+export const applyGst = (subtotal) => {
+  const amount = parseFloat(Number(subtotal).toFixed(2));
+  const gst = Math.round(amount * 0.18);
+
+  return {
+    subtotal_before_gst: amount,
+    gst,
+    final_total: parseFloat((amount + gst).toFixed(2)),
+  };
+};
+
 export const calculateOrderPricing = (order) => {
 
   // 🧮 Weight calculation
@@ -19,31 +57,7 @@ export const calculateOrderPricing = (order) => {
   const gross_total =
     service_charge + type_extra + flat_fee + peak_charge;
 
-  // 🎟 Coupon Logic
-  let discount = 0;
-
-  if (order.coupon_id) {
-
-    if (gross_total >= Number(order.minimum_amount_value)) {
-
-      if (order.discount_type === "percentage") {
-        discount =
-          (gross_total * Number(order.discount_value)) / 100;
-      }
-
-      if (order.discount_type === "flat") {
-        discount = Number(order.discount_value);
-      }
-    }
-  }
-
-  // 🔒 Ensure minimum payable ₹500
-  let final_total = gross_total - discount;
-
-  if (final_total < 500) {
-    discount = gross_total - 500;
-    final_total = 500;
-  }
+  const { discount, net_total: final_total } = applyCouponDiscount(gross_total, order);
 
   // 💰 Advance Logic
   const advance_payment = Math.min(500, final_total);

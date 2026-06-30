@@ -40,6 +40,25 @@ const formatUserOrder = (order) => ({
     clothes_count: order.clothes_count,
     estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
   },
+  pricing: {
+    estimated_total: order.estimated_total != null
+      ? parseFloat(order.estimated_total)
+      : null,
+    base_total: order.final_total != null
+      ? parseFloat(
+          (
+            Number(order.final_total) -
+            Number(order.is_stained ? order.vendor_request_amount || 0 : 0)
+          ).toFixed(2),
+        )
+      : null,
+    vendor_request_amount: order.vendor_request_amount != null
+      ? parseFloat(order.vendor_request_amount)
+      : null,
+    final_total: order.final_total != null
+      ? parseFloat(order.final_total)
+      : null,
+  },
   payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
   timestamps: buildOrderTimestamps(order),
 });
