@@ -5,6 +5,9 @@ import { isUser } from '../../middleware/checkRole.middleware.js';
 
 const router = express.Router();
 
+// Webhook — no auth (called by Razorpay)
+router.post('/razorpay/webhook', userPaymentGatewayController.razorpayWebhook);
+
 // Apply authentication + role check to all routes below
 router.use(authenticate);
 router.use(isUser);
