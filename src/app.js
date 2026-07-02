@@ -12,14 +12,25 @@ import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
-import { logApiError } from './middleware/apiLogger.middleware.js';
+import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import "./cron/vendorDeadlineCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
 startPickupCron();
 AssignOrderToRider();
 const app = express();
-app.use(express.json());
+const jsonParser = express.json();
+
+app.use(
+  '/api/user/order/payment/razorpay/webhook',
+  express.raw({ type: 'application/json' }),
+);
+app.use((req, res, next) => {
+  if (req.originalUrl.includes('/razorpay/webhook')) {
+    return next();
+  }
+  jsonParser(req, res, next);
+});
 app.use(
   cors({
     origin: "*",
@@ -38,16 +49,17 @@ app.set('trust proxy', 1); // trust first proxy for rate limiting and secure coo
 //     credentials: true,
 //   })
 // );
-// app.use(apiLogger);
+app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
 app.use('/uploads' , express.static("uploads"));
 
 app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
+// Payment routes must be registered before /api/user/order — that router applies auth to all /api/user/order/* paths
+app.use('/api/user/order/payment', newUserPaymentRouter);
 app.use('/api/user/order', userOrderRouter);
 app.use('/api/admin', newAdminRouter);
-app.use('/api/user/order/payment' , newUserPaymentRouter);
 app.use('/api/rider' , newRiderRouter);
 app.use('/api/rider/order' , riderOrderRoute);
 app.use('/api/vendor' , newVendorRoute);
