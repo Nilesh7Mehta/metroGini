@@ -5,6 +5,7 @@ import * as pincodeGroupController from '../controller/common/pincodeGroup.contr
 import * as pincodeController from '../controller/common/pincode.controller.js';
 import slotsRouter from './common/slots.router.js';
 import * as configController from '../controller/common/config.controller.js';
+import * as emailController from '../controller/common/email.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { isAdmin } from '../middleware/checkRole.middleware.js';
 
@@ -15,6 +16,10 @@ router.get('/services', CommonController.getServices);
 router.get('/service-types', CommonController.getServiceTypes);
 router.get('/time-slots', CommonController.getTimeSlots);
 router.get('/config', configController.getConfig);
+
+// SMTP
+router.get('/email/status', emailController.getEmailStatus);
+router.post('/email/test', authenticate, isAdmin, emailController.sendTestEmailHandler);
 
 
 router.get('/userfaq',  CommonController.userFaq);

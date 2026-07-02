@@ -2,6 +2,7 @@ import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
+import { sendUserEmailSafe, sendFullPaymentEmail } from "../common/email.service.js";
 import { generateOTP } from "../../utils/otp.js";
 
 const attachOrderTimestamps = (row) => ({
@@ -407,6 +408,18 @@ export const collectPaymentService = async (rider_id, order_id) => {
     reference_type: 'order',
     reference_id: order_id,
   }]);
+
+  const orderMeta = await sql.query(
+    `SELECT order_code FROM orders WHERE id = $1`,
+    [order_id],
+  );
+
+  sendUserEmailSafe(order.user_id, sendFullPaymentEmail, {
+    orderId: order_id,
+    orderCode: orderMeta.rows[0]?.order_code,
+    amount: amount_to_collect,
+    paymentMethod: 'cash',
+  });
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {

@@ -3,6 +3,7 @@ import { fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { calculateOrderPricing } from "../../utils/price.util.js";
 import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeight.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
+import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
 
 export const createDraftOrderService = async ({
@@ -256,6 +257,12 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     ],
   );
 
+  sendUserEmailSafe(user_id, sendOrderCreatedEmail, {
+    orderId: order_id,
+    orderCode: order.order_code,
+    estimatedTotal: estimated_total,
+  });
+
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
     estimated_total,
@@ -397,6 +404,18 @@ export const completeOrderService = async ({
     );
 
     await client.query("COMMIT");
+
+    const orderMeta = await sql.query(
+      `SELECT order_code FROM orders WHERE id = $1`,
+      [order_id],
+    );
+
+    sendUserEmailSafe(user_id, sendOrderCreatedEmail, {
+      orderId: order_id,
+      orderCode: orderMeta.rows[0]?.order_code,
+      estimatedTotal: estimated_total,
+    });
+
     const timestamps = await fetchOrderTimestamps(sql, order_id);
     return {
       estimated_total,

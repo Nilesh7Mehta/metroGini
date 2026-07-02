@@ -2,7 +2,8 @@ import sql from "../../config/db.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
-
+import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
+import { generateOTP } from "../../utils/otp.js";
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
   let user = await findUserByMobile(mobile);
@@ -20,7 +21,7 @@ export const loginOrRegister = async ({ mobile }) => {
   }
 
   // Generate OTP
-  const otp = 1234; // replace with generateOTP() in production
+  const otp = generateOTP();
 
   // Update OTP and expiry
   await sql.query(
@@ -31,6 +32,14 @@ export const loginOrRegister = async ({ mobile }) => {
      WHERE id = $1`,
     [user.id, otp],
   );
+
+  if (user.email) {
+    sendEmailSafe(sendOtpEmail, {
+      email: user.email,
+      name: user.full_name,
+      otp,
+    });
+  }
 
   return {
     statusCode: 200,

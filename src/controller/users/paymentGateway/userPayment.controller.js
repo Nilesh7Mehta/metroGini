@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import sql from "../../../config/db.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
+import { sendUserEmailSafe, sendAdvancePaymentEmail } from "../../../services/common/email.service.js";
 import { reserveSlotCapacity } from "../../../services/common/slotAvailability.service.js";
 import razorpay from "../../../config/razorpay.js";
 
@@ -193,6 +194,17 @@ export const dummyPay = async (req, res, next) => {
       reference_type: 'order',
       reference_id: order_id,
     }]);
+
+    const orderMeta = await sql.query(
+      `SELECT order_code FROM orders WHERE id = $1`,
+      [order_id],
+    );
+
+    sendUserEmailSafe(user_id, sendAdvancePaymentEmail, {
+      orderId: order_id,
+      orderCode: orderMeta.rows[0]?.order_code,
+      amount: advanceAmount,
+    });
 
     return res.status(200).json({
       message: "Payment successful. Order booked.",
