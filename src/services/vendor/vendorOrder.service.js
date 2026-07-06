@@ -743,6 +743,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   );
   const { gst, final_total } = applyGst(subtotalBeforeGst);
   const remaining_amount = parseFloat(final_total - order.amount_paid);
+  // console.log('Remaining amount after GST:', remaining_amount);
 
   await sql.query(
     `UPDATE orders
@@ -751,10 +752,11 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          is_stained = $3,
          stain_image = $4,
          vendor_request_amount = $5,
+         remaining_amount = $6,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $6`,
-    [weight, final_total, stained, resolvedImage, resolvedAmount, order_id]
+     WHERE id = $7`,
+    [weight, final_total, stained, resolvedImage, resolvedAmount, remaining_amount, order_id]
   );
 
   return {
@@ -829,6 +831,7 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
 };
 
 export const markReadyForDeliveryService = async (vendor_id, order_id) => {
+  console.log(`Marking order ${order_id} as ready for delivery for vendor ${vendor_id}`);
   const { rows } = await sql.query(
     `SELECT o.id, o.status, o.user_id FROM orders o
      WHERE o.id = $1 AND o.vendor_id = $2`,
