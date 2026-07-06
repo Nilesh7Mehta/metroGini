@@ -678,7 +678,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
             o.peak_extra_charge, o.applied_coupon_id,
             o.estimated_weight_min, o.estimated_weight_max, o.estimated_total,
-            c.discount_type, c.discount_value, c.minimum_amount_value
+            o.amount_paid, c.discount_type, c.discount_value, c.minimum_amount_value
      FROM orders o
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
      WHERE o.id = $1 AND o.vendor_id = $2`,
@@ -742,6 +742,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     (base_total + (resolvedAmount || 0)).toFixed(2),
   );
   const { gst, final_total } = applyGst(subtotalBeforeGst);
+  const remaining_amount = parseFloat(final_total - order.amount_paid);
 
   await sql.query(
     `UPDATE orders

@@ -33,7 +33,8 @@ export const fulfillAdvancePayment = async ({
   requireDraft = true,
 }) => {
   const { rows } = await client.query(
-    `SELECT id, user_id, pickup_date, address_id, status, payment_status
+    `SELECT id, user_id, pickup_date, address_id, status, payment_status,
+            estimated_total, amount_paid, remaining_amount
      FROM orders WHERE id = $1 FOR UPDATE`,
     [orderId],
   );
@@ -65,13 +66,19 @@ export const fulfillAdvancePayment = async ({
 
   const paidAmount = amount > 0 ? amount : ADVANCE_AMOUNT;
 
+  // const remainingBaseline = Number(order.estimated_total ?? 0);
+
   await client.query(
     `UPDATE orders
      SET payment_status = $2, vendor_id = $3, assigned_rider_id = $4,
-         status = 'booked', updated_at = NOW()
+         status = 'booked',
+         amount_paid = COALESCE(amount_paid, 0) + $5,
+         updated_at = NOW()
      WHERE id = $1`,
-    [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id],
+    [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id, paidAmount,remainingBaseline],
+    // [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id, paidAmount,remainingBaseline],
   );
+// remaining_amount = COALESCE(remaining_amount, $6) - $5,
 
   await insertPayment(client, {
     orderId,
@@ -101,7 +108,7 @@ export const fulfillRemainingPayment = async ({
   paymentMethod = "razorpay",
 }) => {
   const { rows } = await client.query(
-    `SELECT id, user_id, final_total, estimated_total, payment_status
+    `SELECT id, user_id, final_total, payment_status, amount_paid, remaining_amount
      FROM orders WHERE id = $1 FOR UPDATE`,
     [orderId],
   );
@@ -118,6 +125,10 @@ export const fulfillRemainingPayment = async ({
     throwHttpError("Remaining payment requires order to be partially_paid");
   }
 
+  if (order.final_total == null) {
+    throwHttpError("Laundry have not calculated the final amount");
+  }
+
   const existing = await client.query(
     `SELECT id FROM payments
      WHERE order_id = $1 AND payment_type = $2 AND status = 'success' LIMIT 1`,
@@ -128,8 +139,8 @@ export const fulfillRemainingPayment = async ({
     return { alreadyProcessed: true, order_id: order.id, user_id: order.user_id };
   }
 
-  const totalDue = Number(order.final_total ?? order.estimated_total ?? 0);
-  const paidAmount = amount > 0 ? amount : totalDue;
+  const finalTotal = Number(order.final_total);
+  const paidAmount = amount > 0 ? amount : finalTotal;
 
   await insertPayment(client, {
     orderId,
@@ -142,9 +153,12 @@ export const fulfillRemainingPayment = async ({
 
   await client.query(
     `UPDATE orders
-     SET payment_status = $2, payment_completed_at = NOW(), updated_at = NOW()
+     SET payment_status = $2, payment_completed_at = NOW(),
+         amount_paid = COALESCE(amount_paid, 0) + $3,
+         remaining_amount = COALESCE(remaining_amount, $4) - $3,
+         updated_at = NOW()
      WHERE id = $1`,
-    [orderId, PAYMENT_STATUS.PAID],
+    [orderId, PAYMENT_STATUS.PAID, paidAmount, finalTotal],
   );
 
   return {

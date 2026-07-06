@@ -59,7 +59,7 @@ const formatUserOrder = (order) => ({
       ? parseFloat(order.final_total)
       : null,
   },
-  payment_status: `Advance ${order.advance_amount} via ${order.payment_method}`,
+  payment_status: order.payment_status || "pending",
   timestamps: buildOrderTimestamps(order),
 });
 

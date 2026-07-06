@@ -474,7 +474,7 @@ export const applyCouponService = async ({
     await client.query("BEGIN");
 
     const orderResult = await client.query(
-      `SELECT id, applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='booked' FOR UPDATE`,
+      `SELECT id, applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
       [order_id, user_id],
     );
     if (orderResult.rows.length === 0)
@@ -603,14 +603,12 @@ export const getUserOrdersService = async ({
   const whereClause = whereConditions.join(" AND ");
 
   const countResult = await sql.query(
-    `SELECT COUNT(*) FROM orders o
-     JOIN payments p ON p.order_id=o.id AND p.payment_type='advance' AND p.status='success'
-     WHERE ${whereClause}`,
+    `SELECT COUNT(*) FROM orders o WHERE ${whereClause}`,
     values,
   );
 
   const result = await sql.query(
-    `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+    `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -619,10 +617,8 @@ export const getUserOrdersService = async ({
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
             delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
-            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
-            p.amount AS advance_amount, p.payment_method
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date
      FROM orders o
-     JOIN payments p ON p.order_id=o.id AND p.payment_type='advance' AND p.status='success'
      JOIN services s ON o.service_id=s.id
      LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
@@ -637,8 +633,7 @@ export const getUserOrdersService = async ({
 
 export const getUserOrderByIdService = async ({ user_id, order_id }) => {
   const result = await sql.query(
-    `SELECT o.id, o.status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
-            o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount,
+    `SELECT o.id, o.status,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -647,10 +642,8 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
             delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
-            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
-            p.amount AS advance_amount, p.payment_method
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date
      FROM orders o
-     JOIN payments p ON p.order_id=o.id AND p.payment_type='advance' AND p.status='success'
      JOIN services s ON o.service_id=s.id
      LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
