@@ -58,6 +58,18 @@ const formatUserOrder = (order) => ({
     final_total: order.final_total != null
       ? parseFloat(order.final_total)
       : null,
+    remaining_amount: order.remaining_amount != null
+      ? parseFloat(order.remaining_amount)
+      : null,
+    amount_paid: order.amount_paid != null
+      ? parseFloat(order.amount_paid)
+      : null,
+      discount_price: order.discount_price != null
+      ? parseFloat(order.discount_price)
+      : null,
+      extra_price_per_kg: order.extra_price_per_kg != null
+      ? parseFloat(order.extra_price_per_kg)
+      : null,
   },
   payment_status: order.payment_status || "pending",
   timestamps: buildOrderTimestamps(order),
