@@ -2,6 +2,10 @@ import cron from "node-cron";
 import sql from "../config/db.js";
 import { generateOTP } from "../utils/otp.js";
 import { createNotificationsBatch } from "../utils/notificationHelper.js";
+import {
+  sendPickupOtpEmail,
+  sendUserEmailSafe,
+} from "../services/common/email.service.js";
 
 
 export const startPickupCron = () => {
@@ -13,7 +17,7 @@ export const startPickupCron = () => {
       const today = new Date().toISOString().split("T")[0];
 
       const { rows } = await sql.query(
-        `SELECT id, user_id
+        `SELECT id, user_id, order_code
          FROM orders
          WHERE pickup_date = $1
          AND status = 'booked'`,
@@ -43,6 +47,12 @@ export const startPickupCron = () => {
           reference_type: 'order',
           reference_id: order.id,
         }]);
+
+        sendUserEmailSafe(order.user_id, sendPickupOtpEmail, {
+          orderId: order.id,
+          orderCode: order.order_code,
+          otp,
+        });
 
         console.log(`Order ${order.id} moved to out_for_pickup`);
       }

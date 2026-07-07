@@ -1,6 +1,7 @@
 import sql from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
+import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
 import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
@@ -833,7 +834,7 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
 export const markReadyForDeliveryService = async (vendor_id, order_id) => {
   console.log(`Marking order ${order_id} as ready for delivery for vendor ${vendor_id}`);
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.user_id FROM orders o
+    `SELECT o.id, o.status, o.user_id, o.order_code FROM orders o
      WHERE o.id = $1 AND o.vendor_id = $2`,
     [order_id, vendor_id]
   );
@@ -867,6 +868,12 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     reference_type: 'order',
     reference_id: order_id,
   }]);
+
+  sendUserEmailSafe(order.user_id, sendDeliveryOtpEmail, {
+    orderId: order.id,
+    orderCode: order.order_code,
+    otp: delivery_otp,
+  });
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {

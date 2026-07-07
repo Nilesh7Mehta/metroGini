@@ -1,5 +1,9 @@
 import sql from "../../../config/db.js";
 import razorpay from "../../../config/razorpay.js";
+import {
+  sendAdvancePaymentEmail,
+  sendUserEmailSafe,
+} from "../../common/email.service.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "../../../utils/status.js";
 import { fulfillAdvancePayment } from "./paymentFulfillment.service.js";
@@ -115,24 +119,37 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
 
     await client.query("COMMIT");
 
-    await createNotificationsBatch([
-      {
-        identity_id: userId,
-        role: "user",
-        title: "Order Confirmed",
-        message: `Your order #${orderId} has been confirmed and advance payment of ₹${result.paidAmount} received. A rider has been assigned for pickup.`,
-        reference_type: "order",
-        reference_id: orderId,
-      },
-      {
-        identity_id: result.vendor_id,
-        role: "vendor",
-        title: "New Order Assigned",
-        message: `Order #${orderId} has been assigned to your laundry. A rider will deliver it to you on the pickup date.`,
-        reference_type: "order",
-        reference_id: orderId,
-      },
-    ]);
+    if (!result.alreadyProcessed) {
+      await createNotificationsBatch([
+        {
+          identity_id: userId,
+          role: "user",
+          title: "Order Confirmed",
+          message: `Your order #${orderId} has been confirmed and advance payment of ₹${result.paidAmount} received. A rider has been assigned for pickup.`,
+          reference_type: "order",
+          reference_id: orderId,
+        },
+        {
+          identity_id: result.vendor_id,
+          role: "vendor",
+          title: "New Order Assigned",
+          message: `Order #${orderId} has been assigned to your laundry. A rider will deliver it to you on the pickup date.`,
+          reference_type: "order",
+          reference_id: orderId,
+        },
+      ]);
+
+      const orderMeta = await sql.query(
+        `SELECT order_code FROM orders WHERE id = $1`,
+        [orderId],
+      );
+
+      sendUserEmailSafe(userId, sendAdvancePaymentEmail, {
+        orderId,
+        orderCode: orderMeta.rows[0]?.order_code,
+        amount: result.paidAmount,
+      });
+    }
 
     return {
       message: "Payment successful. Order booked.",

@@ -79,6 +79,58 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
   });
 };
 
+export const sendPickupOtpEmail = async ({
+  email,
+  name,
+  otp,
+  orderId,
+  orderCode,
+}) => {
+  const orderRef = orderCode || `#${orderId}`;
+  const html = baseTemplate(
+    "Pickup OTP",
+    `
+      <p>${greet(name)}</p>
+      <p>Your laundry pickup for order <strong>${orderRef}</strong> is scheduled for today.</p>
+      <p>Share this OTP with the rider when they arrive to hand over your clothes:</p>
+      <div class="otp-box">${otp}</div>
+      <p>Please keep your clothes ready for pickup.</p>
+    `,
+  );
+
+  await sendEmail({
+    to: email,
+    subject: `Pickup OTP for order ${orderRef} — Metro Gini`,
+    html,
+  });
+};
+
+export const sendDeliveryOtpEmail = async ({
+  email,
+  name,
+  otp,
+  orderId,
+  orderCode,
+}) => {
+  const orderRef = orderCode || `#${orderId}`;
+  const html = baseTemplate(
+    "Delivery OTP",
+    `
+      <p>${greet(name)}</p>
+      <p>Your order <strong>${orderRef}</strong> is packed and ready for delivery.</p>
+      <p>Share this OTP with the rider when you receive your laundry:</p>
+      <div class="otp-box">${otp}</div>
+      <p>Do not share this OTP until you have received your order.</p>
+    `,
+  );
+
+  await sendEmail({
+    to: email,
+    subject: `Delivery OTP for order ${orderRef} — Metro Gini`,
+    html,
+  });
+};
+
 export const sendOrderCreatedEmail = async ({
   email,
   name,

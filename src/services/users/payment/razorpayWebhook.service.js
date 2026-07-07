@@ -1,4 +1,9 @@
 import sql from "../../../config/db.js";
+import {
+  sendAdvancePaymentEmail,
+  sendFullPaymentEmail,
+  sendUserEmailSafe,
+} from "../../common/email.service.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import { PAYMENT_TYPE } from "../../../utils/status.js";
 import {
@@ -14,8 +19,14 @@ import {
   verifyWebhookSignature,
 } from "./razorpay.util.js";
 
-const sendPaymentNotifications = async (result) => {
+const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
   if (result.alreadyProcessed) return;
+
+  const { rows: orderMeta } = await sql.query(
+    `SELECT order_code FROM orders WHERE id = $1`,
+    [result.order_id],
+  );
+  const orderCode = orderMeta[0]?.order_code;
 
   if (result.payment_type === PAYMENT_TYPE.ADVANCE) {
     await createNotificationsBatch([
@@ -36,6 +47,12 @@ const sendPaymentNotifications = async (result) => {
         reference_id: result.order_id,
       },
     ]);
+
+    sendUserEmailSafe(result.user_id, sendAdvancePaymentEmail, {
+      orderId: result.order_id,
+      orderCode,
+      amount: result.paidAmount,
+    });
     return;
   }
 
@@ -49,6 +66,13 @@ const sendPaymentNotifications = async (result) => {
       reference_id: result.order_id,
     },
   ]);
+
+  sendUserEmailSafe(result.user_id, sendFullPaymentEmail, {
+    orderId: result.order_id,
+    orderCode,
+    amount: result.paidAmount,
+    paymentMethod,
+  });
 };
 
 export const handleRazorpayWebhook = async (body, signature) => {
@@ -105,7 +129,7 @@ export const handleRazorpayWebhook = async (body, signature) => {
     if (event === "payment.captured") {
       const result = await fulfillCapturedPayment({ client, ...paymentPayload });
       await client.query("COMMIT");
-      await sendPaymentNotifications(result);
+      await sendPaymentNotifications(result, paymentPayload.paymentMethod);
       return { status: 200, body: "OK" };
     }
 

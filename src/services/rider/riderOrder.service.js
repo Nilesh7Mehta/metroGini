@@ -2,7 +2,7 @@ import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
-import { sendUserEmailSafe, sendFullPaymentEmail } from "../common/email.service.js";
+import { sendUserEmailSafe, sendFullPaymentEmail, sendPickupOtpEmail } from "../common/email.service.js";
 import { generateOTP } from "../../utils/otp.js";
 
 const attachOrderTimestamps = (row) => ({
@@ -189,7 +189,7 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
 
 export const resendOtp = async (rider_id, order_id) => {
   const { rows } = await sql.query(
-    `SELECT o.id, o.user_id, u.mobile
+    `SELECT o.id, o.user_id, o.order_code, u.mobile
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
      WHERE o.id = $1 AND o.assigned_rider_id = $2 AND o.otp_verified = false`,
@@ -197,6 +197,7 @@ export const resendOtp = async (rider_id, order_id) => {
   );
   if (rows.length === 0) throw { status: 404, message: "Order not found" };
 
+  const order = rows[0];
   const otp = generateOTP();
   await sql.query(`UPDATE orders SET pickup_otp = $1 WHERE id = $2`, [
     otp,
@@ -205,14 +206,20 @@ export const resendOtp = async (rider_id, order_id) => {
 
   await createNotificationsBatch([
     {
-      identity_id: rows[0].user_id,
+      identity_id: order.user_id,
       role: 'user',
-      title: "Delivery OTP Resent",
-      message: `Your delivery OTP is ${otp}`,
+      title: "Pickup OTP Resent",
+      message: `Your pickup OTP is ${otp}`,
       reference_type: "order",
       reference_id: order_id,
     },
   ]);
+
+  sendUserEmailSafe(order.user_id, sendPickupOtpEmail, {
+    orderId: order.id,
+    orderCode: order.order_code,
+    otp,
+  });
 
   return otp;
 };
