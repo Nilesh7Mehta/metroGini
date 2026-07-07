@@ -1,4 +1,5 @@
 import sql from "../../src/config/db.js";
+import { sendPushSafe } from "../services/common/push.service.js";
 
 /**
  * Insert notifications in batch.
@@ -26,6 +27,15 @@ export const createNotificationsBatch = async (notifications) => {
           n.reference_id || null,
         ]
       );
+
+      if (n.role === "user") {
+        sendPushSafe(n.identity_id, {
+          title: n.title,
+          body: n.message,
+          reference_type: n.reference_type,
+          reference_id: n.reference_id,
+        });
+      }
     }
   } catch (error) {
     console.error("Notification batch error:", error);
