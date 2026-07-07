@@ -75,7 +75,7 @@ export const fulfillAdvancePayment = async ({
          amount_paid = COALESCE(amount_paid, 0) + $5,
          updated_at = NOW()
      WHERE id = $1`,
-    [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id, paidAmount,remainingBaseline],
+    [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id, paidAmount],
     // [orderId, PAYMENT_STATUS.PARTIALLY_PAID, vendor_id, rider_id, paidAmount,remainingBaseline],
   );
 // remaining_amount = COALESCE(remaining_amount, $6) - $5,

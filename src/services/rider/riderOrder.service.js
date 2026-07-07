@@ -375,7 +375,11 @@ export const collectPaymentService = async (rider_id, order_id) => {
   }
 
   if (order.payment_status === 'paid') {
-    throw { status: 400, message: 'Payment has already been completed for this order' };
+    return {
+      order_id: parseInt(order_id, 10),
+      payment_status: 'paid',
+      message: 'Payment has already been completed for this order',
+    };
   }
 
   const final_total = parseFloat(order.final_total);

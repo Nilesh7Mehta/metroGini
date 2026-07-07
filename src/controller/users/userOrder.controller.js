@@ -28,6 +28,7 @@ const formatUserOrder = (order) => ({
   status: order.status,
   service_name: order.service_name,
   service_image: order.service_image,
+  is_stained: order.is_stained,
   pickup_slot: {
     date: order.pickup_date,
     time: `${order.pickup_start} - ${order.pickup_end}`,
