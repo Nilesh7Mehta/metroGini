@@ -754,10 +754,11 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          stain_image = $4,
          vendor_request_amount = $5,
          remaining_amount = $6,
+         extra_weight_charge = $7,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $7`,
-    [weight, final_total, stained, resolvedImage, resolvedAmount, remaining_amount, order_id]
+     WHERE id = $8`,
+    [weight, final_total, stained, resolvedImage, resolvedAmount, remaining_amount,extra_weight_charge,order_id]
   );
 
   return {
