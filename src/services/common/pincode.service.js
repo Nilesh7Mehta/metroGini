@@ -29,23 +29,39 @@ const validateGroupId = async (pincodeGroupId) => {
 };
 
 export const createPincode = async (body) => {
-  const { pincode, pincode_group_id, serviceable } = body;
+  const createSinglePincode = async (item) => {
+    const { pincode, pincode_group_id, serviceable } = item || {};
 
-  if (!pincode || pincode_group_id === undefined || pincode_group_id === null) {
-    throw { status: 400, message: "pincode and pincode_group_id are required" };
+    if (!pincode || pincode_group_id === undefined || pincode_group_id === null) {
+      throw { status: 400, message: "pincode and pincode_group_id are required" };
+    }
+
+    const validatedPincode = validatePincode(pincode);
+    const validatedGroupId = await validateGroupId(pincode_group_id);
+
+    const { rows } = await sql.query(
+      `INSERT INTO pincodes (pincode, pincode_group_id, serviceable)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [validatedPincode, validatedGroupId, serviceable ?? true],
+    );
+
+    return rows[0];
+  };
+
+  if (Array.isArray(body?.pincodes)) {
+    if (body.pincodes.length === 0) {
+      throw { status: 400, message: "pincodes array must not be empty" };
+    }
+
+    const created = [];
+    for (const item of body.pincodes) {
+      created.push(await createSinglePincode(item));
+    }
+    return created;
   }
 
-  const validatedPincode = validatePincode(pincode);
-  const validatedGroupId = await validateGroupId(pincode_group_id);
-
-  const { rows } = await sql.query(
-    `INSERT INTO pincodes (pincode, pincode_group_id, serviceable)
-     VALUES ($1, $2, $3)
-     RETURNING *`,
-    [validatedPincode, validatedGroupId, serviceable ?? true],
-  );
-
-  return rows[0];
+  return createSinglePincode(body);
 };
 
 export const getPincodes = async (filters = {}) => {
