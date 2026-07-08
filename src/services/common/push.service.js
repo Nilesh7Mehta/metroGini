@@ -192,10 +192,18 @@ export const sendTestPush = async (userId, { title, body } = {}) => {
 
   if (response.successCount === 0) {
     const firstError = response.responses.find((r) => !r.success)?.error;
+    const code = firstError?.code;
+    let message = firstError?.message || "Push failed for all registered devices";
+
+    if (code === "messaging/mismatched-credential") {
+      message =
+        "SenderId mismatch: the FCM token was issued by a different Firebase project than the backend service account. Use the same Firebase project (todo-app-cp-104ac) in your mobile app, get a fresh token, and re-register it.";
+    }
+
     throw {
       status: 502,
-      message: firstError?.message || "Push failed for all registered devices",
-      code: firstError?.code,
+      message,
+      code,
     };
   }
 

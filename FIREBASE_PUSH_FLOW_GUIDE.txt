@@ -1,0 +1,320 @@
+Firebase Push Notification Flow Guide (Users Only)
+=================================================
+
+Overview
+--------
+This backend sends push notifications to users through Firebase Cloud Messaging (FCM).
+The flow is:
+
+1) Mobile app gets FCM token from Firebase SDK
+2) App sends token to backend
+3) Backend stores token in DB (device_tokens table)
+4) Business events create in-app notifications
+5) Same event also triggers push send to user's registered tokens
+6) Firebase delivers push to device
+
+
+Environment + Credentials
+-------------------------
+Important env variables:
+
+- FIREBASE_SERVICE_ACCOUNT_PATH=./config/firebase-service-account.json
+- FIREBASE_ENABLED=true
+
+Credentials file location:
+
+- config/firebase-service-account.json
+
+Notes:
+
+- Service account project must match the mobile app Firebase project.
+- If not matching, push fails with:
+  "messaging/mismatched-credential" / "SenderId mismatch"
+
+
+Database
+--------
+File: migrations/025_device_tokens.sql
+
+Table: device_tokens
+
+Columns:
+- id: primary key
+- identity_id: user id
+- role: currently "user"
+- fcm_token: actual device token
+- platform: android | ios | web
+- created_at, updated_at
+
+Rules:
+- UNIQUE(fcm_token): same token is not duplicated
+- ON CONFLICT update: token can move to another user if needed
+
+
+File-by-File Responsibilities
+-----------------------------
+
+1) src/config/firebase.js
+   - Handles Firebase Admin SDK initialization.
+   - Reads JSON credential file path from env.
+   - Returns messaging client only when properly configured.
+
+2) src/services/common/push.service.js
+   - Main push logic.
+   - Token register/remove.
+   - Fetch user token list.
+   - Send push and clean stale tokens.
+   - Health-check and test-push helpers.
+
+3) src/services/users/userPush.service.js
+   - Thin user-facing service wrapper.
+   - Calls common push service and formats API response shape.
+
+4) src/controller/users/user.controller.js
+   - Exposes register/unregister token endpoints.
+   - Handles request parsing + HTTP error formatting.
+
+5) src/routes/users/user.router.js
+   - Declares user APIs:
+     - PUT /api/user/fcm-token
+     - DELETE /api/user/fcm-token
+
+6) src/utils/notificationHelper.js
+   - Existing in-app notification insert helper.
+   - Now also triggers push for role === "user" through sendPushSafe().
+
+7) src/controller/common/push.controller.js
+   - Push utility endpoints:
+     - GET /api/common/push/status
+     - POST /api/common/push/test
+
+8) src/routes/common.router.js
+   - Wires push utility controller routes.
+
+
+Function-by-Function Explanation
+--------------------------------
+
+File: src/config/firebase.js
+----------------------------
+
+isEnabledFlag()
+- Returns false only when FIREBASE_ENABLED is explicitly "false".
+
+resolveServiceAccountPath()
+- Reads FIREBASE_SERVICE_ACCOUNT_PATH.
+- Converts it to absolute path using process cwd.
+
+isConfigured()
+- Checks:
+  1) feature is enabled
+  2) credentials file exists
+
+ensureInitialized()
+- Initializes Firebase Admin once (singleton behavior).
+- Uses service account JSON and cert() credential.
+- Returns true if ready, false on any init/config issue.
+
+isFirebaseEnabled()
+- Public "is configured and enabled" check.
+
+getFirebaseMessaging()
+- Returns Firebase messaging instance if initialized.
+- Returns null when not configured/initialization fails.
+
+
+File: src/services/common/push.service.js
+-----------------------------------------
+
+registerDeviceToken({ userId, fcmToken, platform })
+- Validates inputs.
+- Normalizes platform (android/ios/web).
+- Upserts token into device_tokens with role="user".
+
+removeDeviceToken(userId, fcmToken)
+- Deletes specific token for given user.
+- Used on logout/device unlink.
+
+getUserPushPreference(userId)
+- Reads users.push_notification flag.
+- Push send stops if false.
+
+getUserFcmTokens(userId)
+- Returns all tokens for user from device_tokens.
+
+deleteStaleTokens(tokens)
+- Deletes invalid/unregistered tokens from DB.
+- Called after Firebase send response analysis.
+
+sendPushToUser(userId, payload)
+- Core notification sender.
+- Stops early if:
+  - Firebase disabled/unavailable
+  - user has disabled notifications
+  - no tokens found
+- Sends multicast push:
+  notification: { title, body }
+  data: { role, reference_type, reference_id }
+- Removes stale tokens based on FCM error codes.
+
+sendPushSafe(userId, payload)
+- Fire-and-forget wrapper.
+- Never throws to caller.
+- Logs error only.
+- Prevents business APIs from failing if push fails.
+
+verifyFirebaseConnection()
+- Validates Firebase config and messaging init.
+- Used by status endpoint.
+
+sendTestPush(userId, { title, body })
+- Sends test push to all user devices.
+- Validates:
+  - user exists in context
+  - Firebase configured
+  - user push enabled
+  - at least one token registered
+- Cleans stale tokens.
+- If all sends fail, throws detailed error.
+- Specially rewrites mismatched credential error into actionable message.
+
+
+File: src/services/users/userPush.service.js
+--------------------------------------------
+
+registerFcmToken({ userId, fcmToken, platform })
+- Calls registerDeviceToken()
+- Returns standard API response payload.
+
+unregisterFcmToken({ userId, fcmToken })
+- Calls removeDeviceToken()
+- Returns standard API response payload.
+
+
+File: src/controller/users/user.controller.js (push-related)
+------------------------------------------------------------
+
+registerFcmToken(req, res, next)
+- Reads req.user.id, req.body.fcm_token, req.body.platform
+- Calls userPushService.registerFcmToken()
+- Sends HTTP response.
+
+unregisterFcmToken(req, res, next)
+- Reads req.user.id, req.body.fcm_token
+- Calls userPushService.unregisterFcmToken()
+- Sends HTTP response.
+
+
+File: src/controller/common/push.controller.js
+----------------------------------------------
+
+getPushStatus(req, res, next)
+- Checks if Firebase is configured.
+- If configured, verifies initialization.
+- Returns configured/connected status JSON.
+
+sendTestPushHandler(req, res, next)
+- Uses logged-in user id.
+- Sends test push with optional title/body.
+- Returns delivery stats.
+
+
+File: src/utils/notificationHelper.js
+-------------------------------------
+
+createNotificationsBatch(notifications)
+- Existing behavior:
+  inserts each notification into notifications table.
+- New behavior:
+  if notification role is "user", it also calls sendPushSafe().
+- This gives automatic push for all existing user notification flows.
+
+
+API Endpoints (Push)
+--------------------
+
+User endpoints:
+
+PUT /api/user/fcm-token
+Body:
+{
+  "fcm_token": "<real-device-token>",
+  "platform": "android"
+}
+
+DELETE /api/user/fcm-token
+Body:
+{
+  "fcm_token": "<real-device-token>"
+}
+
+Common endpoints:
+
+GET /api/common/push/status
+- No auth required currently.
+- Returns Firebase setup status.
+
+POST /api/common/push/test
+- Requires user auth token.
+- Body optional:
+{
+  "title": "Test",
+  "body": "Hello"
+}
+
+
+Complete Runtime Flow Example
+-----------------------------
+
+Example: Order confirmed event
+
+1) Some service calls createNotificationsBatch([{ role:"user", identity_id, title, message, ... }])
+2) notificationHelper inserts row into notifications table
+3) notificationHelper calls sendPushSafe(userId, payload)
+4) sendPushSafe -> sendPushToUser
+5) sendPushToUser checks Firebase enabled + user preference + tokens
+6) Firebase multicast send executes
+7) stale invalid tokens are removed from DB
+8) API/business flow still succeeds even if push fails
+
+
+How to Test Quickly
+-------------------
+
+1) Confirm status:
+   GET /api/common/push/status
+
+2) Register token:
+   PUT /api/user/fcm-token with real token
+
+3) Ensure user allows notifications:
+   PUT /api/user/allowNotification
+   { "is_notification_allowed": true }
+
+4) Send direct test:
+   POST /api/common/push/test
+
+5) Trigger real business event and verify push arrives.
+
+
+Common Errors
+-------------
+
+messaging/mismatched-credential (SenderId mismatch)
+- Token project and backend service-account project differ.
+- Fix by using same Firebase project in mobile app and backend JSON.
+
+No FCM token registered
+- Call PUT /api/user/fcm-token first.
+
+Push notifications are disabled for this user
+- Enable using PUT /api/user/allowNotification.
+
+
+Security Notes
+--------------
+
+- Do not commit firebase-service-account.json.
+- Rotate keys if exposed.
+- Use separate Firebase projects/keys for dev and production.
+
