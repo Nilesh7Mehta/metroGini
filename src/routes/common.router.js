@@ -6,8 +6,9 @@ import * as pincodeController from '../controller/common/pincode.controller.js';
 import slotsRouter from './common/slots.router.js';
 import * as configController from '../controller/common/config.controller.js';
 import * as emailController from '../controller/common/email.controller.js';
+import * as pushController from '../controller/common/push.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
-import { isAdmin } from '../middleware/checkRole.middleware.js';
+import { isAdmin, isUser } from '../middleware/checkRole.middleware.js';
 
 const router = express.Router();
 
@@ -20,6 +21,10 @@ router.get('/config', configController.getConfig);
 // SMTP
 router.get('/email/status', emailController.getEmailStatus);
 router.post('/email/test', authenticate, isAdmin, emailController.sendTestEmailHandler);
+
+// Firebase push
+router.get('/push/status', pushController.getPushStatus);
+router.post('/push/test', authenticate, isUser, pushController.sendTestPushHandler);
 
 
 router.get('/userfaq',  CommonController.userFaq);

@@ -34,6 +34,8 @@ router.post('/needHelp' , authenticate , isUser , helplineController.needHelpAsU
 
 //push-notification
 router.put('/allowNotification' , authenticate , isUser , userController.allowNotification)
+router.put('/fcm-token', authenticate, isUser, userController.registerFcmToken);
+router.delete('/fcm-token', authenticate, isUser, userController.unregisterFcmToken);
 
 
 

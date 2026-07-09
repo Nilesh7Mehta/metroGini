@@ -25,9 +25,12 @@ const handleError = (res, err, next) => {
 export const addPincode = async (req, res, next) => {
   try {
     const data = await createPincode(req.body);
+    const isBulk = Array.isArray(data);
     return res.status(201).json({
       success: true,
-      message: "Pincode created successfully",
+      message: isBulk
+        ? `${data.length} pincodes created successfully`
+        : "Pincode created successfully",
       data,
     });
   } catch (err) {

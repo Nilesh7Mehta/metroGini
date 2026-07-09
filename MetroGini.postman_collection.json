@@ -1127,6 +1127,82 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Register FCM Token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"fcm_token\": \"your-fcm-device-token-here\",\r\n    \"platform\": \"android\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/fcm-token",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "fcm-token"
+              ]
+            },
+            "description": "Register device FCM token after login. platform: android | ios | web"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove FCM Token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"fcm_token\": \"your-fcm-device-token-here\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/fcm-token",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "fcm-token"
+              ]
+            },
+            "description": "Remove FCM token on logout."
+          },
+          "response": []
         }
       ]
     },
@@ -3939,6 +4015,124 @@
                 "config"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Email Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/email/status",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "email",
+                "status"
+              ]
+            },
+            "description": "Check SMTP configuration and connection."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Test Email",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"to\": \"user@example.com\",\r\n    \"name\": \"Test User\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/email/test",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "email",
+                "test"
+              ]
+            },
+            "description": "Send SMTP test email. Requires admin Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Push Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/push/status",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "push",
+                "status"
+              ]
+            },
+            "description": "Check Firebase Admin SDK configuration and connection."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Test Push",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"title\": \"Test Push\",\r\n    \"body\": \"Hello from Metro Gini\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/push/test",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "push",
+                "test"
+              ]
+            },
+            "description": "Send test push to logged-in user. Requires FCM token registered via PUT /api/user/fcm-token and push notifications enabled."
           },
           "response": []
         }

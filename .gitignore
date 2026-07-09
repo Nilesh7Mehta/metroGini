@@ -70,3 +70,5 @@ Thumbs.db
 # Optional: local config files
 # ------------------------------
 config/local.json
+config/firebase-service-account.json
+*-firebase-adminsdk-*.json

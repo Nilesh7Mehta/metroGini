@@ -2,6 +2,7 @@ import * as userAuthService from "../../services/users/userAuth.service.js";
 import * as userProfileService from "../../services/users/userProfile.service.js";
 import * as userAddressService from "../../services/users/userAddress.service.js";
 import * as userSettingsService from "../../services/users/userSettings.service.js";
+import * as userPushService from "../../services/users/userPush.service.js";
 
 //check if user exists by mobile
 export const loginOrRegister = async (req, res, next) => {
@@ -164,6 +165,37 @@ export const allowNotification = async (req, res, next) => {
     return res.status(statusCode).json(body);
 
   } catch (error) {
+    next(error);
+  }
+};
+
+export const registerFcmToken = async (req, res, next) => {
+  try {
+    const { statusCode, body } = await userPushService.registerFcmToken({
+      userId: req.user.id,
+      fcmToken: req.body.fcm_token,
+      platform: req.body.platform,
+    });
+    return res.status(statusCode).json(body);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
+export const unregisterFcmToken = async (req, res, next) => {
+  try {
+    const { statusCode, body } = await userPushService.unregisterFcmToken({
+      userId: req.user.id,
+      fcmToken: req.body.fcm_token,
+    });
+    return res.status(statusCode).json(body);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
