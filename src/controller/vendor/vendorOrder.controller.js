@@ -1,4 +1,4 @@
-import { orderDashboardService, getVendorOrdersService, getVendorTaskOrdersService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
+import { orderDashboardService, getVendorOrdersService, getVendorTaskOrdersService, getVendorHistoryOrdersService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
 
 const VALID_FILTERS = ['today', 'this_week', 'this_month', 'task'];
 
@@ -33,6 +33,24 @@ export const getVendorOrders = async (req, res, next) => {
           totalOrders > 0
             ? 'Task orders fetched successfully'
             : 'No task orders found',
+        data,
+      });
+    }
+
+    if (mode === 'history') {
+      const data = await getVendorHistoryOrdersService(vendor_id, {
+        period: req.query.period,
+        date: req.query.date,
+        date_from: req.query.date_from,
+        date_to: req.query.date_to,
+      });
+      const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+      return res.status(200).json({
+        success: true,
+        message:
+          totalOrders > 0
+            ? 'Order history fetched successfully'
+            : 'No orders found for this period',
         data,
       });
     }

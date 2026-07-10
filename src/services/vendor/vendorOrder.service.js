@@ -421,6 +421,136 @@ export const getVendorTaskOrdersService = async (vendor_id) => {
   };
 };
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const HISTORY_PERIODS = ['today', 'month', 'custom'];
+
+const resolveHistoryDateRange = ({ period, date, date_from, date_to } = {}) => {
+  const today = formatDate(new Date());
+  const normalizedPeriod = HISTORY_PERIODS.includes(String(period || '').toLowerCase())
+    ? String(period).toLowerCase()
+    : 'today';
+
+  if (normalizedPeriod === 'today') {
+    const day = date && DATE_RE.test(date) ? date : today;
+    return { period: 'today', date_from: day, date_to: day };
+  }
+
+  if (normalizedPeriod === 'month') {
+    if (
+      date_from &&
+      date_to &&
+      DATE_RE.test(date_from) &&
+      DATE_RE.test(date_to)
+    ) {
+      if (date_from > date_to) {
+        throw { status: 400, message: 'date_from must be on or before date_to' };
+      }
+      return { period: 'month', date_from, date_to };
+    }
+
+    const now = new Date();
+    const start = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const end = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    return { period: 'month', date_from: start, date_to: end };
+  }
+
+  if (!date_from || !date_to || !DATE_RE.test(date_from) || !DATE_RE.test(date_to)) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to (YYYY-MM-DD) are required for custom period',
+    };
+  }
+
+  if (date_from > date_to) {
+    throw { status: 400, message: 'date_from must be on or before date_to' };
+  }
+
+  return { period: 'custom', date_from, date_to };
+};
+
+const mapHistoryOrderToListItem = (order) => {
+  const serviceConfig = SERVICE_CONFIG[order.service_id] || {
+    image: order.service_image || null,
+  };
+
+  return {
+    id: order.id,
+    customer: `CUST${String(order.user_id).padStart(3, '0')}`,
+    type: isExpressOrder(order.service_type_name) ? 'Express' : 'Regular',
+    details: buildOrderDetails(order),
+    image: serviceConfig.image || order.service_image,
+    status: getVendorOperationalStatus(order),
+  };
+};
+
+const buildHistoryShiftPayload = (slotId, orders, shiftByPickupSlot) => {
+  const config = shiftByPickupSlot[slotId];
+  if (!config) return null;
+
+  const shiftOrders = orders.filter(
+    (o) => Number(o.pickup_slot_id) === Number(slotId),
+  );
+  if (!shiftOrders.length) return null;
+
+  const titleLabel =
+    config.shift_type.charAt(0).toUpperCase() + config.shift_type.slice(1);
+
+  return {
+    id: Number(slotId),
+    shift_title: titleLabel,
+    total_orders: shiftOrders.length,
+    shift_type: config.shift_type,
+    orders: shiftOrders.map(mapHistoryOrderToListItem),
+  };
+};
+
+export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
+  const { period, date_from, date_to } = resolveHistoryDateRange(query);
+  const { pickupShiftSlotIds, shiftByPickupSlot } =
+    await getPickupShiftConfig();
+
+  const { rows: orders } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      o.pickup_slot_id,
+      o.status,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.clothes_count,
+      o.service_id,
+      s.name AS service_name,
+      s.image AS service_image,
+      st.name AS service_type_name
+    FROM orders o
+    JOIN services s ON o.service_id = s.id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    WHERE o.vendor_id = $1
+      AND o.vendor_received_at::date BETWEEN $2::date AND $3::date
+      AND o.pickup_slot_id = ANY($4::int[])
+      AND o.status NOT IN ('draft', 'cancelled')
+    ORDER BY o.id DESC
+    `,
+    [vendor_id, date_from, date_to, pickupShiftSlotIds],
+  );
+
+  const shifts = pickupShiftSlotIds
+    .map((slotId) => buildHistoryShiftPayload(slotId, orders, shiftByPickupSlot))
+    .filter(Boolean);
+
+  return {
+    mode: 'history',
+    period,
+    date_from,
+    date_to,
+    shifts,
+  };
+};
+
 const getBatchOverviewKey = (filter) => {
   if (filter === 'this_week') return 'weeks_batch_overview';
   if (filter === 'this_month') return 'months_batch_overview';
