@@ -1,6 +1,6 @@
-import { orderDashboardService, getVendorOrdersService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
+import { orderDashboardService, getVendorOrdersService, getVendorTaskOrdersService, getOrderDetailsService, confirmClothesService, confirmWeightService, finalizeOrderService, markReadyForDeliveryService } from '../../services/vendor/vendorOrder.service.js';
 
-const VALID_FILTERS = ['today', 'this_week', 'this_month'];
+const VALID_FILTERS = ['today', 'this_week', 'this_month', 'task'];
 
 export const orderDashboard = async (req, res, next) => {
   try {
@@ -22,6 +22,21 @@ export const orderDashboard = async (req, res, next) => {
 export const getVendorOrders = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
+    const mode = String(req.query.mode || '').toLowerCase();
+
+    if (mode === 'task') {
+      const data = await getVendorTaskOrdersService(vendor_id);
+      const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+      return res.status(200).json({
+        success: true,
+        message:
+          totalOrders > 0
+            ? 'Task orders fetched successfully'
+            : 'No task orders found',
+        data,
+      });
+    }
+
     const selectedDate = req.query.date || req.query.selected_date;
     const data = await getVendorOrdersService(vendor_id, selectedDate);
     const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);

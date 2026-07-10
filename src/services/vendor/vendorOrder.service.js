@@ -1,10 +1,18 @@
-import sql from '../../config/db.js';
+import sql, { APP_TIMEZONE } from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
 import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
+import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
+
+const TASK_ACTIVE_STATUSES = [
+  'in_process',
+  'order_finalized',
+  'ready_for_delivery',
+  'out_for_delivery',
+];
 
 const SERVICE_CONFIG = {
   1: {
@@ -84,6 +92,333 @@ const formatDate = (date) =>
 const formatGeneratedAt = (date = new Date()) => {
   const pad = (n) => String(n).padStart(2, '0');
   return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
+const formatPgDate = (value) => {
+  if (value == null) return null;
+  if (value instanceof Date) return formatDate(value);
+  const raw = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : formatDate(new Date(raw));
+};
+
+/** ISO-8601 wall-clock in APP_TIMEZONE, e.g. 2026-07-10T10:00:00+05:30 */
+const formatGeneratedAtIso = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}+05:30`;
+};
+
+const isAwaitingMarkReady = (order) => {
+  if (order.status === 'order_finalized') return true;
+  return order.status === 'in_process' && !isClassificationPending(order);
+};
+
+const buildTaskOperationalDistribution = (orders) => ({
+  pending_classification: orders.filter(isClassificationPending).length,
+  awaiting_mark_ready: orders.filter(isAwaitingMarkReady).length,
+  ready_for_dispatch: orders.filter((o) =>
+    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
+  ).length,
+});
+
+const buildTaskProgress = (orders) => {
+  const total = orders.length;
+  const left = orders.filter(isClassificationPending).length;
+  return {
+    total,
+    done: total - left,
+    left,
+  };
+};
+
+const getTaskListStatus = (order) => {
+  if (order.status === 'order_finalized') return 'order_finalized';
+  return getVendorOperationalStatus(order);
+};
+
+const mapTaskOrderToListItem = (order) => {
+  const serviceConfig = SERVICE_CONFIG[order.service_id] || {
+    image: order.service_image || null,
+  };
+
+  return {
+    id: order.id,
+    customer: `CUST${String(order.user_id).padStart(3, '0')}`,
+    type: isExpressOrder(order.service_type_name) ? 'Express' : 'Regular',
+    details: buildOrderDetails(order),
+    image: serviceConfig.image || order.service_image,
+    status: getTaskListStatus(order),
+  };
+};
+
+const buildTaskPerformanceOverview = (orders) => {
+  const ordersReceived = orders.filter((o) =>
+    [
+      'in_process',
+      'order_finalized',
+      'ready_for_delivery',
+      'out_for_delivery',
+      'delivered',
+    ].includes(o.status),
+  ).length;
+
+  const ordersDelivered = orders.filter((o) => o.status === 'delivered').length;
+
+  const loadProcessed = orders.reduce((sum, o) => {
+    const classified =
+      Number(o.service_id) === 2
+        ? hasConfirmedClothes(o)
+        : hasConfirmedWeight(o) && hasConfirmedClothes(o);
+
+    if (
+      !classified &&
+      !['order_finalized', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(
+        o.status,
+      )
+    ) {
+      return sum;
+    }
+
+    if (Number(o.service_id) === 2) {
+      return sum + Number(o.actual_clothes_count || 0);
+    }
+    return sum + Number(o.actual_weight || 0);
+  }, 0);
+
+  const revenue = orders.reduce((sum, o) => {
+    if (!['ready_for_delivery', 'out_for_delivery', 'delivered'].includes(o.status)) {
+      return sum;
+    }
+    return sum + Number(o.final_total || 0);
+  }, 0);
+
+  return {
+    orders_received: ordersReceived,
+    orders_delivered: ordersDelivered,
+    load_processed: {
+      value: parseFloat(Number(loadProcessed).toFixed(2)),
+      unit: 'kg/pieces',
+    },
+    revenue: parseFloat(Number(revenue).toFixed(2)),
+  };
+};
+
+/**
+ * Next upcoming laundry schedule slot for this vendor (laundry_id).
+ * Prefers the earliest active delivery_date among incomplete orders when that
+ * date is on or before the next scheduled occurrence.
+ */
+const resolveVendorTaskDeadline = async (vendor_id) => {
+  const scheduleResult = await sql.query(
+    `
+    SELECT
+      lgss.pincode_group_id,
+      lgss.day_of_week,
+      lgss.shift_id,
+      s.shift_name,
+      s.start_time,
+      s.end_time,
+      CASE
+        WHEN lgss.day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)::int
+             AND s.end_time > (CURRENT_TIMESTAMP::time)
+          THEN CURRENT_DATE
+        WHEN lgss.day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)::int
+          THEN (CURRENT_DATE + 7)
+        ELSE (
+          CURRENT_DATE
+          + ((lgss.day_of_week - EXTRACT(ISODOW FROM CURRENT_DATE)::int + 7) % 7)
+        )
+      END::date AS next_date
+    FROM laundry_group_shift_schedule lgss
+    JOIN shifts s ON s.id = lgss.shift_id
+    WHERE lgss.laundry_id = $1
+      AND COALESCE(s.status, TRUE) IS TRUE
+    ORDER BY next_date ASC, s.start_time ASC, lgss.id ASC
+    LIMIT 1
+    `,
+    [vendor_id],
+  );
+
+  const orderDeadlineResult = await sql.query(
+    `
+    SELECT MIN(delivery_date)::date AS earliest_delivery_date
+    FROM orders
+    WHERE vendor_id = $1
+      AND delivery_date IS NOT NULL
+      AND status = ANY($2::text[])
+    `,
+    [vendor_id, TASK_ACTIVE_STATUSES],
+  );
+
+  const scheduleRow = scheduleResult.rows[0] || null;
+  const earliestDelivery = formatPgDate(
+    orderDeadlineResult.rows[0]?.earliest_delivery_date,
+  );
+
+  let deadlineDate = null;
+  let dayOfWeek = null;
+  let shiftId = null;
+  let shiftName = null;
+  let pincodeGroupId = null;
+
+  if (earliestDelivery && scheduleRow) {
+    const scheduleDate = formatPgDate(scheduleRow.next_date);
+    if (earliestDelivery <= scheduleDate) {
+      deadlineDate = earliestDelivery;
+    } else {
+      deadlineDate = scheduleDate;
+    }
+  } else if (earliestDelivery) {
+    deadlineDate = earliestDelivery;
+  } else if (scheduleRow) {
+    deadlineDate = formatPgDate(scheduleRow.next_date);
+  }
+
+  if (!deadlineDate) return null;
+
+  const deadlineDowResult = await sql.query(
+    `SELECT EXTRACT(ISODOW FROM $1::date)::int AS day_of_week`,
+    [deadlineDate],
+  );
+  dayOfWeek = Number(deadlineDowResult.rows[0].day_of_week);
+
+  const dayScheduleResult = await sql.query(
+    `
+    SELECT
+      lgss.pincode_group_id,
+      lgss.day_of_week,
+      lgss.shift_id,
+      s.shift_name
+    FROM laundry_group_shift_schedule lgss
+    JOIN shifts s ON s.id = lgss.shift_id
+    WHERE lgss.laundry_id = $1
+      AND lgss.day_of_week = $2
+      AND COALESCE(s.status, TRUE) IS TRUE
+    ORDER BY s.start_time ASC, lgss.id ASC
+    LIMIT 1
+    `,
+    [vendor_id, dayOfWeek],
+  );
+
+  const daySchedule = dayScheduleResult.rows[0] || scheduleRow;
+  if (daySchedule) {
+    shiftId = Number(daySchedule.shift_id);
+    shiftName = daySchedule.shift_name;
+    pincodeGroupId = Number(daySchedule.pincode_group_id);
+    dayOfWeek = Number(daySchedule.day_of_week);
+  }
+
+  return {
+    date: deadlineDate,
+    day_of_week: dayOfWeek,
+    day_label: DAY_LABELS[dayOfWeek] || null,
+    shift_id: shiftId,
+    shift_name: shiftName,
+    pincode_group_id: pincodeGroupId,
+  };
+};
+
+const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
+  if (!taskDeadline?.date) return [];
+
+  const { rows } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      o.pickup_slot_id,
+      o.delivery_slot_id,
+      o.status,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.clothes_count,
+      o.service_id,
+      o.final_total,
+      o.pickup_completed_at,
+      o.delivery_completed_at,
+      s.name AS service_name,
+      s.image AS service_image,
+      st.name AS service_type_name
+    FROM orders o
+    JOIN services s ON o.service_id = s.id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    WHERE o.vendor_id = $1
+      AND o.delivery_date = $2::date
+      AND o.status = ANY($3::text[])
+    ORDER BY o.id DESC
+    `,
+    [vendor_id, taskDeadline.date, TASK_ACTIVE_STATUSES],
+  );
+
+  return rows;
+};
+
+const buildEmptyTaskDeadline = () => ({
+  date: null,
+  day_of_week: null,
+  day_label: null,
+  shift_id: null,
+  shift_name: null,
+  pincode_group_id: null,
+});
+
+export const orderTaskDashboardService = async (vendor_id) => {
+  const taskDeadline = (await resolveVendorTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
+  const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
+
+  return {
+    filter: 'task',
+    generated_at: formatGeneratedAtIso(),
+    task_deadline: taskDeadline,
+    task_progress: buildTaskProgress(orders),
+    performance_overview: buildTaskPerformanceOverview(orders),
+    todays_batch_overview: {
+      total_orders: orders.length,
+      services: buildDashboardBatchServices(orders),
+    },
+    operational_distribution: buildTaskOperationalDistribution(orders),
+  };
+};
+
+export const getVendorTaskOrdersService = async (vendor_id) => {
+  const taskDeadline = (await resolveVendorTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
+  const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
+  const shiftType = taskDeadline.shift_name
+    ? String(taskDeadline.shift_name).trim().toLowerCase()
+    : null;
+
+  const shiftPayload = {
+    id: taskDeadline.shift_id,
+    shift_title: taskDeadline.shift_name,
+    total_orders: orders.length,
+    shift_type: shiftType,
+    operational_distribution: buildTaskOperationalDistribution(orders),
+    todays_batch_overview: {
+      total_orders: orders.length,
+      services: buildDashboardBatchServices(orders),
+    },
+    orders: orders.map(mapTaskOrderToListItem),
+  };
+
+  return {
+    mode: 'task',
+    task_deadline: taskDeadline,
+    task_progress: buildTaskProgress(orders),
+    shifts: taskDeadline.shift_id || orders.length ? [shiftPayload] : [],
+  };
 };
 
 const getBatchOverviewKey = (filter) => {
@@ -281,6 +616,10 @@ const getDateRange = (filter) => {
 };
 
 export const orderDashboardService = async (vendor_id, filter = 'today') => {
+  if (filter === 'task') {
+    return orderTaskDashboardService(vendor_id);
+  }
+
   const { start, end } = getDateRange(filter);
 
   // =========================
