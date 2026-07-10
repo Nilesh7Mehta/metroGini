@@ -1093,7 +1093,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          stain_image = $4,
          vendor_request_amount = $5,
          remaining_amount = $6,
-         extra_weight_charge = $7,
+         extra_price_per_kg = $7,
          status = 'in_process',
          updated_at = NOW()
      WHERE id = $8`,
