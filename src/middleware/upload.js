@@ -17,7 +17,7 @@ export const createUploader = (folderName, maxSize = 5 * 1024) => {
       cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-      const uniqueName = Date.now() + path.extname(file.originalname);
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${path.extname(file.originalname)}`;
       cb(null, uniqueName);
     }
   });

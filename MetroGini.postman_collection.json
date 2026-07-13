@@ -4990,20 +4990,33 @@
                   "query": [
                     {
                       "key": "filter",
+                      "value": "today",
+                      "disabled": true,
+                      "description": "today | this_week | this_month | task"
+                    },
+                    {
+                      "key": "filter",
+                      "value": "this_week"
+                    },
+                    {
+                      "key": "filter",
                       "value": "this_month",
                       "disabled": true
                     },
                     {
                       "key": "filter",
-                      "value": "this_week"
+                      "value": "task",
+                      "disabled": true,
+                      "description": "Task deadline dashboard (task_deadline, task_progress, awaiting_mark_ready)"
                     }
                   ]
-                }
+                },
+                "description": "Vendor order dashboard.\n\n**filter:** `today` | `this_week` | `this_month` | `task`\n\nUse `filter=task` for the next task deadline view."
               },
               "response": []
             },
             {
-              "name": "Get Orders (Shifts)",
+              "name": "orderDashboard (Task)",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
               },
@@ -5020,35 +5033,263 @@
                 },
                 "method": "GET",
                 "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": ""
-                },
                 "url": {
-                  "raw": "{{baseUrl}}api/vendor/order/orders?date=2026-05-18",
+                  "raw": "{{baseUrl}}api/vendor/order/orderDashboard?filter=task",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "vendor",
                     "order",
-                    "orders"
+                    "orderDashboard"
+                  ],
+                  "query": [
+                    {
+                      "key": "filter",
+                      "value": "task"
+                    }
+                  ]
+                },
+                "description": "Task-mode dashboard: task_deadline, task_progress, performance_overview, todays_batch_overview, operational_distribution (pending_classification / awaiting_mark_ready / ready_for_dispatch)."
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (By Date)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?date=2026-07-10",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
                   ],
                   "query": [
                     {
                       "key": "date",
-                      "value": "2026-05-18",
+                      "value": "2026-07-10",
                       "description": "Pickup date (YYYY-MM-DD). Defaults to today if omitted."
                     },
                     {
                       "key": "selected_date",
-                      "value": "2026-05-18",
+                      "value": "2026-07-10",
                       "disabled": true,
                       "description": "Alias for date"
                     }
                   ]
                 },
-                "description": "Returns vendor orders grouped by pickup shift. pickup_slot_id 1 = morning_shift, 2 = evening_shift."
+                "description": "Returns vendor orders for a pickup date, grouped by pickup shift."
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (Task)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=task",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
+                  ],
+                  "query": [
+                    {
+                      "key": "mode",
+                      "value": "task"
+                    }
+                  ]
+                },
+                "description": "Task-mode order list: task_deadline, task_progress, and shifts with orders due for the next deadline."
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (History - Today)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=history&period=today&date=2026-07-10",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
+                  ],
+                  "query": [
+                    {
+                      "key": "mode",
+                      "value": "history"
+                    },
+                    {
+                      "key": "period",
+                      "value": "today"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2026-07-10",
+                      "description": "YYYY-MM-DD. Defaults to today if omitted. Filters by vendor_received_at::date."
+                    }
+                  ]
+                },
+                "description": "Order history for a single day (vendor_received_at)."
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (History - Month)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=history&period=month&date_from=2026-07-01&date_to=2026-07-31",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
+                  ],
+                  "query": [
+                    {
+                      "key": "mode",
+                      "value": "history"
+                    },
+                    {
+                      "key": "period",
+                      "value": "month"
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-07-01",
+                      "description": "Optional. Defaults to first day of current month."
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-07-31",
+                      "description": "Optional. Defaults to last day of current month."
+                    }
+                  ]
+                },
+                "description": "Order history for a month range (vendor_received_at)."
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (History - Custom)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=history&period=custom&date_from=2026-07-01&date_to=2026-07-10",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
+                  ],
+                  "query": [
+                    {
+                      "key": "mode",
+                      "value": "history"
+                    },
+                    {
+                      "key": "period",
+                      "value": "custom"
+                    },
+                    {
+                      "key": "date_from",
+                      "value": "2026-07-01",
+                      "description": "Required (YYYY-MM-DD)"
+                    },
+                    {
+                      "key": "date_to",
+                      "value": "2026-07-10",
+                      "description": "Required (YYYY-MM-DD)"
+                    }
+                  ]
+                },
+                "description": "Order history for a custom date range (vendor_received_at). Both date_from and date_to are required."
               },
               "response": []
             },
@@ -5184,7 +5425,7 @@
                     "confirm-weight"
                   ]
                 },
-                "description": "Confirm actual weight for an in_process order (no stain).\n\n**Body (form-data):**\n- `actual_weight` (required) — positive number\n- `is_stained` (required) — `0` or `1`\n\nWhen `is_stained` is `0`, only the above fields are needed."
+                "description": "Confirm actual weight for an in_process order (no stain).\n\n**Body (form-data):**\n- `actual_weight` (required) — positive number\n- `is_stained` (required) — `0` or `1`\n\nWhen `is_stained` is `0`, only the above fields are needed.\n\n**Response fields:**\n- `vendor_revenue` — `actual_weight × 90` (payout tracking only; not added to user `final_total`)\n- `vendor_request_markup` — `null` when not stained\n- `subtotal_before_gst` / `gst` / `final_total` — user billing (no stain markup when `is_stained` is `0`)"
               },
               "response": []
             },
@@ -5226,7 +5467,7 @@
                     },
                     {
                       "key": "image",
-                      "description": "Required when is_stained is 1 — stain photo",
+                      "description": "Required when is_stained is 1 — one or more stain photos (same key repeated, max 10)",
                       "type": "file"
                     }
                   ]
@@ -5243,7 +5484,7 @@
                     "confirm-weight"
                   ]
                 },
-                "description": "Confirm actual weight when clothes are stained.\n\n**Body (form-data):**\n- `actual_weight` (required)\n- `is_stained` = `1`\n- `vendor_request_amount` (required) — positive number\n- `image` (required) — stain photo file"
+                "description": "Confirm actual weight when clothes are stained.\n\n**Body (form-data):**\n- `actual_weight` (required)\n- `is_stained` = `1`\n- `vendor_request_amount` (required) — positive number (vendor ask, e.g. `100`)\n- `image` (required) — one or more stain photo files (repeat the `image` key; max 10)\n\n**Pricing (stored on order + returned in response):**\n- `vendor_request_amount` — vendor ask (unchanged)\n- `vendor_request_markup` — 30% of `vendor_request_amount` (e.g. `30` when ask is `100`)\n- User pays vendor amount + markup in subtotal before GST:\n  `subtotal_before_gst = base_total + vendor_request_amount + vendor_request_markup`\n  then GST 18% → `final_total`\n- `vendor_revenue` — `actual_weight × 90` (payout tracking only; not added to user `final_total`)\n- `stain_images` — array of uploaded image paths"
               },
               "response": []
             },

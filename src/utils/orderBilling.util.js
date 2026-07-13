@@ -55,18 +55,21 @@ export const buildOrderBillingPayload = (order) => {
   }
 
   const vendorExtra = Number(order.vendor_request_amount || 0);
+  const vendorMarkup = Number(order.vendor_request_markup || 0);
   if (Number(order.is_stained) === 1 && vendorExtra > 0) {
+    const stainChargeForUser = Math.round(vendorExtra + vendorMarkup);
     additionalCharges.push({
       name: 'Stain / Vendor Extra Charge',
       qty: 1,
-      rate: String(Math.round(vendorExtra)),
-      amount: String(Math.round(vendorExtra)),
+      rate: String(stainChargeForUser),
+      amount: String(stainChargeForUser),
     });
   }
 
   const estimatedTotal = Math.round(Number(order.estimated_total || 0));
   const isStained = Number(order.is_stained) === 1;
   const vendorExtraRounded = isStained ? Math.round(vendorExtra) : 0;
+  const vendorMarkupRounded = isStained ? Math.round(vendorMarkup) : 0;
   const extraWeightLine = additionalCharges.find(
     (item) => item.name === 'Extra Weight Charge',
   );
@@ -87,7 +90,8 @@ export const buildOrderBillingPayload = (order) => {
     });
   }
 
-  const subtotalBeforeGst = netBaseAfterCoupon + vendorExtraRounded;
+  const subtotalBeforeGst =
+    netBaseAfterCoupon + vendorExtraRounded + vendorMarkupRounded;
   const payableGst = Math.round(subtotalBeforeGst * 0.18);
   const payableFinal = subtotalBeforeGst + payableGst;
   const totalAmount =
@@ -123,6 +127,7 @@ export const buildOrderBillingPayload = (order) => {
         order.discount_value != null ? String(parseFloat(order.discount_value)) : null,
       coupon_discount: String(couponDiscountRounded),
       vendor_request_amount: String(vendorExtraRounded),
+      vendor_request_markup: String(vendorMarkupRounded),
       gst: String(payableGst),
       final_amount: String(totalAmount),
     },

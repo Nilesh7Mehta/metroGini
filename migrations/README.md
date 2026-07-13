@@ -23,3 +23,5 @@ Run in order. Each file depends on the ones before it.
 | 018_rider_group_shift_schedule.sql | rider_group_shift_schedule | 003, 015 |
 | 019_laundry_slot_capacity.sql | laundry_slot_capacity | 003, laundries |
 | 023_order_stain_columns.sql | orders (is_stained, stain_image, vendor_request_amount) | 006 |
+| 026_order_vendor_revenue_columns.sql | orders (vendor_revenue, vendor_request_markup) | 023 |
+| 027_order_stain_images.sql | orders (stain_image → stain_images JSONB) | 023 |

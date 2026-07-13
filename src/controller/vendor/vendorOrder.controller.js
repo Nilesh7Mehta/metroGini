@@ -119,12 +119,13 @@ export const confirmWeight = async (req, res, next) => {
     }
 
     const stained = parseInt(is_stained, 10);
-    const stain_image = req.file ? `uploads/order-stains/${req.file.filename}` : null;
+    const files = Array.isArray(req.files) ? req.files : [];
+    const stain_images = files.map((file) => `uploads/order-stains/${file.filename}`);
 
     const data = await confirmWeightService(vendor_id, order_id, {
       actual_weight,
       is_stained: stained,
-      stain_image,
+      stain_images,
       vendor_request_amount,
     });
     return res.status(200).json({ success: true, data });

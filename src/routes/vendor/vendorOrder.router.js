@@ -10,7 +10,7 @@ router.get('/orderDashboard', authenticate, vendorOrderController.orderDashboard
 router.get('/orderList', authenticate, vendorOrderController.getVendorOrders);
 router.get('/:order_id', authenticate, vendorOrderController.getOrderDetails);
 router.post('/:order_id/confirm-clothes', authenticate, vendorOrderController.confirmClothes);
-router.post('/:order_id/confirm-weight', authenticate, stainUpload.single('image'), vendorOrderController.confirmWeight);
+router.post('/:order_id/confirm-weight', authenticate, stainUpload.array('image', 10), vendorOrderController.confirmWeight);
 router.post('/:order_id/finalize', authenticate, vendorOrderController.finalizeOrder);
 router.post('/:order_id/mark-ready', authenticate, vendorOrderController.markReadyForDelivery);
 

@@ -49,12 +49,23 @@ const formatUserOrder = (order) => ({
       ? parseFloat(
           (
             Number(order.final_total) -
-            Number(order.is_stained ? order.vendor_request_amount || 0 : 0)
+            Number(
+              order.is_stained
+                ? (Number(order.vendor_request_amount) || 0) +
+                    (Number(order.vendor_request_markup) || 0)
+                : 0,
+            )
           ).toFixed(2),
         )
       : null,
     vendor_request_amount: order.vendor_request_amount != null
       ? parseFloat(order.vendor_request_amount)
+      : null,
+    vendor_request_markup: order.vendor_request_markup != null
+      ? parseFloat(order.vendor_request_markup)
+      : null,
+    vendor_revenue: order.vendor_revenue != null
+      ? parseFloat(order.vendor_revenue)
       : null,
     final_total: order.final_total != null
       ? parseFloat(order.final_total)

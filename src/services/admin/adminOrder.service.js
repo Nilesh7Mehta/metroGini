@@ -12,6 +12,27 @@ const SERVICE_CONFIG = {
 
 const formatDate = (date) => date.toLocaleDateString('en-CA');
 
+const normalizeStainImages = (value) => {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const images = value.filter((path) => typeof path === 'string' && path.trim());
+    return images.length ? images : null;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        const images = parsed.filter((path) => typeof path === 'string' && path.trim());
+        return images.length ? images : null;
+      }
+    } catch {
+      return [value];
+    }
+    return [value];
+  }
+  return null;
+};
+
 const getDateRange = (period) => {
   const now = new Date();
 
@@ -431,8 +452,10 @@ const fetchAdminOrderById = async (orderId) => {
       o.estimated_total,
       o.final_total,
       o.is_stained,
-      o.stain_image,
+      o.stain_images,
       o.vendor_request_amount,
+      o.vendor_request_markup,
+      o.vendor_revenue,
       o.applied_coupon_id,
       c.coupon_code,
       c.discount_type,
@@ -659,10 +682,18 @@ export const getAdminOrderOperationsService = async (orderId) => {
         order.estimated_weight_max,
       ),
       is_stained: Number(order.is_stained) || 0,
-      stain_image: order.stain_image || null,
+      stain_images: normalizeStainImages(order.stain_images),
       vendor_request_amount:
         order.vendor_request_amount != null
           ? parseFloat(order.vendor_request_amount)
+          : null,
+      vendor_request_markup:
+        order.vendor_request_markup != null
+          ? parseFloat(order.vendor_request_markup)
+          : null,
+      vendor_revenue:
+        order.vendor_revenue != null
+          ? parseFloat(order.vendor_revenue)
           : null,
       extra_care_items:
         Number(order.is_stained) === 1

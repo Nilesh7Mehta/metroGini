@@ -36,6 +36,27 @@ const hasConfirmedWeight = (order) => {
   return order.actual_weight != null && Number(order.actual_weight) > 0;
 };
 
+const normalizeStainImages = (value) => {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const images = value.filter((path) => typeof path === 'string' && path.trim());
+    return images.length ? images : null;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        const images = parsed.filter((path) => typeof path === 'string' && path.trim());
+        return images.length ? images : null;
+      }
+    } catch {
+      return [value];
+    }
+    return [value];
+  }
+  return null;
+};
+
 /** Vendor has received the order but has not confirmed weight/piece count yet */
 const isClassificationPending = (order) => {
   if (order.status !== 'in_process') return false;
@@ -199,7 +220,7 @@ const buildTaskPerformanceOverview = (orders) => {
     if (!['ready_for_delivery', 'out_for_delivery', 'delivered'].includes(o.status)) {
       return sum;
     }
-    return sum + Number(o.final_total || 0);
+    return sum + Number(o.vendor_revenue || 0);
   }, 0);
 
   return {
@@ -347,6 +368,7 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
       o.clothes_count,
       o.service_id,
       o.final_total,
+      o.vendor_revenue,
       o.pickup_completed_at,
       o.delivery_completed_at,
       s.name AS service_name,
@@ -998,8 +1020,10 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       o.actual_clothes_count,
       o.actual_weight,
       o.is_stained,
-      o.stain_image,
+      o.stain_images,
       o.vendor_request_amount,
+      o.vendor_request_markup,
+      o.vendor_revenue,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name,
@@ -1068,9 +1092,15 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       : null,
     actual_weight: order.actual_weight ? parseFloat(order.actual_weight) : null,
     is_stained: order.is_stained ? parseInt(order.is_stained, 10) : 0,
-    stain_image: order.stain_image || null,
+    stain_images: normalizeStainImages(order.stain_images),
     vendor_request_amount: order.vendor_request_amount
       ? parseFloat(order.vendor_request_amount)
+      : null,
+    vendor_request_markup: order.vendor_request_markup
+      ? parseFloat(order.vendor_request_markup)
+      : null,
+    vendor_revenue: order.vendor_revenue
+      ? parseFloat(order.vendor_revenue)
       : null,
     service: {
       name: order.service_name,
@@ -1102,12 +1132,23 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
         ? parseFloat(
             (
               Number(order.final_total) -
-              Number(order.is_stained ? order.vendor_request_amount || 0 : 0)
+              Number(
+                order.is_stained
+                  ? (Number(order.vendor_request_amount) || 0) +
+                      (Number(order.vendor_request_markup) || 0)
+                  : 0,
+              )
             ).toFixed(2),
           )
         : null,
       vendor_request_amount: order.vendor_request_amount
         ? parseFloat(order.vendor_request_amount)
+        : null,
+      vendor_request_markup: order.vendor_request_markup
+        ? parseFloat(order.vendor_request_markup)
+        : null,
+      vendor_revenue: order.vendor_revenue
+        ? parseFloat(order.vendor_revenue)
         : null,
       final_total: order.final_total ? parseFloat(order.final_total) : null,
     },
@@ -1142,7 +1183,7 @@ export const confirmClothesService = async (vendor_id, order_id, actual_clothes)
 };
 
 export const confirmWeightService = async (vendor_id, order_id, payload) => {
-  const { actual_weight, is_stained, stain_image, vendor_request_amount } = payload;
+  const { actual_weight, is_stained, stain_images, vendor_request_amount } = payload;
 
   const orderCheck = await sql.query(
     `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
@@ -1168,9 +1209,13 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     throw { status: 400, message: 'is_stained must be 0 or 1' };
   }
 
+  const images = Array.isArray(stain_images)
+    ? stain_images.filter((path) => typeof path === 'string' && path.trim())
+    : [];
+
   if (stained === 1) {
-    if (!stain_image) {
-      throw { status: 400, message: 'Image is required when is_stained is 1' };
+    if (images.length === 0) {
+      throw { status: 400, message: 'At least one image is required when is_stained is 1' };
     }
     const amount = parseFloat(vendor_request_amount);
     if (!vendor_request_amount || Number.isNaN(amount) || amount <= 0) {
@@ -1206,10 +1251,14 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     order,
   );
 
-  const resolvedImage = stained === 1 ? stain_image : null;
+  const resolvedImages = stained === 1 ? images : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
+  const vendor_revenue = parseFloat((weight * 90).toFixed(2));
+  const vendor_request_markup =
+    stained === 1 ? parseFloat((resolvedAmount * 0.3).toFixed(2)) : null;
+
   const subtotalBeforeGst = parseFloat(
-    (base_total + (resolvedAmount || 0)).toFixed(2),
+    (base_total + (resolvedAmount || 0) + (vendor_request_markup || 0)).toFixed(2),
   );
   const { gst, final_total } = applyGst(subtotalBeforeGst);
   const remaining_amount = parseFloat(final_total - order.amount_paid);
@@ -1220,14 +1269,27 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
      SET actual_weight = $1,
          final_total = $2,
          is_stained = $3,
-         stain_image = $4,
+         stain_images = $4,
          vendor_request_amount = $5,
          remaining_amount = $6,
          extra_price_per_kg = $7,
+         vendor_revenue = $8,
+         vendor_request_markup = $9,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $8`,
-    [weight, final_total, stained, resolvedImage, resolvedAmount, remaining_amount,extra_weight_charge,order_id]
+     WHERE id = $10`,
+    [
+      weight,
+      final_total,
+      stained,
+      resolvedImages ? JSON.stringify(resolvedImages) : null,
+      resolvedAmount,
+      remaining_amount,
+      extra_weight_charge,
+      vendor_revenue,
+      vendor_request_markup,
+      order_id,
+    ]
   );
 
   return {
@@ -1240,12 +1302,14 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     coupon_discount: discount,
     base_total,
     vendor_request_amount: resolvedAmount,
+    vendor_request_markup,
+    vendor_revenue,
     subtotal_before_gst: subtotalBeforeGst,
     gst,
     gst_rate: 18,
     final_total,
     is_stained: stained,
-    stain_image: resolvedImage,
+    stain_images: resolvedImages,
   };
 };
 
