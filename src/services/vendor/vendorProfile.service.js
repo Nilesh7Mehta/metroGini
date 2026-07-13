@@ -29,6 +29,10 @@ export const formatVendorProfile = (vendor) => ({
     account_number: vendor.account_number ?? null,
     ifsc_code: vendor.ifsc_code ?? null,
   },
+  vendor_per_kg_amount:
+    vendor.vendor_per_kg_amount != null
+      ? parseFloat(Number(vendor.vendor_per_kg_amount).toFixed(2))
+      : 90,
   is_terms_and_condtion: Boolean(vendor.is_terms_and_condition),
   is_active: Boolean(vendor.is_active),
 });
@@ -71,7 +75,7 @@ export const getVendorProfileService = async (vendorId) => {
     `SELECT id, owner_contact_name, mobile_number, email, laundry_shop_name,
             aadhar_number, shop_address, pincode, gst_number, pan_card_number,
             account_holder_name, bank_name, account_number, ifsc_code, status,
-            is_terms_and_condition, is_active
+            is_terms_and_condition, is_active, vendor_per_kg_amount
      FROM vendors
      WHERE id = $1`,
     [vendorId],

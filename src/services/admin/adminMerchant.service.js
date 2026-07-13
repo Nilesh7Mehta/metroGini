@@ -31,8 +31,11 @@ const VENDOR_PROFILE_COLUMNS = `
   v.power_backup,
   v.upi_id,
   v.max_wash_kg,
-  v.max_dry_pcs
+  v.max_dry_pcs,
+  v.vendor_per_kg_amount
 `;
+
+const DEFAULT_VENDOR_PER_KG_AMOUNT = 90;
 
 const MERCHANT_WASH_CAPACITY_KG =
   Number(process.env.MERCHANT_WASH_CAPACITY_KG) || 150;
@@ -592,6 +595,21 @@ const parseRegistrationDate = (value) => {
   return formatDate(date);
 };
 
+const resolveVendorPerKgAmount = (rawValue, existingValue, { isUpdate }) => {
+  const source =
+    rawValue !== undefined && rawValue !== null && rawValue !== ''
+      ? rawValue
+      : isUpdate
+        ? existingValue
+        : DEFAULT_VENDOR_PER_KG_AMOUNT;
+
+  const amount = Number(source);
+  if (Number.isNaN(amount) || amount < 0) {
+    throw { status: 400, message: 'vendor_per_kg_amount must be a non-negative number' };
+  }
+  return parseFloat(amount.toFixed(2));
+};
+
 const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {}) => {
   const {
     profile = {},
@@ -758,6 +776,11 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
         : isUpdate
           ? Number(existing?.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS)
           : MERCHANT_DRY_CAPACITY_PCS,
+    vendor_per_kg_amount: resolveVendorPerKgAmount(
+      body.vendor_per_kg_amount ?? business.vendor_per_kg_amount ?? capacity.vendor_per_kg_amount,
+      existing?.vendor_per_kg_amount,
+      { isUpdate },
+    ),
     is_active: isUpdate
       ? resolveMerchantStatus(body, existing?.is_active)
       : true,
@@ -816,6 +839,9 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => ({
     max_wash_kg: Number(vendor.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG),
     max_dry_pcs: Number(vendor.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS),
   },
+  vendor_per_kg_amount: parseFloat(
+    Number(vendor.vendor_per_kg_amount ?? DEFAULT_VENDOR_PER_KG_AMOUNT).toFixed(2),
+  ),
 });
 
 export const getAdminMerchantsService = async (query = {}) => {
@@ -927,12 +953,13 @@ export const createAdminMerchantService = async (body) => {
         upi_id,
         max_wash_kg,
         max_dry_pcs,
+        vendor_per_kg_amount,
         status,
         is_active
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
         $13, $14, $15, $16::date, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
+        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         'active', TRUE
       )
       RETURNING id
@@ -969,6 +996,7 @@ export const createAdminMerchantService = async (body) => {
         payload.upi_id,
         payload.max_wash_kg,
         payload.max_dry_pcs,
+        payload.vendor_per_kg_amount,
       ],
     );
 
@@ -1048,6 +1076,7 @@ export const updateAdminMerchantService = async (rawId, body) => {
       payload.upi_id,
       payload.max_wash_kg,
       payload.max_dry_pcs,
+      payload.vendor_per_kg_amount,
       payload.is_active,
     ];
 
@@ -1094,8 +1123,9 @@ export const updateAdminMerchantService = async (rawId, body) => {
         upi_id = $28,
         max_wash_kg = $29,
         max_dry_pcs = $30,
-        is_active = $31,
-        status = CASE WHEN $31 THEN 'active' ELSE 'inactive' END,
+        vendor_per_kg_amount = $31,
+        is_active = $32,
+        status = CASE WHEN $32 THEN 'active' ELSE 'inactive' END,
         updated_at = NOW()
         ${passwordClause}
       WHERE id = ${vendorIdParam}

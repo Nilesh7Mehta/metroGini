@@ -2475,7 +2475,7 @@
                     "merchants"
                   ]
                 },
-                "description": "Create a merchant (vendor) with profile, business, equipment, banking, capacity, and shift schedule.\n\n**Required:** `business_details.email`, `business_details.password` (min 6 chars), `business_details.owner_name`, `business_details.business_name` (or `profile.name`), and a valid 10-digit phone.\n\n**Shift schedule:** use top-level `shift_schedule` array instead of vendor `pincode`, `working_days`, and `working_hours`. Each entry needs `pincode_group_id`, `day_of_week` (1=Mon ... 7=Sun), and `shift_id`. Rows are stored in `laundry_group_shift_schedule` with `laundry_id` = vendor id.\n\n`account_number` must be the full number (not masked). Returns the created merchant profile (same shape as Get Merchant Details)."
+                "description": "Create a merchant (vendor) with profile, business, equipment, banking, capacity, and shift schedule.\n\n**Required:** `business_details.email`, `business_details.password` (min 6 chars), `business_details.owner_name`, `business_details.business_name` (or `profile.name`), and a valid 10-digit phone.\n\n**Optional:** `vendor_per_kg_amount` (number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n\n**Shift schedule:** use top-level `shift_schedule` array instead of vendor `pincode`, `working_days`, and `working_hours`. Each entry needs `pincode_group_id`, `day_of_week` (1=Mon ... 7=Sun), and `shift_id`. Rows are stored in `laundry_group_shift_schedule` with `laundry_id` = vendor id.\n\n`account_number` must be the full number (not masked). Returns the created merchant profile (same shape as Get Merchant Details)."
               },
               "response": []
             },
@@ -2519,7 +2519,7 @@
                     "MER-001"
                   ]
                 },
-                "description": "Update a merchant — same body shape as Create Merchant.\n\n- `password` is optional; omit to keep the current password.\n- Masked `account_number` (`XXXX XXXX 4582`) keeps the existing stored value.\n- `status`: `active` | `inactive` toggles `is_active`.\n- Send `shift_schedule` to replace the merchant's laundry group shift rows; omit to keep the current schedule.\n- Accepts `MER-001` or numeric id `1`."
+                "description": "Update a merchant — same body shape as Create Merchant.\n\n- `password` is optional; omit to keep the current password.\n- Masked `account_number` (`XXXX XXXX 4582`) keeps the existing stored value.\n- `status`: `active` | `inactive` toggles `is_active`.\n- `vendor_per_kg_amount` (optional number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n- Send `shift_schedule` to replace the merchant's laundry group shift rows; omit to keep the current schedule.\n- Accepts `MER-001` or numeric id `1`."
               },
               "response": []
             },
@@ -2906,11 +2906,11 @@
                       "key": "status",
                       "value": "active_customers",
                       "disabled": true,
-                      "description": "active_customers | at_risk_customers | inactive_customers"
+                      "description": "active_customers | at_risk_customers | inactive_customers | registered_never_used | added_to_cart | abandoned_cart"
                     }
                   ]
                 },
-                "description": "Growth and marketing dashboard with top stats, user segments, active users trend, and segment details.\n\nQuery: `period=today|week|month`, optional `status` segment filter."
+                "description": "Growth and marketing dashboard.\n\n**Query:**\n- `period` = `today` | `week` | `month`\n- `status` (optional) — filters `segment_details`:\n  - Segments: `active_customers` | `at_risk_customers` | `inactive_customers`\n  - Funnel: `registered_never_used` | `added_to_cart` | `abandoned_cart`\n\n**marketing_funnel rules:**\n- `registered_never_used` — registered user with no orders (no draft, no placed order)\n- `added_to_cart` — has `draft` order updated within last 48 hours\n- `abandoned_cart` — has `draft` order not updated for 48+ hours"
               },
               "response": []
             }

@@ -605,7 +605,7 @@ const buildOrderDetails = (order) => {
     );
     const weightPart =
       estKg > 0 ? `Est. ${estKg} kg/` : order.actual_weight
-        ? `${Number(order.actual_weight)} kg/`
+        ? `${parseFloat(Number(order.actual_weight).toFixed(1))} kg/`
         : '';
     return `Weight/Pieces: ${weightPart}${items} Items`.replace(/\/$/, '');
   }
@@ -644,15 +644,20 @@ const buildServiceBatchOverview = (orders) => {
     services.push({
       id: SERVICE_CONFIG[1].id,
       type: SERVICE_CONFIG[1].type,
-      estimated_kg: washOrders.reduce(
-        (sum, o) =>
-          sum +
-          getEstimatedKg(o.estimated_weight_min, o.estimated_weight_max),
-        0,
+      estimated_kg: parseFloat(
+        washOrders
+          .reduce(
+            (sum, o) =>
+              sum +
+              getEstimatedKg(o.estimated_weight_min, o.estimated_weight_max),
+            0,
+          )
+          .toFixed(1),
       ),
-      final_kg: washOrders.reduce(
-        (sum, o) => sum + Number(o.actual_weight || 0),
-        0,
+      final_kg: parseFloat(
+        washOrders
+          .reduce((sum, o) => sum + Number(o.actual_weight || 0), 0)
+          .toFixed(1),
       ),
       regular_orders: washOrders.filter((o) => !isExpressOrder(o.service_type_name))
         .length,
@@ -822,13 +827,13 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
         )
       ), 0) AS load_processed,
 
-      COALESCE(SUM(final_total) FILTER (
+      COALESCE(SUM(vendor_revenue) FILTER (
         WHERE status IN (
           'ready_for_delivery',
           'out_for_delivery',
           'delivered'
         )
-          AND final_total IS NOT NULL
+          AND vendor_revenue IS NOT NULL
       ), 0) AS revenue
 
     FROM orders
@@ -1193,9 +1198,11 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
             o.peak_extra_charge, o.applied_coupon_id,
             o.estimated_weight_min, o.estimated_weight_max, o.estimated_total,
-            o.amount_paid, c.discount_type, c.discount_value, c.minimum_amount_value
+            o.amount_paid, c.discount_type, c.discount_value, c.minimum_amount_value,
+            COALESCE(v.vendor_per_kg_amount, 90) AS vendor_per_kg_amount
      FROM orders o
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
+     LEFT JOIN vendors v ON v.id = o.vendor_id
      WHERE o.id = $1 AND o.vendor_id = $2`,
     [order_id, vendor_id]
   );
@@ -1257,7 +1264,8 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
 
   const resolvedImages = stained === 1 ? images : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
-  const vendor_revenue = parseFloat((weight * 90).toFixed(2));
+  const ratePerKg = Number(order.vendor_per_kg_amount || 90);
+  const vendor_revenue = parseFloat((weight * ratePerKg).toFixed(2));
   const vendor_request_markup =
     stained === 1 ? parseFloat((resolvedAmount * 0.3).toFixed(2)) : null;
 
