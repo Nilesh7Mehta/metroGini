@@ -98,9 +98,10 @@ const getVendorOperationalStatus = (order) => {
   ) {
     return 'in_processing';
   }
-  if (['ready_for_delivery', 'out_for_delivery'].includes(order.status)) {
-    return 'ready_for_dispatch';
-  }
+  // Waiting at vendor for rider pickup
+  if (order.status === 'ready_for_delivery') return 'ready_for_dispatch';
+  // Rider already took the order from vendor
+  if (order.status === 'out_for_delivery') return 'out_for_delivery';
   if (order.status === 'delivered') return 'delivered';
   if (order.status === 'picked_up') return 'awaiting_handover';
   return order.status;
@@ -147,9 +148,8 @@ const isAwaitingMarkReady = (order) => {
 const buildTaskOperationalDistribution = (orders) => ({
   pending_classification: orders.filter(isClassificationPending).length,
   awaiting_mark_ready: orders.filter(isAwaitingMarkReady).length,
-  ready_for_dispatch: orders.filter((o) =>
-    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
-  ).length,
+  ready_for_dispatch: orders.filter((o) => o.status === 'ready_for_delivery').length,
+  out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
 });
 
 const buildTaskProgress = (orders) => {
@@ -709,9 +709,8 @@ const buildOperationalDistribution = (orders) => ({
       o.status === 'order_finalized' ||
       (o.status === 'in_process' && !isClassificationPending(o)),
   ).length,
-  ready_for_dispatch: orders.filter((o) =>
-    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
-  ).length,
+  ready_for_dispatch: orders.filter((o) => o.status === 'ready_for_delivery').length,
+  out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
 });
 
 const buildShiftPayload = (slotId, orders, lotCode, shiftByPickupSlot) => {
@@ -913,8 +912,12 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
       ) AS in_processing,
 
       COUNT(*) FILTER (
-        WHERE status IN ('ready_for_delivery', 'out_for_delivery')
-      ) AS ready_for_dispatch
+        WHERE status = 'ready_for_delivery'
+      ) AS ready_for_dispatch,
+
+      COUNT(*) FILTER (
+        WHERE status = 'out_for_delivery'
+      ) AS out_for_delivery
 
     FROM orders
     WHERE vendor_id = $1
@@ -950,6 +953,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
       pending_classification: parseInt(ops.pending_classification, 10),
       in_processing: parseInt(ops.in_processing, 10),
       ready_for_dispatch: parseInt(ops.ready_for_dispatch, 10),
+      out_for_delivery: parseInt(ops.out_for_delivery, 10),
     },
   };
 };
