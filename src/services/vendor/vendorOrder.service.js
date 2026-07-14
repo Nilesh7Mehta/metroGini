@@ -7,12 +7,18 @@ import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 
+// Orders still on the vendor's task board for a given deadline day.
+// ready_for_delivery stays visible for that day (dispatch), but does not
+// keep a past deadline stuck — see TASK_VENDOR_PENDING_STATUSES.
 const TASK_ACTIVE_STATUSES = [
   'in_process',
   'order_finalized',
   'ready_for_delivery',
-  'out_for_delivery',
 ];
+
+// Only these keep the task view pinned to a previous delivery_date.
+// Once mark-ready is done, vendor work for that batch is complete.
+const TASK_VENDOR_PENDING_STATUSES = ['in_process', 'order_finalized'];
 
 const SERVICE_CONFIG = {
   1: {
@@ -236,8 +242,9 @@ const buildTaskPerformanceOverview = (orders) => {
 
 /**
  * Next upcoming laundry schedule slot for this vendor (laundry_id).
- * Prefers the earliest active delivery_date among incomplete orders when that
- * date is on or before the next scheduled occurrence.
+ * Prefers the earliest delivery_date among orders still awaiting mark-ready
+ * (in_process / order_finalized) when that date is on or before the next
+ * scheduled occurrence. Orders already ready_for_delivery do not pin a past day.
  */
 const resolveVendorTaskDeadline = async (vendor_id) => {
   const scheduleResult = await sql.query(
@@ -278,7 +285,7 @@ const resolveVendorTaskDeadline = async (vendor_id) => {
       AND delivery_date IS NOT NULL
       AND status = ANY($2::text[])
     `,
-    [vendor_id, TASK_ACTIVE_STATUSES],
+    [vendor_id, TASK_VENDOR_PENDING_STATUSES],
   );
 
   const scheduleRow = scheduleResult.rows[0] || null;
