@@ -95,22 +95,27 @@ const getServiceDisplayImage = (serviceId, dbImage) => {
 const formatDisplayOrderId = (order) =>
   order.order_code || `ORD-${String(order.id).padStart(3, '0')}`;
 
+const normalizeStatus = (status) =>
+  typeof status === 'string' ? status.trim() : status;
+
 /** Vendor-facing status aligned with dashboard operational_distribution */
 const getVendorOperationalStatus = (order) => {
+  const status = normalizeStatus(order.status);
+
   if (isClassificationPending(order)) return 'pending_classification';
   if (
-    order.status === 'order_finalized' ||
-    (order.status === 'in_process' && !isClassificationPending(order))
+    status === 'order_finalized' ||
+    (status === 'in_process' && !isClassificationPending(order))
   ) {
     return 'in_processing';
   }
   // Waiting at vendor for rider pickup
-  if (order.status === 'ready_for_delivery') return 'ready_for_dispatch';
+  if (status === 'ready_for_delivery') return 'ready_for_dispatch';
   // Rider already took the order from vendor
-  if (order.status === 'out_for_delivery') return 'out_for_delivery';
-  if (order.status === 'delivered') return 'delivered';
-  if (order.status === 'picked_up') return 'awaiting_handover';
-  return order.status;
+  if (status === 'out_for_delivery') return 'out_for_delivery';
+  if (status === 'delivered') return 'delivered';
+  if (status === 'picked_up') return 'awaiting_handover';
+  return status;
 };
 
 // Returns { start, end } date strings for the given filter
@@ -1272,7 +1277,10 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   const resolvedImages = stained === 1 ? images : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
   const ratePerKg = Number(order.vendor_per_kg_amount || 90);
-  const vendor_revenue = parseFloat((weight * ratePerKg).toFixed(2));
+  // Vendor payout = per-kg earnings + their stain request (markup is platform side)
+  const vendor_revenue = parseFloat(
+    (weight * ratePerKg + (resolvedAmount || 0)).toFixed(2),
+  );
   const vendor_request_markup =
     stained === 1 ? parseFloat((resolvedAmount * 0.3).toFixed(2)) : null;
 
