@@ -249,7 +249,7 @@ export const getSlotsAvailability = async ({ pincodeGroupId, days } = {}) => {
     daysMap.get(dateKey).slots.push({
       shiftId: row.shift_id,
       shiftName: row.shift_name,
-      laundryId: row.laundry_id ?? null,
+      laundryId: Number(row.laundry_id) ?? null,
       available: Boolean(row.available),
       remaining: Number(row.remaining),
     });

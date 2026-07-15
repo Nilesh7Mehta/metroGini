@@ -1,6 +1,9 @@
 import sql from "../../config/db.js";
 import { fetchOrderTimestamps } from "../../utils/datetime.util.js";
-import { calculateOrderPricing } from "../../utils/price.util.js";
+import {
+  applyCouponDiscount,
+  calculateOrderPricing,
+} from "../../utils/price.util.js";
 import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeight.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.service.js";
@@ -474,11 +477,16 @@ export const applyCouponService = async ({
     await client.query("BEGIN");
 
     const orderResult = await client.query(
-      `SELECT id, applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
+      `SELECT id, estimated_total, applied_coupon_id
+       FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
       [order_id, user_id],
     );
     if (orderResult.rows.length === 0)
       throw { status: 404, message: "Order not found" };
+
+    const orderRow = orderResult.rows[0];
+    if (orderRow.estimated_total == null)
+      throw { status: 400, message: "Order estimated total is not set" };
 
     const couponResult = await client.query(
       `SELECT * FROM coupons WHERE UPPER(coupon_code)=UPPER($1) AND is_active=true
@@ -519,11 +527,31 @@ export const applyCouponService = async ({
       }
     }
 
-    await client.query(`UPDATE orders SET applied_coupon_id=$1 WHERE id=$2`, [
-      coupon.id,
-      order_id,
-    ]);
+    const { discount, net_total } = applyCouponDiscount(
+      orderRow.estimated_total,
+      {
+        applied_coupon_id: coupon.id,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        minimum_amount_value: coupon.minimum_amount_value,
+      },
+    );
+
+    await client.query(
+      `UPDATE orders
+       SET applied_coupon_id=$1,
+           discount_price=$2,
+           updated_at=NOW()
+       WHERE id=$3`,
+      [coupon.id, discount, order_id],
+    );
     await client.query("COMMIT");
+
+    return {
+      discount_price: discount,
+      discount,
+      approx_total: net_total,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -538,7 +566,7 @@ export const removeCouponService = async ({ order_id, user_id }) => {
     await client.query("BEGIN");
 
     const orderResult = await client.query(
-      `SELECT applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='booked' FOR UPDATE`,
+      `SELECT applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
       [order_id, user_id],
     );
     if (orderResult.rows.length === 0)
@@ -546,9 +574,14 @@ export const removeCouponService = async ({ order_id, user_id }) => {
     if (!orderResult.rows[0].applied_coupon_id)
       throw { status: 400, message: "No coupon applied to this order" };
 
-    await client.query(`UPDATE orders SET applied_coupon_id=NULL WHERE id=$1`, [
-      order_id,
-    ]);
+    await client.query(
+      `UPDATE orders
+       SET applied_coupon_id=NULL,
+           discount_price=NULL,
+           updated_at=NOW()
+       WHERE id=$1`,
+      [order_id],
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -629,6 +662,45 @@ export const getUserOrdersService = async ({
   );
 
   return { rows: result.rows, total: parseInt(countResult.rows[0].count) };
+};
+
+const CURRENT_ORDER_STATUSES = [
+  "booked",
+  "out_for_pickup",
+  "pickup_in_progress",
+  "picked_up",
+  "in_process",
+  "order_finalized",
+  "ready_for_delivery",
+  "out_for_delivery",
+];
+
+export const getCurrentUserOrdersService = async ({ user_id, limit = 3 }) => {
+  const result = await sql.query(
+    `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+            o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount,
+            o.amount_paid, o.remaining_amount, o.discount_price, o.extra_price_per_kg,
+            o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+            o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+            o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+            o.created_at, o.updated_at, o.otp_generated_at,
+            s.name AS service_name, s.image AS service_image,
+            pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
+            TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+            delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date
+     FROM orders o
+     JOIN services s ON o.service_id = s.id
+     LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id = pickup_slot.id
+     LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id = delivery_slot.id
+     WHERE o.user_id = $1
+       AND o.status = ANY($2)
+     ORDER BY o.id DESC
+     LIMIT $3`,
+    [user_id, CURRENT_ORDER_STATUSES, limit],
+  );
+
+  return result.rows;
 };
 
 export const getUserOrderByIdService = async ({ user_id, order_id }) => {

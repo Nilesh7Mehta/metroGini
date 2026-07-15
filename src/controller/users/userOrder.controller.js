@@ -1,4 +1,4 @@
-import { buildOrderTimestamps } from "../../utils/datetime.util.js";
+import { formatUserOrder } from "../../utils/userOrder.util.js";
 import {
   createDraftOrderService,
   updateServiceTypeService,
@@ -249,12 +249,17 @@ export const reviewOrder = async (req, res, next) => {
 
 export const applyCoupon = async (req, res, next) => {
   try {
-    await applyCouponService({
+    const pricing = await applyCouponService({
       order_id: req.params.id,
       user_id: req.user.id,
       ...req.body,
     });
-    return res.status(200).json({ message: "Coupon applied successfully" });
+    return res.status(200).json({
+      message: "Coupon applied successfully",
+      discount_price: pricing.discount_price,
+      discount: pricing.discount,
+      approx_total: pricing.approx_total,
+    });
   } catch (error) {
     handleError(error, res, next);
   }

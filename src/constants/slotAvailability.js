@@ -1,6 +1,9 @@
 export const SLOT_AVAILABILITY_DAYS =
   Number(process.env.SLOT_AVAILABILITY_DAYS) || 7;
 
+  export const SLOT_AVAILABILITY_DAYS_FOR_DELIVERY =
+  Number(process.env.SLOT_AVAILABILITY_DAYS_FOR_DELIVERY) || 75;
+
 export const SLOT_AVAILABILITY_MAX_DAYS =
   Number(process.env.SLOT_AVAILABILITY_MAX_DAYS) || 15;
 

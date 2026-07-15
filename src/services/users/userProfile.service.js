@@ -1,6 +1,7 @@
 import sql from "../../config/db.js";
 import { deleteFile } from "../../utils/file.service.js";
-import { getImageUrl } from "../../utils/getImageUrl.js";
+import { formatUserOrder } from "../../utils/userOrder.util.js";
+import { getCurrentUserOrdersService } from "./userOrder.service.js";
 
 const mapProfileRow = (row) => ({
   id: row.id,
@@ -55,14 +56,17 @@ export const getProfile = async ({ req, userId }) => {
   }
 
   const user = mapProfileRow(result.rows[0]);
-  // user.image = getImageUrl(req, user.profile_image);
+  const currentOrders = await getCurrentUserOrdersService({ user_id: userId });
 
   return {
     statusCode: 200,
     body: {
       success: true,
       message: "Profile fetched successfully",
-      data: user,
+      data: {
+        ...user,
+        current_orders: currentOrders.map(formatUserOrder),
+      },
     },
   };
 };
