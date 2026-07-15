@@ -461,6 +461,7 @@ const fetchAdminOrderById = async (orderId) => {
       c.discount_type,
       c.discount_value,
       c.minimum_amount_value,
+      c.maximum_amount_value,
       o.otp_verified,
       o.created_at,
       o.updated_at,

@@ -2,8 +2,14 @@ export const applyCouponDiscount = (grossTotal, order) => {
   const gross = Number(grossTotal);
   let discount = 0;
   const hasCoupon = order.coupon_id || order.applied_coupon_id;
+  const minAmount = Number(order.minimum_amount_value || 0);
+  const maxRaw = order.maximum_amount_value;
+  const hasMax =
+    maxRaw != null && maxRaw !== '' && !Number.isNaN(Number(maxRaw));
+  const withinMin = gross >= minAmount;
+  const withinMax = !hasMax || gross <= Number(maxRaw);
 
-  if (hasCoupon && gross >= Number(order.minimum_amount_value || 0)) {
+  if (hasCoupon && withinMin && withinMax) {
     if (order.discount_type === 'percentage') {
       discount = (gross * Number(order.discount_value)) / 100;
     } else if (order.discount_type === 'flat') {

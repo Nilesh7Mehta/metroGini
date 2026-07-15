@@ -441,7 +441,8 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
             delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
             ua.complete_address AS full_address,
             ts.is_peak, ts.peak_extra_charge,
-            c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value, c.minimum_amount_value
+            c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value,
+            c.minimum_amount_value, c.maximum_amount_value
      FROM orders o
      JOIN services s ON o.service_id = s.id
      JOIN service_types st ON o.service_type_id = st.id
@@ -474,11 +475,27 @@ export const applyCouponService = async ({
     await client.query("BEGIN");
 
     const orderResult = await client.query(
-      `SELECT id, applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
+      `SELECT o.id, o.applied_coupon_id,
+              o.estimated_weight_min, o.estimated_weight_max,
+              o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
+              o.peak_extra_charge, o.is_peak,
+              s.base_price_per_kg AS service_base_price_per_kg,
+              st.extra_price_per_kg AS service_type_extra_price_per_kg,
+              st.flat_fee AS service_type_flat_fee,
+              ts.is_peak AS slot_is_peak,
+              ts.peak_extra_charge AS slot_peak_extra_charge
+       FROM orders o
+       LEFT JOIN services s ON o.service_id = s.id
+       LEFT JOIN service_types st ON o.service_type_id = st.id
+       LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
+       WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'
+       FOR UPDATE OF o`,
       [order_id, user_id],
     );
     if (orderResult.rows.length === 0)
       throw { status: 404, message: "Order not found" };
+
+    const orderRow = orderResult.rows[0];
 
     const couponResult = await client.query(
       `SELECT * FROM coupons WHERE UPPER(coupon_code)=UPPER($1) AND is_active=true
@@ -489,6 +506,39 @@ export const applyCouponService = async ({
       throw { status: 400, message: "Invalid or expired coupon" };
 
     const coupon = couponResult.rows[0];
+
+    const pricingOrder = {
+      estimated_weight_min: orderRow.estimated_weight_min,
+      estimated_weight_max: orderRow.estimated_weight_max,
+      base_price_per_kg:
+        orderRow.base_price_per_kg ?? orderRow.service_base_price_per_kg,
+      extra_price_per_kg:
+        orderRow.extra_price_per_kg ?? orderRow.service_type_extra_price_per_kg,
+      flat_fee: orderRow.flat_fee ?? orderRow.service_type_flat_fee,
+      is_peak: orderRow.is_peak ?? orderRow.slot_is_peak,
+      peak_extra_charge:
+        orderRow.peak_extra_charge ?? orderRow.slot_peak_extra_charge,
+    };
+
+    const { gross_total: orderAmount } = calculateOrderPricing(pricingOrder);
+
+    const minAmount = Number(coupon.minimum_amount_value || 0);
+    if (orderAmount < minAmount) {
+      throw {
+        status: 400,
+        message: `Coupon requires a minimum order amount of ₹${minAmount}`,
+      };
+    }
+
+    if (
+      coupon.maximum_amount_value != null &&
+      orderAmount > Number(coupon.maximum_amount_value)
+    ) {
+      throw {
+        status: 400,
+        message: `Coupon is valid only for orders up to ₹${Number(coupon.maximum_amount_value)}`,
+      };
+    }
 
     if (coupon.coupon_code === "CANCEL500") {
       const eligibilityCheck = await client.query(

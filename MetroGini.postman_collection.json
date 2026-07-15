@@ -1229,7 +1229,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 10,\r\n  \"usage_limit\": null\r\n}",
+                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"maximum_amount_value\": 2000,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 10,\r\n  \"usage_limit\": null\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1266,7 +1266,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 5,\r\n  \"usage_limit\": null\r\n}",
+                  "raw": "{\r\n  \"coupon_code\": \"FLAT100\",\r\n  \"discount_type\": \"flat\",\r\n  \"discount_value\": 100,\r\n  \"minimum_amount_value\": 500,\r\n  \"maximum_amount_value\": 2000,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-10T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": 5,\r\n  \"usage_limit\": null\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1342,7 +1342,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"coupon_code\": \"SAVE20\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 30,\r\n  \"minimum_amount_value\": 1000,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-01T23:59:59Z\",\r\n  \"is_active\": true\r\n}"
+                  "raw": "{\r\n  \"coupon_code\": \"SAVE20\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 30,\r\n  \"minimum_amount_value\": 1000,\r\n  \"maximum_amount_value\": 5000,\r\n  \"start_date\": \"2026-02-20T00:00:00Z\",\r\n  \"end_date\": \"2026-03-01T23:59:59Z\",\r\n  \"is_active\": true\r\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}api/admin/getCoupon/1",

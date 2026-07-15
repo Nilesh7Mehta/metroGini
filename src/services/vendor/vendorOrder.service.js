@@ -1211,6 +1211,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
             o.peak_extra_charge, o.applied_coupon_id,
             o.estimated_weight_min, o.estimated_weight_max, o.estimated_total,
             o.amount_paid, c.discount_type, c.discount_value, c.minimum_amount_value,
+            c.maximum_amount_value,
             COALESCE(v.vendor_per_kg_amount, 90) AS vendor_per_kg_amount
      FROM orders o
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id

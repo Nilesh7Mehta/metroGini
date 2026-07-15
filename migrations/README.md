@@ -26,3 +26,4 @@ Run in order. Each file depends on the ones before it.
 | 026_order_vendor_revenue_columns.sql | orders (vendor_revenue, vendor_request_markup) | 023 |
 | 027_order_stain_images.sql | orders (stain_image → stain_images JSONB) | 023 |
 | 028_vendor_per_kg.sql | vendors (vendor_per_kg_amount) | 002 |
+| 029_coupon_maximum_amount.sql | coupons (maximum_amount_value) | 005 |

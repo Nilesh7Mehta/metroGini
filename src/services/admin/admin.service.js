@@ -96,12 +96,39 @@ export const changeAdminPassword = async (adminId, body) => {
   );
 };
 
+const resolveCouponAmountBounds = (minimum_amount_value, maximum_amount_value) => {
+  const minAmount = Number(minimum_amount_value || 0);
+  const hasMax =
+    maximum_amount_value != null &&
+    maximum_amount_value !== '' &&
+    !Number.isNaN(Number(maximum_amount_value));
+  const maxAmount = hasMax ? Number(maximum_amount_value) : null;
+
+  if (Number.isNaN(minAmount) || minAmount < 0) {
+    throw { status: 400, message: 'minimum_amount_value must be a non-negative number' };
+  }
+
+  if (hasMax && maxAmount < 0) {
+    throw { status: 400, message: 'maximum_amount_value must be a non-negative number' };
+  }
+
+  if (hasMax && maxAmount < minAmount) {
+    throw {
+      status: 400,
+      message: 'maximum_amount_value must be greater than or equal to minimum_amount_value',
+    };
+  }
+
+  return { minAmount, maxAmount };
+};
+
 export const insertCoupon = async (body) => {
   const {
     coupon_code,
     discount_type,
     discount_value,
     minimum_amount_value,
+    maximum_amount_value,
     start_date,
     end_date,
     is_active,
@@ -127,17 +154,23 @@ export const insertCoupon = async (body) => {
   if (new Date(start_date) >= new Date(end_date))
     throw { status: 400, message: "End date must be greater than start date" };
 
+  const { minAmount, maxAmount } = resolveCouponAmountBounds(
+    minimum_amount_value,
+    maximum_amount_value,
+  );
+
   const { rows } = await sql.query(
     `INSERT INTO coupons
       (coupon_code, discount_type, discount_value, minimum_amount_value,
-       start_date, end_date, is_active, per_user_limit, usage_limit)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       maximum_amount_value, start_date, end_date, is_active, per_user_limit, usage_limit)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING *`,
     [
       coupon_code.trim().toUpperCase(),
       discount_type,
       discount_value,
-      minimum_amount_value || 0,
+      minAmount,
+      maxAmount,
       start_date,
       end_date,
       is_active ?? true,
@@ -154,6 +187,7 @@ export const editCoupon = async (id, body) => {
     discount_type,
     discount_value,
     minimum_amount_value,
+    maximum_amount_value,
     start_date,
     end_date,
     is_active,
@@ -161,19 +195,26 @@ export const editCoupon = async (id, body) => {
     usage_limit,
   } = body;
 
+  const { minAmount, maxAmount } = resolveCouponAmountBounds(
+    minimum_amount_value,
+    maximum_amount_value,
+  );
+
   const { rows } = await sql.query(
     `UPDATE coupons
      SET coupon_code = $1, discount_type = $2, discount_value = $3,
-         minimum_amount_value = $4, start_date = $5, end_date = $6,
-         is_active = $7, per_user_limit = $8, usage_limit = $9,
+         minimum_amount_value = $4, maximum_amount_value = $5,
+         start_date = $6, end_date = $7,
+         is_active = $8, per_user_limit = $9, usage_limit = $10,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $10
+     WHERE id = $11
      RETURNING *`,
     [
       coupon_code.trim().toUpperCase(),
       discount_type,
       discount_value,
-      minimum_amount_value,
+      minAmount,
+      maxAmount,
       start_date,
       end_date,
       is_active,
