@@ -2,8 +2,7 @@ import { getAdminDashboardService } from '../../services/admin/adminDashboard.se
 
 export const getAdminDashboard = async (req, res, next) => {
   try {
-    const period = req.query.period || 'today';
-    const data = await getAdminDashboardService(period);
+    const data = await getAdminDashboardService(req.query);
     return res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);

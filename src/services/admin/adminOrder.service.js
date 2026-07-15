@@ -1,9 +1,14 @@
 import sql from '../../config/db.js';
 import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
+import {
+  isValidOpsIssueType,
+  resolveOpsIssueType,
+} from '../../utils/opsIssue.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const SERVICE_CONFIG = {
   1: { key: 'wash_by_kilo' },
@@ -59,13 +64,28 @@ const getDateRange = (period) => {
 const resolveFilters = (query = {}) => {
   const dateFrom = query.date_from;
   const dateTo = query.date_to;
+  const issueType = query.issue_type
+    ? String(query.issue_type).toLowerCase()
+    : null;
 
-  if (dateFrom && dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+  if (issueType && !isValidOpsIssueType(issueType)) {
+    throw {
+      status: 400,
+      message:
+        'issue_type must be one of failed_pickup, failed_drop, missed_pickup, missed_drop',
+    };
+  }
+
+  if (dateFrom && dateTo && DATE_RE.test(dateFrom) && DATE_RE.test(dateTo)) {
+    if (dateFrom > dateTo) {
+      throw { status: 400, message: 'date_from must be on or before date_to' };
+    }
     return {
       start: dateFrom,
       end: dateTo,
-      period: VALID_PERIODS.includes(query.period) ? query.period : 'custom',
+      period: VALID_PERIODS.includes(query.period) ? query.period : 'today',
       orderStatus: query.order_status || null,
+      issueType,
     };
   }
 
@@ -77,30 +97,26 @@ const resolveFilters = (query = {}) => {
     end,
     period,
     orderStatus: query.order_status || null,
+    issueType,
   };
 };
 
 const formatDateLabel = (start, end) => {
-  const labelOptions = {
-    weekday: 'long',
+  const shortOptions = {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   };
 
   const startDate = new Date(`${start}T12:00:00`);
 
   if (start === end) {
-    return startDate.toLocaleDateString('en-GB', labelOptions);
+    return startDate.toLocaleDateString('en-GB', shortOptions);
   }
 
   const endDate = new Date(`${end}T12:00:00`);
-  const startPart = startDate.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-  const endPart = endDate.toLocaleDateString('en-GB', labelOptions);
+  const startPart = startDate.toLocaleDateString('en-GB', shortOptions);
+  const endPart = endDate.toLocaleDateString('en-GB', shortOptions);
   return `${startPart} - ${endPart}`;
 };
 
@@ -172,7 +188,8 @@ const getAdminDisplayStatus = (status) => {
 };
 
 const resolveIssueType = (order) => {
-  if (order.open_issue_type) return order.open_issue_type;
+  const opsIssue = resolveOpsIssueType(order);
+  if (opsIssue) return opsIssue;
 
   if (
     order.actual_clothes_count != null &&
@@ -197,7 +214,7 @@ const buildEstFin = (order) => {
 
   const est = Number(order.clothes_count || 0);
   const fin = Number(order.actual_clothes_count ?? order.clothes_count ?? 0);
-  return `${est}/${fin} Items`;
+  return `${est}/${fin}`;
 };
 
 const buildCharges = (order) => {
@@ -209,9 +226,9 @@ const mapAdminOrder = (order) => {
   const issueType = resolveIssueType(order);
 
   return {
-    id: order.id,
+    id: String(order.id),
     order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
-    customer_id: `CUST${String(order.user_id).padStart(3, '0')}`,
+    customer_id: `CUS-${order.user_id}`,
     service_type: getServiceKey(order.service_id),
     status: getAdminDisplayStatus(order.status),
     ...(issueType ? { issue_type: issueType } : {}),
@@ -290,13 +307,17 @@ const buildShiftPayload = (slotId, orders, lotCode, shiftKey) => {
   };
 };
 
-const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
+const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeCancelled) => {
   const params = [start, end, pickupShiftSlotIds];
   let statusClause = '';
 
   if (orderStatus) {
     params.push(orderStatus);
     statusClause = `AND o.status = $${params.length}`;
+  } else if (includeCancelled) {
+    statusClause = `AND o.status <> 'draft'`;
+  } else {
+    statusClause = `AND o.status NOT IN ('draft', 'cancelled')`;
   }
 
   const { rows } = await sql.query(
@@ -306,6 +327,8 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
       o.order_code,
       o.user_id,
       o.pickup_slot_id,
+      o.pickup_date,
+      o.delivery_date,
       o.status,
       o.estimated_weight_min,
       o.estimated_weight_max,
@@ -315,8 +338,12 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
       o.service_id,
       o.estimated_total,
       o.final_total,
+      o.out_for_pickup_at,
+      o.pickup_started_at,
+      o.out_for_delivery_at,
       st.name AS service_type_name,
-      ir.issue_type AS open_issue_type
+      ir.issue_type AS open_issue_type,
+      oc.reason_type AS cancel_reason_type
     FROM orders o
     LEFT JOIN service_types st ON o.service_type_id = st.id
     LEFT JOIN LATERAL (
@@ -326,9 +353,15 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
       ORDER BY created_at DESC
       LIMIT 1
     ) ir ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT reason_type
+      FROM order_cancellations
+      WHERE order_id = o.id
+      ORDER BY cancelled_at DESC
+      LIMIT 1
+    ) oc ON TRUE
     WHERE o.pickup_date BETWEEN $1::date AND $2::date
       AND o.pickup_slot_id = ANY($3::int[])
-      AND o.status NOT IN ('draft', 'cancelled')
       ${statusClause}
     ORDER BY o.id DESC
     `,
@@ -339,23 +372,33 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds) => {
 };
 
 export const getAdminOrdersService = async (query = {}) => {
-  const { start, end, period, orderStatus } = resolveFilters(query);
+  const { start, end, period, orderStatus, issueType } = resolveFilters(query);
   const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
 
-  const orders = await fetchOrders(start, end, orderStatus, pickupShiftSlotIds);
+  const orders = await fetchOrders(
+    start,
+    end,
+    orderStatus,
+    pickupShiftSlotIds,
+    Boolean(issueType),
+  );
+
+  const filteredOrders = issueType
+    ? orders.filter((order) => resolveOpsIssueType(order) === issueType)
+    : orders;
 
   const shifts = pickupShiftSlotIds.map((slotId, index) => {
     const config = shiftByPickupSlot[slotId];
     const lotCode = `LOT-${String(index + 1).padStart(3, '0')}`;
     const shiftKey = config?.shift_type || `shift_${index + 1}`;
 
-    return buildShiftPayload(slotId, orders, lotCode, shiftKey);
+    return buildShiftPayload(slotId, filteredOrders, lotCode, shiftKey);
   });
 
   return {
-    period: period === 'custom' ? 'today' : period,
+    period,
     date_label: formatDateLabel(start, end),
-    top_stats: buildTopStats(orders),
+    top_stats: buildTopStats(filteredOrders),
     shifts,
   };
 };

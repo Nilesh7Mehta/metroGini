@@ -2282,7 +2282,8 @@
                   "query": [
                     {
                       "key": "period",
-                      "value": "today"
+                      "value": "today",
+                      "description": "today | week | month"
                     },
                     {
                       "key": "period",
@@ -2293,9 +2294,16 @@
                       "key": "period",
                       "value": "month",
                       "disabled": true
+                    },
+                    {
+                      "key": "pincode_group_id",
+                      "value": "1",
+                      "disabled": true,
+                      "description": "Optional — filter metrics to a pincode group"
                     }
                   ]
-                }
+                },
+                "description": "Admin operations dashboard.\n\n**Query:**\n- `period` = `today` | `week` | `month`\n- `pincode_group_id` (optional)\n\n**Sections:** `live_operations`, `revenue_tickers`, `action_required`, `total_operations`"
               },
               "response": []
             }
