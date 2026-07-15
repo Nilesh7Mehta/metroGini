@@ -1,4 +1,4 @@
-import { buildOrderTimestamps } from "../../utils/datetime.util.js";
+import { formatUserOrder } from "../../utils/userOrder.util.js";
 import {
   createDraftOrderService,
   updateServiceTypeService,
@@ -23,69 +23,6 @@ const handleError = (error, res, next) => {
   next(error);
 };
 
-const formatUserOrder = (order) => ({
-  order_id: order.id,
-  status: order.status,
-  service_name: order.service_name,
-  service_image: order.service_image,
-  is_stained: order.is_stained,
-  pickup_slot: {
-    date: order.pickup_date,
-    time: `${order.pickup_start} - ${order.pickup_end}`,
-  },
-  delivery_slot: {
-    date: order.delivery_date,
-    time: `${order.delivery_start} - ${order.delivery_end}`,
-  },
-  item_details: {
-    clothes_count: order.clothes_count,
-    estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
-  },
-  pricing: {
-    estimated_total: order.estimated_total != null
-      ? parseFloat(order.estimated_total)
-      : null,
-    base_total: order.final_total != null
-      ? parseFloat(
-          (
-            Number(order.final_total) -
-            Number(
-              order.is_stained
-                ? (Number(order.vendor_request_amount) || 0) +
-                    (Number(order.vendor_request_markup) || 0)
-                : 0,
-            )
-          ).toFixed(2),
-        )
-      : null,
-    vendor_request_amount: order.vendor_request_amount != null
-      ? parseFloat(order.vendor_request_amount)
-      : null,
-    vendor_request_markup: order.vendor_request_markup != null
-      ? parseFloat(order.vendor_request_markup)
-      : null,
-    vendor_revenue: order.vendor_revenue != null
-      ? parseFloat(order.vendor_revenue)
-      : null,
-    final_total: order.final_total != null
-      ? parseFloat(order.final_total)
-      : null,
-    remaining_amount: order.remaining_amount != null
-      ? parseFloat(order.remaining_amount)
-      : null,
-    amount_paid: order.amount_paid != null
-      ? parseFloat(order.amount_paid)
-      : null,
-      discount_price: order.discount_price != null
-      ? parseFloat(order.discount_price)
-      : null,
-      extra_price_per_kg: order.extra_price_per_kg != null
-      ? parseFloat(order.extra_price_per_kg)
-      : null,
-  },
-  payment_status: order.payment_status || "pending",
-  timestamps: buildOrderTimestamps(order),
-});
 
 export const createDraftOrder = async (req, res, next) => {
   try {
@@ -249,12 +186,17 @@ export const reviewOrder = async (req, res, next) => {
 
 export const applyCoupon = async (req, res, next) => {
   try {
-    await applyCouponService({
+    const pricing = await applyCouponService({
       order_id: req.params.id,
       user_id: req.user.id,
       ...req.body,
     });
-    return res.status(200).json({ message: "Coupon applied successfully" });
+    return res.status(200).json({
+      message: "Coupon applied successfully",
+      discount_price: pricing.discount_price,
+      discount: pricing.discount,
+      approx_total: pricing.approx_total,
+    });
   } catch (error) {
     handleError(error, res, next);
   }
