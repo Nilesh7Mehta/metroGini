@@ -4,6 +4,7 @@ import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
 import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
+import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 
@@ -381,6 +382,7 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
       o.service_id,
       o.final_total,
       o.vendor_revenue,
+      o.vendor_amount_per_kg,
       o.pickup_completed_at,
       o.delivery_completed_at,
       s.name AS service_name,
@@ -1045,6 +1047,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       o.vendor_request_amount,
       o.vendor_request_markup,
       o.vendor_revenue,
+      o.vendor_amount_per_kg,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name,
@@ -1120,6 +1123,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
     vendor_request_markup: order.vendor_request_markup
       ? parseFloat(order.vendor_request_markup)
       : null,
+    vendor_amount_per_kg: order.vendor_amount_per_kg
+      ? parseFloat(order.vendor_amount_per_kg)
+      : null,
     vendor_revenue: order.vendor_revenue
       ? parseFloat(order.vendor_revenue)
       : null,
@@ -1168,6 +1174,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       vendor_request_markup: order.vendor_request_markup
         ? parseFloat(order.vendor_request_markup)
         : null,
+      vendor_amount_per_kg: order.vendor_amount_per_kg
+        ? parseFloat(order.vendor_amount_per_kg)
+        : null,
       vendor_revenue: order.vendor_revenue
         ? parseFloat(order.vendor_revenue)
         : null,
@@ -1211,7 +1220,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
             o.peak_extra_charge, o.applied_coupon_id,
             o.estimated_weight_min, o.estimated_weight_max, o.estimated_total,
             o.amount_paid, c.discount_type, c.discount_value, c.minimum_amount_value,
-            c.maximum_amount_value,
+            c.maximum_amount_value, o.vendor_amount_per_kg,
             COALESCE(v.vendor_per_kg_amount, 90) AS vendor_per_kg_amount
      FROM orders o
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
@@ -1277,7 +1286,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
 
   const resolvedImages = stained === 1 ? images : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
-  const ratePerKg = Number(order.vendor_per_kg_amount || 90);
+  const ratePerKg = resolveVendorAmountPerKg(order, order.vendor_per_kg_amount);
   // Vendor payout = per-kg earnings + their stain request (markup is platform side)
   const vendor_revenue = parseFloat(
     (weight * ratePerKg + (resolvedAmount || 0)).toFixed(2),
@@ -1303,9 +1312,10 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          extra_price_per_kg = $7,
          vendor_revenue = $8,
          vendor_request_markup = $9,
+         vendor_amount_per_kg = $10,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $10`,
+     WHERE id = $11`,
     [
       weight,
       final_total,
@@ -1316,6 +1326,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
       extra_weight_charge,
       vendor_revenue,
       vendor_request_markup,
+      ratePerKg,
       order_id,
     ]
   );
@@ -1329,6 +1340,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     extra_weight_charge,
     coupon_discount: discount,
     base_total,
+    vendor_amount_per_kg: ratePerKg,
     vendor_request_amount: resolvedAmount,
     vendor_request_markup,
     vendor_revenue,

@@ -27,3 +27,4 @@ Run in order. Each file depends on the ones before it.
 | 027_order_stain_images.sql | orders (stain_image → stain_images JSONB) | 023 |
 | 028_vendor_per_kg.sql | vendors (vendor_per_kg_amount) | 002 |
 | 029_coupon_maximum_amount.sql | coupons (maximum_amount_value) | 005 |
+| 031_order_vendor_amount_per_kg.sql | orders (vendor_amount_per_kg) | 028 |

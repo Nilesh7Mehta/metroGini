@@ -763,7 +763,7 @@ export const getCurrentUserOrdersService = async ({ user_id, limit = 3 }) => {
 
 export const getUserOrderByIdService = async ({ user_id, order_id }) => {
   const result = await sql.query(
-    `SELECT o.id, o.status,o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue,o.extra_price_per_kg,
+    `SELECT o.id, o.status,o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue, o.vendor_amount_per_kg, o.extra_price_per_kg,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

@@ -499,6 +499,7 @@ const fetchAdminOrderById = async (orderId) => {
       o.vendor_request_amount,
       o.vendor_request_markup,
       o.vendor_revenue,
+      o.vendor_amount_per_kg,
       o.applied_coupon_id,
       c.coupon_code,
       c.discount_type,
@@ -734,6 +735,10 @@ export const getAdminOrderOperationsService = async (orderId) => {
       vendor_request_markup:
         order.vendor_request_markup != null
           ? parseFloat(order.vendor_request_markup)
+          : null,
+      vendor_amount_per_kg:
+        order.vendor_amount_per_kg != null
+          ? parseFloat(order.vendor_amount_per_kg)
           : null,
       vendor_revenue:
         order.vendor_revenue != null
