@@ -7,6 +7,7 @@ import * as adminOrderController from '../../controller/admin/adminOrder.control
 import * as adminMerchantController from '../../controller/admin/adminMerchant.controller.js';
 import * as adminRiderController from '../../controller/admin/adminRider.controller.js';
 import * as adminPaymentController from '../../controller/admin/adminPayment.controller.js';
+import * as adminVendorPayoutController from '../../controller/admin/adminVendorPayout.controller.js';
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
 import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
@@ -24,7 +25,6 @@ const bannerUpload = createUploader("banners", 500 * 1024);
 const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const cityUpload = createUploader("cities", 500 * 1024);
 const serviceUpload = createUploader("services", 500 * 1024);
-
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
 router.get('/profile', authenticate, isAdmin, adminController.getProfile);
@@ -35,6 +35,21 @@ router.put('/users/:id', authenticate, isAdmin, adminUserController.updateAdminU
 router.delete('/users/:id', authenticate, isAdmin, adminUserController.deleteAdminUser);
 router.get('/dashboard', authenticate, isAdmin, adminDashboardController.getAdminDashboard);
 router.get('/payments', authenticate, adminPaymentController.getAdminPayments);
+router.get('/vendor-payout/master', authenticate, isAdmin, adminVendorPayoutController.getVendorPayoutMaster);
+router.get(
+  '/vendor-payout/master/:vendorId/orders',
+  authenticate,
+  isAdmin,
+  adminVendorPayoutController.getVendorPayoutMasterOrders,
+);
+router.get('/vendor-payout/pending', authenticate, isAdmin, adminVendorPayoutController.getVendorPayoutPending);
+router.get('/vendor-payout/paid', authenticate, isAdmin, adminVendorPayoutController.getVendorPayoutPaid);
+router.post(
+  '/vendor-payout/:batchId/pay',
+  authenticate,
+  isAdmin,
+  adminVendorPayoutController.payVendorPayoutBatch,
+);
 router.get('/issues', authenticate, adminIssueController.getAdminIssues);
 router.get('/help-support', authenticate, adminHelpSupportController.getAdminHelpSupport);
 router.get('/marketing', authenticate, adminMarketingController.getAdminMarketing);

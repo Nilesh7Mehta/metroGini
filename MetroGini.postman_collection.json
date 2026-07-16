@@ -2310,6 +2310,168 @@
           ]
         },
         {
+          "name": "Vendor Payout",
+          "item": [
+            {
+              "name": "Master",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/vendor-payout/master",
+                  "host": ["{{baseUrl}}api"],
+                  "path": ["admin", "vendor-payout", "master"],
+                  "query": [
+                    {
+                      "key": "pincode_group_id",
+                      "value": "1",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "sparkle",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Dummy master payout summary per vendor/zone.\n\nEach item includes `view_orders_url` for View Orders."
+              },
+              "response": []
+            },
+            {
+              "name": "Master View Orders",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/vendor-payout/master/1/orders?pincode_group_id=1",
+                  "host": ["{{baseUrl}}api"],
+                  "path": ["admin", "vendor-payout", "master", "1", "orders"],
+                  "query": [
+                    {
+                      "key": "pincode_group_id",
+                      "value": "1"
+                    },
+                    {
+                      "key": "payout_status",
+                      "value": "pending",
+                      "disabled": true
+                    },
+                    {
+                      "key": "week_start",
+                      "value": "2026-07-05",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Dummy order list for Master → View Orders.\n\n**Path:** vendorId\n**Query:** pincode_group_id, week_start, payout_status"
+              },
+              "response": []
+            },
+            {
+              "name": "Pending",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/vendor-payout/pending",
+                  "host": ["{{baseUrl}}api"],
+                  "path": ["admin", "vendor-payout", "pending"]
+                },
+                "description": "Dummy pending + open-week rows.\n\n- `tickers` — e.g. Payment pending for 5 Jul 2026 - 12 Jul 2026\n- `pending` first (invoice auto-generated), `invoice_not_generated` last"
+              },
+              "response": []
+            },
+            {
+              "name": "Paid",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/vendor-payout/paid",
+                  "host": ["{{baseUrl}}api"],
+                  "path": ["admin", "vendor-payout", "paid"]
+                },
+                "description": "Dummy paid payouts with transaction_id, payment_date, auto invoice_id/invoice_image, paid_at."
+              },
+              "response": []
+            },
+            {
+              "name": "Send Payment",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transaction_id\": \"TXN123456\",\n  \"date\": \"2026-07-16\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/vendor-payout/vpb-201/pay",
+                  "host": ["{{baseUrl}}api"],
+                  "path": ["admin", "vendor-payout", "vpb-201", "pay"]
+                },
+                "description": "Mark a pending dummy batch as paid.\n\nUse a `pending` batch_id (e.g. `vpb-201`). Rejects `invoice_not_generated` and already `paid`.\n\nJSON body only:\n- `transaction_id` (required)\n- `date` (required, YYYY-MM-DD) — payment date\n\nInvoice is auto-generated when the week closes (no file upload)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Orders",
           "item": [
             {

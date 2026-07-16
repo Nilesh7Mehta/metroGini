@@ -52,7 +52,9 @@ app.set('trust proxy', 1); // trust first proxy for rate limiting and secure coo
 app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
-app.use('/uploads' , express.static("uploads"));
+app.use('/uploads', express.static('uploads'));
+// Frontend often prefixes API base → /api/uploads/...
+app.use('/api/uploads', express.static('uploads'));
 
 app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
