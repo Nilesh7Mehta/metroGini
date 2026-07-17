@@ -2344,7 +2344,7 @@
                     }
                   ]
                 },
-                "description": "Dummy master payout summary per vendor/zone.\n\nEach item includes `view_orders_url` for View Orders."
+                "description": "Live master payout summary per vendor/zone (mode=live).\n\nBuckets orders by ready_for_delivery_at into Mon→next-Mon weeks.\nEach item includes `view_orders_url`."
               },
               "response": []
             },
@@ -2408,7 +2408,7 @@
                   "host": ["{{baseUrl}}api"],
                   "path": ["admin", "vendor-payout", "pending"]
                 },
-                "description": "Dummy pending + open-week rows.\n\n- `tickers` — e.g. Payment pending for 5 Jul 2026 - 12 Jul 2026\n- `pending` first (invoice auto-generated), `invoice_not_generated` last"
+                "description": "Live pending + open-week rows (mode=live).\n\n- `tickers` — closed unpaid week ranges\n- `pending` first (invoice auto-generated), `invoice_not_generated` last"
               },
               "response": []
             },

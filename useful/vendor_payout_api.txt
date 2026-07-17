@@ -1,11 +1,26 @@
 ================================================================================
-VENDOR PAYOUT APIs (Phase 1 — DUMMY DATA)
+VENDOR PAYOUT APIs (LIVE)
 Base URL: {{API_BASE_URL}}/api/admin
 Auth: Bearer admin token (authenticate + isAdmin)
-Note: data.mode = "dummy"
-      Week dates are relative to today (current week stays open for UI testing).
-      Responses below are actual service output (captured 16 Jul 2026).
+Note: data.mode = "live"
+Responses below captured from real DB (17 Jul 2026).
 ================================================================================
+
+RULES
+  Week:            Monday → next Monday (8 days)
+  Order date:      ready_for_delivery_at (IST)
+  Eligible status: ready_for_delivery | out_for_delivery | delivered
+                   + vendor_revenue IS NOT NULL
+  Grain:           vendor × pincode_group (zone) × week
+  GST:             gst = ROUND(gross * 0.18); payable = gross + gst
+  Status:
+    today <= week_end  →  invoice_not_generated  (cannot pay)
+    today >  week_end  →  pending                (invoice auto PDF)
+    after pay          →  paid
+
+Invoice PDF URL (either works):
+  {{API_BASE_URL}}/uploads/vendor-payout-invoices/auto-vpb-1.pdf
+  {{API_BASE_URL}}/api/uploads/vendor-payout-invoices/auto-vpb-1.pdf
 
 
 --------------------------------------------------------------------------------
@@ -17,62 +32,32 @@ Optional query:
   - pincode_group_id
   - search   (vendor name)
 
-Each item includes view_orders_url for Master → View Orders.
-
 Actual success response:
 {
   "success": true,
   "data": {
-    "mode": "dummy",
+    "mode": "live",
     "summary": {
-      "total_revenue": 30200,
-      "total_orders": 72,
-      "total_weight": 281.2,
-      "paid_amount": 12154,
-      "pending_amount": 13334
+      "total_revenue": 360,
+      "total_orders": 1,
+      "total_weight": 4,
+      "paid_amount": 0,
+      "pending_amount": 0
     },
     "items": [
       {
-        "vendor_id": 1,
-        "vendor_name": "Sparkle Laundry",
+        "vendor_id": 7,
+        "vendor_name": "Ramesh Laundry Services",
         "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "total_revenue": 19200,
-        "total_kg": 182,
-        "total_weight": 182,
-        "total_orders": 45,
-        "paid_amount": 8496,
-        "pending_amount": 8024,
-        "view_orders_url": "/api/admin/vendor-payout/master/1/orders?pincode_group_id=1"
-      },
-      {
-        "vendor_id": 2,
-        "vendor_name": "FreshFold Cleaners",
-        "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "total_revenue": 6500,
-        "total_kg": 59.2,
-        "total_weight": 59.2,
-        "total_orders": 17,
-        "paid_amount": 3658,
-        "pending_amount": 0,
-        "view_orders_url": "/api/admin/vendor-payout/master/2/orders?pincode_group_id=1"
-      },
-      {
-        "vendor_id": 3,
-        "vendor_name": "Metro Wash Hub",
-        "pincode_group_id": 4,
-        "zone_group": "Thane C",
-        "pincode_group_name": "Thane C",
-        "total_revenue": 4500,
-        "total_kg": 40,
-        "total_weight": 40,
-        "total_orders": 10,
+        "zone_group": "Thane West",
+        "pincode_group_name": "Thane West",
+        "total_revenue": 360,
+        "total_kg": 4,
+        "total_weight": 4,
+        "total_orders": 1,
         "paid_amount": 0,
-        "pending_amount": 5310,
-        "view_orders_url": "/api/admin/vendor-payout/master/3/orders?pincode_group_id=4"
+        "pending_amount": 0,
+        "view_orders_url": "/api/admin/vendor-payout/master/7/orders?pincode_group_id=1"
       }
     ]
   }
@@ -85,7 +70,7 @@ Actual success response:
 GET /api/admin/vendor-payout/master/:vendorId/orders
 
 Example:
-GET /api/admin/vendor-payout/master/1/orders?pincode_group_id=1
+GET /api/admin/vendor-payout/master/7/orders?pincode_group_id=1
 
 Optional query:
   - pincode_group_id
@@ -96,71 +81,30 @@ Actual success response:
 {
   "success": true,
   "data": {
-    "mode": "dummy",
+    "mode": "live",
     "vendor": {
-      "vendor_id": 1,
-      "vendor_name": "Sparkle Laundry",
+      "vendor_id": 7,
+      "vendor_name": "Ramesh Laundry Services",
       "pincode_group_id": 1,
-      "zone_group": "South Mumbai",
-      "pincode_group_name": "South Mumbai"
+      "zone_group": "Thane West",
+      "pincode_group_name": "Thane West"
     },
-    "total_orders": 4,
+    "total_orders": 1,
     "orders": [
       {
-        "id": "ord-1003",
-        "order_id": "ORD-1003",
-        "date": "2026-07-13",
+        "id": "1",
+        "order_id": "MG988583",
+        "date": "2026-07-15",
         "date_from": "2026-07-13",
         "date_to": "2026-07-20",
-        "service_type": "Dry Clean",
-        "weight_kg": 6,
-        "order_amount": 900,
-        "vendor_revenue": 540,
+        "service_type": "Regular Service",
+        "weight_kg": 4,
+        "order_amount": 944,
+        "vendor_revenue": 360,
         "vendor_amount_per_kg": 90,
         "status": "ready_for_delivery",
-        "payout_status": "invoice_not_generated"
-      },
-      {
-        "id": "ord-1002",
-        "order_id": "ORD-1002",
-        "date": "2026-07-07",
-        "date_from": "2026-07-05",
-        "date_to": "2026-07-12",
-        "service_type": "Wash By Kilo",
-        "weight_kg": 12,
-        "order_amount": 1200,
-        "vendor_revenue": 1080,
-        "vendor_amount_per_kg": 90,
-        "status": "delivered",
-        "payout_status": "pending"
-      },
-      {
-        "id": "ord-1001",
-        "order_id": "ORD-1001",
-        "date": "2026-07-05",
-        "date_from": "2026-07-05",
-        "date_to": "2026-07-12",
-        "service_type": "Wash By Kilo",
-        "weight_kg": 8.5,
-        "order_amount": 850,
-        "vendor_revenue": 765,
-        "vendor_amount_per_kg": 90,
-        "status": "delivered",
-        "payout_status": "pending"
-      },
-      {
-        "id": "ord-1004",
-        "order_id": "ORD-1004",
-        "date": "2026-06-27",
-        "date_from": "2026-06-27",
-        "date_to": "2026-07-04",
-        "service_type": "Wash By Kilo",
-        "weight_kg": 10,
-        "order_amount": 1000,
-        "vendor_revenue": 900,
-        "vendor_amount_per_kg": 90,
-        "status": "delivered",
-        "payout_status": "paid"
+        "payout_status": "invoice_not_generated",
+        "batch_id": "vpb-1"
       }
     ]
   }
@@ -178,107 +122,36 @@ Optional query:
   - week_start   (YYYY-MM-DD)
 
 payment_status values:
-  - pending                → week closed; invoice AUTO-GENERATED; Send Payment enabled (listed FIRST)
-  - invoice_not_generated  → week still running (today <= date_to); listed LAST; NO pay button; no invoice yet
+  - pending                → week closed; invoice auto-generated; Send Payment enabled (listed FIRST)
+  - invoice_not_generated  → week still running; listed LAST; NO pay button
 
-tickers: one entry per closed week range still unpaid
-  e.g. "Payment pending for 5 Jul 2026 - 12 Jul 2026"
+tickers: one entry per closed unpaid week range
+  e.g. "Payment pending for 13 Jul 2026 - 20 Jul 2026"
 
-Actual success response:
+Actual success response (current week still open → no tickers):
 {
   "success": true,
   "data": {
-    "mode": "dummy",
-    "tickers": [
-      {
-        "key": "range_payment_pending",
-        "message": "Payment pending for 5 Jul 2026 - 12 Jul 2026",
-        "date_from": "2026-07-05",
-        "date_to": "2026-07-12",
-        "date_label": "5 Jul 2026 - 12 Jul 2026",
-        "batch_count": 2,
-        "total_payable": 13334
-      }
-    ],
+    "mode": "live",
+    "tickers": [],
     "items": [
       {
-        "batch_id": "vpb-201",
-        "vendor_id": 1,
-        "vendor_name": "Sparkle Laundry",
+        "batch_id": "vpb-1",
+        "vendor_id": 7,
+        "vendor_name": "Ramesh Laundry Services",
         "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "date_from": "2026-07-05",
-        "date_to": "2026-07-12",
-        "date_label": "5 Jul 2026 - 12 Jul 2026",
-        "total_orders": 15,
-        "total_kg": 62,
-        "total_weight": 62,
-        "gross_revenue": 6800,
-        "total_amount": 6800,
-        "gst_amount": 1224,
-        "payable_amount": 8024,
-        "payment_status": "pending",
-        "invoice_id": "INV-VPB-201",
-        "invoice_image": "/uploads/vendor-payout-invoices/auto-vpb-201.pdf"
-      },
-      {
-        "batch_id": "vpb-202",
-        "vendor_id": 3,
-        "vendor_name": "Metro Wash Hub",
-        "pincode_group_id": 4,
-        "zone_group": "Thane C",
-        "pincode_group_name": "Thane C",
-        "date_from": "2026-07-05",
-        "date_to": "2026-07-12",
-        "date_label": "5 Jul 2026 - 12 Jul 2026",
-        "total_orders": 10,
-        "total_kg": 40,
-        "total_weight": 40,
-        "gross_revenue": 4500,
-        "total_amount": 4500,
-        "gst_amount": 810,
-        "payable_amount": 5310,
-        "payment_status": "pending",
-        "invoice_id": "INV-VPB-202",
-        "invoice_image": "/uploads/vendor-payout-invoices/auto-vpb-202.pdf"
-      },
-      {
-        "batch_id": "vpb-101",
-        "vendor_id": 1,
-        "vendor_name": "Sparkle Laundry",
-        "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
+        "zone_group": "Thane West",
+        "pincode_group_name": "Thane West",
         "date_from": "2026-07-13",
         "date_to": "2026-07-20",
         "date_label": "13 Jul 2026 - 20 Jul 2026",
-        "total_orders": 12,
-        "total_kg": 48.5,
-        "total_weight": 48.5,
-        "gross_revenue": 5200,
-        "total_amount": 5200,
-        "gst_amount": 936,
-        "payable_amount": 6136,
-        "payment_status": "invoice_not_generated"
-      },
-      {
-        "batch_id": "vpb-102",
-        "vendor_id": 2,
-        "vendor_name": "FreshFold Cleaners",
-        "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "date_from": "2026-07-13",
-        "date_to": "2026-07-20",
-        "date_label": "13 Jul 2026 - 20 Jul 2026",
-        "total_orders": 8,
-        "total_kg": 31.2,
-        "total_weight": 31.2,
-        "gross_revenue": 3400,
-        "total_amount": 3400,
-        "gst_amount": 612,
-        "payable_amount": 4012,
+        "total_orders": 1,
+        "total_kg": 4,
+        "total_weight": 4,
+        "gross_revenue": 360,
+        "total_amount": 360,
+        "gst_amount": 65,
+        "payable_amount": 425,
         "payment_status": "invoice_not_generated"
       }
     ]
@@ -296,120 +169,92 @@ Optional query:
   - search
   - week_start
 
-Actual success response:
+Actual success response (no paid batches yet):
 {
   "success": true,
   "data": {
-    "mode": "dummy",
-    "items": [
-      {
-        "batch_id": "vpb-302",
-        "vendor_id": 2,
-        "vendor_name": "FreshFold Cleaners",
-        "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "date_from": "2026-06-27",
-        "date_to": "2026-07-04",
-        "date_label": "27 Jun 2026 - 4 Jul 2026",
-        "total_orders": 9,
-        "total_kg": 28,
-        "total_weight": 28,
-        "gross_revenue": 3100,
-        "total_amount": 3100,
-        "gst_amount": 558,
-        "payable_amount": 3658,
-        "payment_status": "paid",
-        "invoice_id": "INV-DUMMY-9002",
-        "invoice_image": "/uploads/vendor-payout-invoices/dummy-freshfold-older.pdf",
-        "transaction_id": "TXN-DUMMY-9002",
-        "payment_date": "2026-07-04",
-        "paid_at": "2026-07-04T19:00:00+05:30"
-      },
-      {
-        "batch_id": "vpb-301",
-        "vendor_id": 1,
-        "vendor_name": "Sparkle Laundry",
-        "pincode_group_id": 1,
-        "zone_group": "South Mumbai",
-        "pincode_group_name": "South Mumbai",
-        "date_from": "2026-06-27",
-        "date_to": "2026-07-04",
-        "date_label": "27 Jun 2026 - 4 Jul 2026",
-        "total_orders": 18,
-        "total_kg": 71.5,
-        "total_weight": 71.5,
-        "gross_revenue": 7200,
-        "total_amount": 7200,
-        "gst_amount": 1296,
-        "payable_amount": 8496,
-        "payment_status": "paid",
-        "invoice_id": "INV-DUMMY-9001",
-        "invoice_image": "/uploads/vendor-payout-invoices/dummy-sparkle-older.pdf",
-        "transaction_id": "TXN-DUMMY-9001",
-        "payment_date": "2026-07-04",
-        "paid_at": "2026-07-04T18:30:00+05:30"
-      }
-    ]
+    "mode": "live",
+    "items": []
   }
+}
+
+Example item shape after a successful pay:
+{
+  "batch_id": "vpb-1",
+  "vendor_id": 7,
+  "vendor_name": "Ramesh Laundry Services",
+  "pincode_group_id": 1,
+  "zone_group": "Thane West",
+  "pincode_group_name": "Thane West",
+  "date_from": "2026-07-13",
+  "date_to": "2026-07-20",
+  "date_label": "13 Jul 2026 - 20 Jul 2026",
+  "total_orders": 1,
+  "total_kg": 4,
+  "total_weight": 4,
+  "gross_revenue": 360,
+  "total_amount": 360,
+  "gst_amount": 65,
+  "payable_amount": 425,
+  "payment_status": "paid",
+  "invoice_id": "INV-VPB-1",
+  "invoice_image": "/uploads/vendor-payout-invoices/auto-vpb-1.pdf",
+  "transaction_id": "TXN123456",
+  "payment_date": "2026-07-21",
+  "paid_at": "2026-07-21T12:00:00.000Z"
 }
 
 
 --------------------------------------------------------------------------------
-4) SEND PAYMENT (mark pending batch as paid)
+4) SEND PAYMENT
 --------------------------------------------------------------------------------
 POST /api/admin/vendor-payout/:batchId/pay
 
 Example:
-POST /api/admin/vendor-payout/vpb-201/pay
+POST /api/admin/vendor-payout/vpb-1/pay
 
 Content-Type: application/json
 
 Body (only these two fields):
-  - transaction_id   (required)  e.g. "TXN123456"
-  - date             (required)  YYYY-MM-DD  e.g. "2026-07-16"
-                                 (alias: payment_date)
-
-Invoice is AUTO-GENERATED when the week closes (status → pending).
-No invoice file upload. No invoice_id from admin.
-
-Request example:
 {
   "transaction_id": "TXN123456",
-  "date": "2026-07-16"
+  "date": "2026-07-21"
 }
+
+Only allowed when payment_status = pending (week closed).
+Invoice is auto-generated — no file upload.
 
 Success response (200):
 {
   "success": true,
   "message": "Vendor payout marked as paid",
   "data": {
-    "batch_id": "vpb-201",
-    "vendor_id": 1,
-    "vendor_name": "Sparkle Laundry",
+    "batch_id": "vpb-1",
+    "vendor_id": 7,
+    "vendor_name": "Ramesh Laundry Services",
     "pincode_group_id": 1,
-    "zone_group": "South Mumbai",
-    "pincode_group_name": "South Mumbai",
-    "date_from": "2026-07-05",
-    "date_to": "2026-07-12",
-    "date_label": "5 Jul 2026 - 12 Jul 2026",
-    "total_orders": 15,
-    "total_kg": 62,
-    "total_weight": 62,
-    "gross_revenue": 6800,
-    "total_amount": 6800,
-    "gst_amount": 1224,
-    "payable_amount": 8024,
+    "zone_group": "Thane West",
+    "pincode_group_name": "Thane West",
+    "date_from": "2026-07-13",
+    "date_to": "2026-07-20",
+    "date_label": "13 Jul 2026 - 20 Jul 2026",
+    "total_orders": 1,
+    "total_kg": 4,
+    "total_weight": 4,
+    "gross_revenue": 360,
+    "total_amount": 360,
+    "gst_amount": 65,
+    "payable_amount": 425,
     "payment_status": "paid",
-    "invoice_id": "INV-VPB-201",
-    "invoice_image": "/uploads/vendor-payout-invoices/auto-vpb-201.pdf",
+    "invoice_id": "INV-VPB-1",
+    "invoice_image": "/uploads/vendor-payout-invoices/auto-vpb-1.pdf",
     "transaction_id": "TXN123456",
-    "payment_date": "2026-07-16",
-    "paid_at": "2026-07-16T12:00:00.000Z"
+    "payment_date": "2026-07-21",
+    "paid_at": "2026-07-21T12:00:00.000Z"
   }
 }
 
-Error — week still open (invoice not generated):
+Error — week still open:
 {
   "success": false,
   "message": "Invoice not generated yet. Payment is allowed only after the report week has ended."
@@ -439,24 +284,4 @@ Error — batch not found:
   "message": "Payout batch not found"
 }
 
-
---------------------------------------------------------------------------------
-STATUS RULES
---------------------------------------------------------------------------------
-  today <= date_to   →  invoice_not_generated   (cannot pay; no invoice yet)
-  today >  date_to   →  pending                 (invoice auto-generated; can pay any day)
-  after pay          →  paid                    (transaction_id + payment_date saved)
-
-GST formula (dummy amounts already include this):
-  gst_amount     = ROUND(gross_revenue * 0.18)
-  payable_amount = gross_revenue + gst_amount
-
-NOTE:
-  Invoice PDFs are written under uploads/vendor-payout-invoices/ when week closes.
-  Open via:
-    {{API_BASE_URL}}/uploads/vendor-payout-invoices/auto-vpb-201.pdf
-    or {{API_BASE_URL}}/api/uploads/vendor-payout-invoices/auto-vpb-201.pdf
-  Pay action is in-memory only in Phase 1 (resets when server restarts).
-  Week date ranges shift relative to "today", so labels may change day-to-day.
-  Real DB / order aggregation comes in Phase 2.
 ================================================================================
