@@ -413,11 +413,11 @@ export const completeOrderService = async ({
       [order_id],
     );
 
-    sendUserEmailSafe(user_id, sendOrderCreatedEmail, {
-      orderId: order_id,
-      orderCode: orderMeta.rows[0]?.order_code,
-      estimatedTotal: estimated_total,
-    });
+    // sendUserEmailSafe(user_id, sendOrderCreatedEmail, {
+    //   orderId: order_id,
+    //   orderCode: orderMeta.rows[0]?.order_code,
+    //   estimatedTotal: estimated_total,
+    // });
 
     const timestamps = await fetchOrderTimestamps(sql, order_id);
     return {
@@ -700,7 +700,7 @@ export const getUserOrdersService = async ({
 
   const result = await sql.query(
     `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
-            o.amount_paid, o.remaining_amount, o.discount_price,
+            o.amount_paid, o.remaining_amount, o.discount_price,o.estimated_total,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

@@ -87,7 +87,7 @@ export const fetchDashboardCount = async (rider_id) => {
   ) AS pending_pickup,
 
   COUNT(*) FILTER (
-    WHERE status = 'picked_up'
+    WHERE status = 'in_process'
   ) AS completed_pickup,
 
   COUNT(*) FILTER (
