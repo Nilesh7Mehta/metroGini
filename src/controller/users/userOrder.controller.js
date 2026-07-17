@@ -160,6 +160,7 @@ export const reviewOrder = async (req, res, next) => {
       },
       address: order.full_address,
       pricing_breakdown: {
+        flat_fee: pricing.flat_fee.toFixed(2),
         service_charge: pricing.service_charge.toFixed(2),
         peak_charge: pricing.peak_charge.toFixed(2),
         coupon: order.coupon_code

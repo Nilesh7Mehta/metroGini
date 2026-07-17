@@ -82,11 +82,27 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
 export const fetchDashboardCount = async (rider_id) => {
   const { rows } = await sql.query(
     `SELECT
-      COUNT(*) FILTER (WHERE status = 'out_for_pickup') AS pending_orders,
-      COUNT(*) FILTER (WHERE status = 'pickup_in_progress') AS active_orders,
-      COUNT(*) FILTER (WHERE status = 'picked_up') AS completed_orders
-     FROM orders
-     WHERE pickup_date >= CURRENT_DATE AND assigned_rider_id = $1`,
+  COUNT(*) FILTER (
+    WHERE status IN ('out_for_pickup', 'booked', 'pickup_in_progress')
+  ) AS pending_pickup,
+
+  COUNT(*) FILTER (
+    WHERE status = 'picked_up'
+  ) AS completed_pickup,
+
+  COUNT(*) FILTER (
+    WHERE status IN ('ready_for_delivery', 'out_for_delivery')
+  ) AS pending_drop,
+
+  COUNT(*) FILTER (
+    WHERE status = 'delivered'
+  ) AS completed_drop
+FROM orders
+WHERE assigned_rider_id = $1
+  AND (
+    pickup_date >= CURRENT_DATE
+    OR delivery_date >= CURRENT_DATE
+  )`,
     [rider_id],
   );
   return rows[0];
@@ -245,7 +261,7 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   }
 
   // ✅ Vendor validation
-  console.log( order.vendor_id , vendor_id);
+  console.log(order.vendor_id, vendor_id);
   if (order.vendor_id !== vendor_id) {
     throw { status: 400, message: "Invalid vendor for this order" };
   }
@@ -397,50 +413,13 @@ export const collectPaymentService = async (rider_id, order_id) => {
     : final_total;
 
   if (amount_to_collect <= 0) {
-    throw { status: 400, message: 'No remaining amount to collect' };
+    return {
+      order_id: parseInt(order_id, 10),
+      payment_status: 'paid',
+      message: 'Payment has already been completed for this order',
+    }
   }
 
-  await sql.query(
-    `INSERT INTO payments (order_id, payment_type, payment_method, amount, status , paid_at)
-     VALUES ($1, 'remaining', 'cash', $2, 'success' , NOW())`,
-    [order_id, amount_to_collect]
-  );
-
-  await sql.query(
-    `UPDATE orders SET payment_status = 'paid', payment_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [order_id],
-  );
-
-  await createNotificationsBatch([{
-    identity_id: order.user_id,
-    role: 'user',
-    title: 'Payment Received',
-    message: `Cash payment of ₹${amount_to_collect} collected by rider.`,
-    reference_type: 'order',
-    reference_id: order_id,
-  }]);
-
-  const orderMeta = await sql.query(
-    `SELECT order_code FROM orders WHERE id = $1`,
-    [order_id],
-  );
-
-  sendUserEmailSafe(order.user_id, sendFullPaymentEmail, {
-    orderId: order_id,
-    orderCode: orderMeta.rows[0]?.order_code,
-    amount: amount_to_collect,
-    paymentMethod: 'cash',
-  });
-
-  const timestamps = await fetchOrderTimestamps(sql, order_id);
-  return {
-    order_id: parseInt(order_id, 10),
-    payment_method: 'cash',
-    amount_collected: amount_to_collect,
-    payment_status: 'paid',
-    timestamps,
-    payment_completed_at: timestamps.payment_completed_at,
-  };
 };
 
 export const pickupFromVendorService = async (rider_id, order_id) => {

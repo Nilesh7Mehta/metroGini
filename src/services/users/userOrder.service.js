@@ -657,7 +657,7 @@ export const getUserOrdersService = async ({
   time,
 }) => {
   const offset = (page - 1) * limit;
-  let whereConditions = [`o.user_id = $1`];
+  let whereConditions = [`o.user_id = $1 and o.status != 'draft'`];
   let values = [user_id];
   let paramIndex = 2;
 
@@ -700,6 +700,7 @@ export const getUserOrdersService = async ({
 
   const result = await sql.query(
     `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
+            o.amount_paid, o.remaining_amount, o.discount_price,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

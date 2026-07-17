@@ -30,7 +30,7 @@ export const addAddress = async ({ userId, body }) => {
     contact_number,
     latitude = "19.0760",
     longitude = "72.8777",
-    pincode = "400612"
+    pincode
   } = body;
 
   if (
@@ -104,7 +104,7 @@ export const updateAddress = async ({ userId, addressId, body }) => {
     contact_number,
     latitude = "19.0760",
     longitude = "72.8777",
-    pincode = "400612"
+    pincode
   } = body;
 
   if (
