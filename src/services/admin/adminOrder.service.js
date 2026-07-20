@@ -1,21 +1,96 @@
 import sql from '../../config/db.js';
 import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
-import {
-  isValidOpsIssueType,
-  resolveOpsIssueType,
-} from '../../utils/opsIssue.util.js';
+import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
-const VALID_PERIODS = ['today', 'week', 'month'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DAYS_WINDOW = 7;
+const VALID_SHIFTS = ['morning', 'evening'];
 
 const SERVICE_CONFIG = {
   1: { key: 'wash_by_kilo' },
   2: { key: 'dry_clean' },
 };
 
+const PICKUP_COMPLETED_STATUSES = [
+  'picked_up',
+  'in_process',
+  'order_finalized',
+  'ready_for_delivery',
+  'out_for_delivery',
+  'delivered',
+];
+
 const formatDate = (date) => date.toLocaleDateString('en-CA');
+
+const addDays = (dateStr, days) => {
+  const date = new Date(`${dateStr}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+};
+
+const toDateStr = (value) => {
+  if (value == null) return null;
+  if (value instanceof Date) return formatDate(value);
+  const raw = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null;
+};
+
+const parseOptionalDate = (value, fieldName) => {
+  if (value == null || value === '') return null;
+  if (!DATE_RE.test(String(value))) {
+    throw { status: 400, message: `${fieldName} must be in YYYY-MM-DD format` };
+  }
+  return String(value);
+};
+
+const parseOptionalPincodeGroupId = (value) => {
+  if (value == null || value === '') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
+  }
+  return id;
+};
+
+const parseOptionalShift = (value) => {
+  if (value == null || value === '') return null;
+  const shift = String(value).trim().toLowerCase();
+  if (!VALID_SHIFTS.includes(shift)) {
+    throw { status: 400, message: 'shift must be morning or evening' };
+  }
+  return shift;
+};
+
+const resolveListFilters = (query = {}) => {
+  const dateFrom = parseOptionalDate(query.date_from, 'date_from');
+  const dateTo = parseOptionalDate(query.date_to, 'date_to');
+  const hasFrom = dateFrom != null;
+  const hasTo = dateTo != null;
+
+  if (hasFrom !== hasTo) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to must be provided together',
+    };
+  }
+
+  if (hasFrom && dateFrom > dateTo) {
+    throw { status: 400, message: 'date_from must be on or before date_to' };
+  }
+
+  const selectedDate =
+    parseOptionalDate(query.date, 'date') || dateFrom || formatDate(new Date());
+
+  return {
+    selectedDate,
+    dateFrom,
+    dateTo,
+    shift: parseOptionalShift(query.shift),
+    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
+  };
+};
 
 const normalizeStainImages = (value) => {
   if (value == null) return null;
@@ -27,7 +102,9 @@ const normalizeStainImages = (value) => {
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) {
-        const images = parsed.filter((path) => typeof path === 'string' && path.trim());
+        const images = parsed.filter(
+          (path) => typeof path === 'string' && path.trim(),
+        );
         return images.length ? images : null;
       }
     } catch {
@@ -38,111 +115,6 @@ const normalizeStainImages = (value) => {
   return null;
 };
 
-const getDateRange = (period) => {
-  const now = new Date();
-
-  if (period === 'week') {
-    const day = now.getDay();
-    const diffToMonday = (day + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMonday);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return { start: formatDate(monday), end: formatDate(sunday) };
-  }
-
-  if (period === 'month') {
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start: formatDate(firstDay), end: formatDate(lastDay) };
-  }
-
-  const today = formatDate(now);
-  return { start: today, end: today };
-};
-
-const resolveFilters = (query = {}) => {
-  const dateFrom = query.date_from;
-  const dateTo = query.date_to;
-  const issueType = query.issue_type
-    ? String(query.issue_type).toLowerCase()
-    : null;
-
-  if (issueType && !isValidOpsIssueType(issueType)) {
-    throw {
-      status: 400,
-      message:
-        'issue_type must be one of failed_pickup, failed_drop, missed_pickup, missed_drop',
-    };
-  }
-
-  if (dateFrom && dateTo && DATE_RE.test(dateFrom) && DATE_RE.test(dateTo)) {
-    if (dateFrom > dateTo) {
-      throw { status: 400, message: 'date_from must be on or before date_to' };
-    }
-    return {
-      start: dateFrom,
-      end: dateTo,
-      period: VALID_PERIODS.includes(query.period) ? query.period : 'today',
-      orderStatus: query.order_status || null,
-      issueType,
-    };
-  }
-
-  const period = VALID_PERIODS.includes(query.period) ? query.period : 'today';
-  const { start, end } = getDateRange(period);
-
-  return {
-    start,
-    end,
-    period,
-    orderStatus: query.order_status || null,
-    issueType,
-  };
-};
-
-const formatDateLabel = (start, end) => {
-  const shortOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  };
-
-  const startDate = new Date(`${start}T12:00:00`);
-
-  if (start === end) {
-    return startDate.toLocaleDateString('en-GB', shortOptions);
-  }
-
-  const endDate = new Date(`${end}T12:00:00`);
-  const startPart = startDate.toLocaleDateString('en-GB', shortOptions);
-  const endPart = endDate.toLocaleDateString('en-GB', shortOptions);
-  return `${startPart} - ${endPart}`;
-};
-
-const hasConfirmedClothes = (order) => {
-  const count = order.actual_clothes_count;
-  return count != null && Number(count) > 0;
-};
-
-const hasConfirmedWeight = (order) =>
-  order.actual_weight != null && Number(order.actual_weight) > 0;
-
-const isClassificationPending = (order) => {
-  if (order.status === 'picked_up') return true;
-  if (order.status !== 'in_process') return false;
-
-  if (Number(order.service_id) === 2) {
-    return !hasConfirmedClothes(order);
-  }
-
-  return !hasConfirmedWeight(order) || !hasConfirmedClothes(order);
-};
-
-const isExpressOrder = (serviceTypeName) =>
-  typeof serviceTypeName === 'string' &&
-  serviceTypeName.toLowerCase().includes('express');
-
 const getEstimatedKg = (min, max) => {
   const weightMin = Number(min || 0);
   const weightMax = Number(max || 0);
@@ -152,40 +124,15 @@ const getEstimatedKg = (min, max) => {
   return parseFloat((weightMax || weightMin || 0).toFixed(1));
 };
 
-const getOperationalCounts = (orders) => ({
-  pending_classification: orders.filter(isClassificationPending).length,
-  in_processing: orders.filter(
-    (o) =>
-      o.status === 'order_finalized' ||
-      (o.status === 'in_process' && !isClassificationPending(o)),
-  ).length,
-  ready_for_dispatch: orders.filter((o) =>
-    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
-  ).length,
-});
-
-const buildTopStats = (orders) => {
-  const ops = getOperationalCounts(orders);
-
-  return [
-    { key: 'orders_received', value: orders.length },
-    { key: 'pending_classification', value: ops.pending_classification },
-    { key: 'in_processing', value: ops.in_processing },
-    { key: 'ready_for_dispatch', value: ops.ready_for_dispatch },
-    {
-      key: 'order_complete',
-      value: orders.filter((o) => o.status === 'delivered').length,
-    },
-  ];
-};
-
 const getServiceKey = (serviceId) =>
   SERVICE_CONFIG[Number(serviceId)]?.key || 'wash_by_kilo';
 
 const getAdminDisplayStatus = (status) => {
-  if (status === 'in_process') return 'in_progress';
+  if (status === 'in_process') return 'in_processing';
   return status;
 };
+
+const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
 const resolveIssueType = (order) => {
   const opsIssue = resolveOpsIssueType(order);
@@ -214,110 +161,141 @@ const buildEstFin = (order) => {
 
   const est = Number(order.clothes_count || 0);
   const fin = Number(order.actual_clothes_count ?? order.clothes_count ?? 0);
-  return `${est}/${fin}`;
+  return `${est}/${fin} Items`;
 };
 
-const buildCharges = (order) => {
-  const amount = order.final_total ?? order.estimated_total ?? 0;
-  return String(Math.round(Number(amount)));
+const getOrderTotal = (order) =>
+  Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
+
+const getBalanceCollected = (order) =>
+  Math.round(Number(order.amount_paid ?? order.paid_sum ?? 0));
+
+const getBalancePayable = (order) => {
+  if (order.remaining_amount != null) {
+    return Math.max(0, Math.round(Number(order.remaining_amount)));
+  }
+  return Math.max(0, getOrderTotal(order) - getBalanceCollected(order));
 };
 
-const mapAdminOrder = (order) => {
-  const issueType = resolveIssueType(order);
-
-  return {
-    id: String(order.id),
-    order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
-    customer_id: `CUS-${order.user_id}`,
-    service_type: getServiceKey(order.service_id),
-    status: getAdminDisplayStatus(order.status),
-    ...(issueType ? { issue_type: issueType } : {}),
-    est_fin: buildEstFin(order),
-    charges: buildCharges(order),
-  };
+const resolveShiftKey = (shiftName) => {
+  if (!shiftName) return null;
+  return String(shiftName).trim().toLowerCase().split(/\s+/)[0];
 };
 
-const buildServiceSummary = (orders) => {
-  const washOrders = orders.filter((o) => Number(o.service_id) === 1);
-  const dryOrders = orders.filter((o) => Number(o.service_id) === 2);
-  const summary = [];
+const resolvePickupStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_pickup' || issue === 'missed_pickup') return 'failed';
+  if (PICKUP_COMPLETED_STATUSES.includes(order.status)) return 'completed';
+  return 'pending';
+};
 
-  if (washOrders.length) {
-    const estKg = washOrders.reduce(
-      (sum, o) =>
-        sum + getEstimatedKg(o.estimated_weight_min, o.estimated_weight_max),
-      0,
-    );
-    const finKg = washOrders.reduce(
-      (sum, o) => sum + Number(o.actual_weight || 0),
-      0,
-    );
+const resolveDeliveryStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_drop' || issue === 'missed_drop') return 'failed';
+  if (order.status === 'delivered') return 'completed';
+  return 'pending';
+};
 
-    summary.push({
-      key: 'wash_by_kilo',
-      subtitle: `Est. ${Math.round(estKg)} kg - Fin. ${Math.round(finKg)} kg`,
-      regular_orders: washOrders.filter((o) => !isExpressOrder(o.service_type_name))
-        .length,
-      express_orders: washOrders.filter((o) => isExpressOrder(o.service_type_name))
-        .length,
+const isPickupOnDate = (order, dateStr) => toDateStr(order.pickup_date) === dateStr;
+const isDeliveryOnDate = (order, dateStr) =>
+  toDateStr(order.delivery_date) === dateStr;
+
+const isActiveOnDate = (order, dateStr) =>
+  isPickupOnDate(order, dateStr) || isDeliveryOnDate(order, dateStr);
+
+const buildDays = (selectedDate, orders) => {
+  const days = [];
+
+  for (let i = 0; i < DAYS_WINDOW; i += 1) {
+    const date = addDays(selectedDate, i);
+    const pickupToday = orders.filter((o) => isPickupOnDate(o, date)).length;
+    const deliveryToday = orders.filter((o) => isDeliveryOnDate(o, date)).length;
+
+    days.push({
+      date,
+      total_plan: pickupToday + deliveryToday,
     });
   }
 
-  if (dryOrders.length) {
-    const totalItems = dryOrders.reduce(
-      (sum, o) => sum + Number(o.clothes_count || 0),
-      0,
-    );
-
-    summary.push({
-      key: 'dry_clean',
-      subtitle: `Total items - ${totalItems} pcs`,
-      regular_orders: dryOrders.filter((o) => !isExpressOrder(o.service_type_name))
-        .length,
-      express_orders: dryOrders.filter((o) => isExpressOrder(o.service_type_name))
-        .length,
-    });
-  }
-
-  return summary;
+  return days;
 };
 
-const buildMetricChips = (orders) => {
-  const ops = getOperationalCounts(orders);
-
-  return [
-    { key: 'pending_classification', value: ops.pending_classification },
-    { key: 'in_processing', value: ops.in_processing },
-    { key: 'ready_for_dispatch', value: ops.ready_for_dispatch },
-  ];
-};
-
-const buildShiftPayload = (slotId, orders, lotCode, shiftKey) => {
-  const shiftOrders = orders.filter(
-    (o) => Number(o.pickup_slot_id) === Number(slotId),
+const buildKpis = (selectedDate, orders) => {
+  const pickupOrders = orders.filter((o) => isPickupOnDate(o, selectedDate));
+  const deliveryOrders = orders.filter((o) =>
+    isDeliveryOnDate(o, selectedDate),
   );
 
+  // Payment KPIs: distinct orders active on this day (pickup or delivery)
+  const dayOrdersMap = new Map();
+  for (const order of [...pickupOrders, ...deliveryOrders]) {
+    dayOrdersMap.set(order.id, order);
+  }
+  const dayOrders = [...dayOrdersMap.values()];
+
   return {
-    key: shiftKey,
-    lot: lotCode,
-    total_orders: shiftOrders.length,
-    metric_chips: buildMetricChips(shiftOrders),
-    service_summary: buildServiceSummary(shiftOrders),
-    orders: shiftOrders.map(mapAdminOrder),
+    total_plan: pickupOrders.length + deliveryOrders.length,
+    pickup_today: pickupOrders.length,
+    pickup_completed: pickupOrders.filter(
+      (o) => resolvePickupStatus(o) === 'completed',
+    ).length,
+    delivery_today: deliveryOrders.length,
+    delivery_completed: deliveryOrders.filter(
+      (o) => resolveDeliveryStatus(o) === 'completed',
+    ).length,
+    total_payable: dayOrders.reduce((sum, o) => sum + getOrderTotal(o), 0),
+    balance_collected: dayOrders.reduce(
+      (sum, o) => sum + getBalanceCollected(o),
+      0,
+    ),
+    balance_pending: dayOrders.reduce((sum, o) => sum + getBalancePayable(o), 0),
+    failed_pickup: pickupOrders.filter((o) => resolvePickupStatus(o) === 'failed')
+      .length,
+    failed_delivery: deliveryOrders.filter(
+      (o) => resolveDeliveryStatus(o) === 'failed',
+    ).length,
   };
 };
 
-const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeCancelled) => {
-  const params = [start, end, pickupShiftSlotIds];
-  let statusClause = '';
+const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
+  const shiftMeta = shiftByPickupSlot[order.pickup_slot_id];
+  const shift = resolveShiftKey(shiftMeta?.shift_type || order.pickup_shift_name);
+  const scheduledDate = isPickupOnDate(order, selectedDate)
+    ? toDateStr(order.pickup_date)
+    : toDateStr(order.delivery_date) || selectedDate;
 
-  if (orderStatus) {
-    params.push(orderStatus);
-    statusClause = `AND o.status = $${params.length}`;
-  } else if (includeCancelled) {
-    statusClause = `AND o.status <> 'draft'`;
-  } else {
-    statusClause = `AND o.status NOT IN ('draft', 'cancelled')`;
+  return {
+    id: Number(order.id),
+    order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
+    customer_id: formatCustomerId(order.user_id),
+    customer_name: order.customer_name || null,
+    service_type: getServiceKey(order.service_id),
+    status: getAdminDisplayStatus(order.status),
+    shift,
+    issue_type: resolveIssueType(order),
+    est_fin: buildEstFin(order),
+    charges: getOrderTotal(order),
+    pickup_status: resolvePickupStatus(order),
+    delivery_status: resolveDeliveryStatus(order),
+    total_payable: getOrderTotal(order),
+    balance_collected: getBalanceCollected(order),
+    balance_payable: getBalancePayable(order),
+    scheduled_date: scheduledDate,
+  };
+};
+
+const fetchOrdersForRange = async ({
+  rangeStart,
+  rangeEnd,
+  pincodeGroupId,
+  shiftSlotIds,
+}) => {
+  const params = [rangeStart, rangeEnd, pincodeGroupId];
+  let shiftClause = '';
+
+  if (shiftSlotIds?.length) {
+    params.push(shiftSlotIds);
+    shiftClause = `AND o.pickup_slot_id = ANY($${params.length}::int[])`;
   }
 
   const { rows } = await sql.query(
@@ -326,10 +304,13 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeC
       o.id,
       o.order_code,
       o.user_id,
+      u.full_name AS customer_name,
       o.pickup_slot_id,
       o.pickup_date,
       o.delivery_date,
+      o.created_at,
       o.status,
+      o.payment_status,
       o.estimated_weight_min,
       o.estimated_weight_max,
       o.actual_weight,
@@ -338,14 +319,27 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeC
       o.service_id,
       o.estimated_total,
       o.final_total,
+      o.amount_paid,
+      o.remaining_amount,
       o.out_for_pickup_at,
       o.pickup_started_at,
       o.out_for_delivery_at,
-      st.name AS service_type_name,
+      pickup_ts.shift_name AS pickup_shift_name,
+      COALESCE(ps.paid_sum, 0) AS paid_sum,
       ir.issue_type AS open_issue_type,
       oc.reason_type AS cancel_reason_type
     FROM orders o
-    LEFT JOIN service_types st ON o.service_type_id = st.id
+    LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN time_slots pickup_ts ON pickup_ts.id = o.pickup_slot_id
+    LEFT JOIN user_address_details uad ON uad.id = o.address_id
+    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    LEFT JOIN (
+      SELECT
+        order_id,
+        SUM(amount) FILTER (WHERE status = 'success') AS paid_sum
+      FROM payments
+      GROUP BY order_id
+    ) ps ON ps.order_id = o.id
     LEFT JOIN LATERAL (
       SELECT issue_type
       FROM order_reports
@@ -360,9 +354,13 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeC
       ORDER BY cancelled_at DESC
       LIMIT 1
     ) oc ON TRUE
-    WHERE o.pickup_date BETWEEN $1::date AND $2::date
-      AND o.pickup_slot_id = ANY($3::int[])
-      ${statusClause}
+    WHERE o.status <> 'draft'
+      AND (
+        o.pickup_date BETWEEN $1::date AND $2::date
+        OR o.delivery_date BETWEEN $1::date AND $2::date
+      )
+      AND ($3::int IS NULL OR p.pincode_group_id = $3::int)
+      ${shiftClause}
     ORDER BY o.id DESC
     `,
     params,
@@ -372,38 +370,62 @@ const fetchOrders = async (start, end, orderStatus, pickupShiftSlotIds, includeC
 };
 
 export const getAdminOrdersService = async (query = {}) => {
-  const { start, end, period, orderStatus, issueType } = resolveFilters(query);
+  const { selectedDate, dateFrom, dateTo, shift, pincodeGroupId } =
+    resolveListFilters(query);
+
+  let zoneGroup = null;
+  if (pincodeGroupId != null) {
+    const groupCheck = await sql.query(
+      `SELECT id, name FROM pincode_groups WHERE id = $1`,
+      [pincodeGroupId],
+    );
+    if (groupCheck.rows.length === 0) {
+      throw { status: 404, message: 'pincode_group_id not found' };
+    }
+    zoneGroup = groupCheck.rows[0].name;
+  }
+
   const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
 
-  const orders = await fetchOrders(
-    start,
-    end,
-    orderStatus,
-    pickupShiftSlotIds,
-    Boolean(issueType),
-  );
+  let shiftSlotIds = null;
+  if (shift) {
+    shiftSlotIds = pickupShiftSlotIds.filter((slotId) => {
+      const meta = shiftByPickupSlot[slotId];
+      return resolveShiftKey(meta?.shift_type) === shift;
+    });
+  }
 
-  const filteredOrders = issueType
-    ? orders.filter((order) => resolveOpsIssueType(order) === issueType)
-    : orders;
+  const rangeStart = selectedDate;
+  const rangeEnd = addDays(selectedDate, DAYS_WINDOW - 1);
 
-  const shifts = pickupShiftSlotIds.map((slotId, index) => {
-    const config = shiftByPickupSlot[slotId];
-    const lotCode = `LOT-${String(index + 1).padStart(3, '0')}`;
-    const shiftKey = config?.shift_type || `shift_${index + 1}`;
-
-    return buildShiftPayload(slotId, filteredOrders, lotCode, shiftKey);
+  const orders = await fetchOrdersForRange({
+    rangeStart,
+    rangeEnd,
+    pincodeGroupId,
+    shiftSlotIds,
   });
 
+  const selectedOrders = orders.filter((order) =>
+    isActiveOnDate(order, selectedDate),
+  );
+
   return {
-    period,
-    date_label: formatDateLabel(start, end),
-    top_stats: buildTopStats(filteredOrders),
-    shifts,
+    filters: {
+      date: selectedDate,
+      date_from: dateFrom,
+      date_to: dateTo,
+      shift,
+      pincode_group_id: pincodeGroupId,
+      zone_group: zoneGroup,
+    },
+    days: buildDays(selectedDate, orders),
+    selected_date: selectedDate,
+    kpis: buildKpis(selectedDate, orders),
+    orders: selectedOrders.map((order) =>
+      mapAdminOrderRow(order, selectedDate, shiftByPickupSlot),
+    ),
   };
 };
-
-const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
 const formatEntityId = (prefix, id) =>
   `${prefix}-${String(id).padStart(3, '0')}`;
@@ -576,7 +598,13 @@ const fetchOpenIssueCount = async (orderId) => {
   return rows[0]?.count || 0;
 };
 
-const buildPickupSection = (shiftName, riderName, riderId, otpVerified, pickupCompletedAt) => {
+const buildPickupSection = (
+  shiftName,
+  riderName,
+  riderId,
+  otpVerified,
+  pickupCompletedAt,
+) => {
   const pickupCompletedFormatted = formatDateTime(pickupCompletedAt);
 
   return {
@@ -589,7 +617,13 @@ const buildPickupSection = (shiftName, riderName, riderId, otpVerified, pickupCo
   };
 };
 
-const buildDeliverySection = (shiftName, riderName, riderId, deliveryCompleted, deliveryCompletedAt) => {
+const buildDeliverySection = (
+  shiftName,
+  riderName,
+  riderId,
+  deliveryCompleted,
+  deliveryCompletedAt,
+) => {
   const deliveryCompletedFormatted = formatDateTime(deliveryCompletedAt);
 
   return {
@@ -605,7 +639,9 @@ const buildDeliverySection = (shiftName, riderName, riderId, deliveryCompleted, 
 const buildBillingPayload = buildOrderBillingPayload;
 
 const buildPaymentPayload = (order, billing, payments) => {
-  const successfulPayments = payments.filter((payment) => payment.status === 'success');
+  const successfulPayments = payments.filter(
+    (payment) => payment.status === 'success',
+  );
   const advancePayments = successfulPayments.filter(
     (payment) => payment.payment_type === 'advance',
   );
@@ -626,7 +662,10 @@ const buildPaymentPayload = (order, billing, payments) => {
   const modeOfPayment = paymentMethod || 'N/A';
 
   const totalDue = Number(billing.total_amount);
-  const outstanding = Math.max(0, Math.round(totalDue - preBookingPayment - remainingPaid));
+  const outstanding = Math.max(
+    0,
+    Math.round(totalDue - preBookingPayment - remainingPaid),
+  );
 
   return {
     pre_booking_payment: String(Math.round(preBookingPayment)),
@@ -741,9 +780,7 @@ export const getAdminOrderOperationsService = async (orderId) => {
           ? parseFloat(order.vendor_amount_per_kg)
           : null,
       vendor_revenue:
-        order.vendor_revenue != null
-          ? parseFloat(order.vendor_revenue)
-          : null,
+        order.vendor_revenue != null ? parseFloat(order.vendor_revenue) : null,
       extra_care_items:
         Number(order.is_stained) === 1
           ? '1 Item Stained'
