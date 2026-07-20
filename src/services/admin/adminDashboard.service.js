@@ -1,46 +1,31 @@
 import sql from '../../config/db.js';
-import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 
-const VALID_PERIODS = ['today', 'week', 'month'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const INACTIVE_USER_TICKERS = {
+  inactive_users_30: 30,
+  inactive_users_45: 45,
+  inactive_users_60: 60,
+};
 
 const formatDate = (date) => date.toLocaleDateString('en-CA');
 
-const getDateRange = (period) => {
-  const now = new Date();
+const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
-  if (period === 'week') {
-    const day = now.getDay();
-    const diffToMonday = (day + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMonday);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return { start: formatDate(monday), end: formatDate(sunday) };
-  }
-
-  if (period === 'month') {
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start: formatDate(firstDay), end: formatDate(lastDay) };
-  }
-
-  const today = formatDate(now);
-  return { start: today, end: today };
+const toIsoOrNull = (value) => {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const resolvePeriodRange = ({ period, date_from, date_to } = {}) => {
-  const normalizedPeriod = VALID_PERIODS.includes(period) ? period : 'today';
+const daysBetween = (fromDate, toDate = new Date()) => {
+  if (!fromDate) return null;
+  const from = fromDate instanceof Date ? fromDate : new Date(fromDate);
+  if (Number.isNaN(from.getTime())) return null;
 
-  if (date_from && date_to && DATE_RE.test(date_from) && DATE_RE.test(date_to)) {
-    if (date_from > date_to) {
-      throw { status: 400, message: 'date_from must be on or before date_to' };
-    }
-    return { period: normalizedPeriod, start: date_from, end: date_to };
-  }
-
-  const { start, end } = getDateRange(normalizedPeriod);
-  return { period: normalizedPeriod, start, end };
+  const fromDay = new Date(`${formatDate(from)}T12:00:00`);
+  const toDay = new Date(`${formatDate(toDate)}T12:00:00`);
+  return Math.floor((toDay - fromDay) / (1000 * 60 * 60 * 24));
 };
 
 const parseOptionalPincodeGroupId = (value) => {
@@ -52,269 +37,363 @@ const parseOptionalPincodeGroupId = (value) => {
   return id;
 };
 
-const PINCODE_JOINS = `
+const resolveDateFilters = (query = {}) => {
+  const dateFrom = query.date_from;
+  const dateTo = query.date_to;
+  const hasFrom = dateFrom != null && dateFrom !== '';
+  const hasTo = dateTo != null && dateTo !== '';
+
+  if (hasFrom !== hasTo) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to must be provided together',
+    };
+  }
+
+  if (!hasFrom) {
+    return { dateFrom: null, dateTo: null };
+  }
+
+  if (!DATE_RE.test(dateFrom) || !DATE_RE.test(dateTo)) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to must be in YYYY-MM-DD format',
+    };
+  }
+
+  if (dateFrom > dateTo) {
+    throw { status: 400, message: 'date_from must be on or before date_to' };
+  }
+
+  return { dateFrom, dateTo };
+};
+
+const parseInactiveTicker = (ticker) => {
+  if (ticker == null || ticker === '') return null;
+
+  const inactiveDays = INACTIVE_USER_TICKERS[ticker];
+  if (!inactiveDays) {
+    throw {
+      status: 400,
+      message:
+        'Invalid ticker. Use inactive_users_30, inactive_users_45, or inactive_users_60',
+    };
+  }
+
+  return { ticker, inactiveDays };
+};
+
+const ORDER_PINCODE_JOINS = `
   LEFT JOIN user_address_details uad ON uad.id = o.address_id
   LEFT JOIN pincodes p ON p.pincode = uad.pincode
 `;
 
-const pincodeFilter = (paramIndex) =>
+const orderPincodeFilter = (paramIndex) =>
   `($${paramIndex}::int IS NULL OR p.pincode_group_id = $${paramIndex}::int)`;
 
-const fetchLiveOperations = async (start, end, pincodeGroupId) => {
+const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
+  const referenceDate = dateTo || formatDate(new Date());
+
   const { rows } = await sql.query(
     `
-    SELECT
-      COUNT(*) FILTER (
-        WHERE o.created_at::date BETWEEN $1::date AND $2::date
-          AND o.status NOT IN ('draft', 'cancelled')
-      ) AS orders_received,
-
-      COUNT(*) FILTER (
-        WHERE o.pickup_date BETWEEN $1::date AND $2::date
-          AND o.status NOT IN ('draft', 'cancelled')
-      ) AS picked_up,
-
-      COUNT(*) FILTER (
-        WHERE o.pickup_date BETWEEN $1::date AND $2::date
-          AND o.status IN (
-            'picked_up', 'in_process', 'order_finalized',
-            'ready_for_delivery', 'out_for_delivery', 'delivered'
+    WITH filtered_users AS (
+      SELECT u.id, u.created_at
+      FROM users u
+      WHERE u.role = 'user'
+        AND (
+          $3::int IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM user_address_details uad
+            JOIN pincodes p ON p.pincode = uad.pincode
+            WHERE uad.user_id = u.id
+              AND p.pincode_group_id = $3::int
           )
-      ) AS picked_up_completed,
-
-      COUNT(*) FILTER (
-        WHERE o.delivery_date BETWEEN $1::date AND $2::date
-          AND o.status NOT IN ('draft', 'cancelled')
-      ) AS delivery_today,
-
-      COUNT(*) FILTER (
-        WHERE o.delivery_date BETWEEN $1::date AND $2::date
-          AND o.status = 'delivered'
-      ) AS delivery_completed
-    FROM orders o
-    ${PINCODE_JOINS}
-    WHERE ${pincodeFilter(3)}
-    `,
-    [start, end, pincodeGroupId],
-  );
-
-  const row = rows[0];
-  return {
-    orders_received: parseInt(row.orders_received, 10),
-    picked_up: parseInt(row.picked_up, 10),
-    picked_up_completed: parseInt(row.picked_up_completed, 10),
-    delivery_today: parseInt(row.delivery_today, 10),
-    delivery_completed: parseInt(row.delivery_completed, 10),
-  };
-};
-
-const fetchRevenueTickers = async (start, end, pincodeGroupId) => {
-  const { rows } = await sql.query(
-    `
-    SELECT
-      COALESCE(SUM(pay.amount) FILTER (
-        WHERE pay.payment_type = 'advance' AND pay.status = 'success'
-      ), 0) AS advance_revenue,
-      COALESCE(SUM(pay.amount) FILTER (
-        WHERE pay.payment_type = 'remaining' AND pay.status = 'success'
-      ), 0) AS remaining_revenue
-    FROM payments pay
-    JOIN orders o ON o.id = pay.order_id
-    ${PINCODE_JOINS}
-    WHERE COALESCE(pay.paid_at, pay.created_at)::date BETWEEN $1::date AND $2::date
-      AND o.status NOT IN ('draft', 'cancelled')
-      AND ${pincodeFilter(3)}
-    `,
-    [start, end, pincodeGroupId],
-  );
-
-  const advance = parseFloat(rows[0].advance_revenue) || 0;
-  const remaining = parseFloat(rows[0].remaining_revenue) || 0;
-
-  return {
-    total_revenue: Math.round(advance + remaining),
-    advance_revenue: Math.round(advance),
-    remaining_revenue: Math.round(remaining),
-  };
-};
-
-/** Load orders that may contribute to failed/missed pickup/drop cards */
-const fetchOpsIssueCandidates = async (start, end, pincodeGroupId) => {
-  const { rows } = await sql.query(
-    `
-    SELECT
-      o.id,
-      o.status,
-      o.pickup_date,
-      o.delivery_date,
-      o.out_for_pickup_at,
-      o.pickup_started_at,
-      o.out_for_delivery_at,
-      ir.issue_type AS open_issue_type,
-      oc.reason_type AS cancel_reason_type
-    FROM orders o
-    ${PINCODE_JOINS}
-    LEFT JOIN LATERAL (
-      SELECT issue_type
-      FROM order_reports
-      WHERE order_id = o.id AND status = 'open'
-      ORDER BY created_at DESC
-      LIMIT 1
-    ) ir ON TRUE
-    LEFT JOIN LATERAL (
-      SELECT reason_type
-      FROM order_cancellations
-      WHERE order_id = o.id
-      ORDER BY cancelled_at DESC
-      LIMIT 1
-    ) oc ON TRUE
-    WHERE o.status <> 'draft'
-      AND ${pincodeFilter(3)}
-      AND (
-        o.pickup_date BETWEEN $1::date AND $2::date
-        OR o.delivery_date BETWEEN $1::date AND $2::date
-        OR o.cancelled_at::date BETWEEN $1::date AND $2::date
-        OR (
-          ir.issue_type IS NOT NULL
-          AND o.created_at::date BETWEEN $1::date AND $2::date
         )
-      )
-    `,
-    [start, end, pincodeGroupId],
-  );
-
-  return rows;
-};
-
-const fetchActionRequired = async (start, end, pincodeGroupId) => {
-  const orders = await fetchOpsIssueCandidates(start, end, pincodeGroupId);
-  const counts = {
-    failed_pickup: 0,
-    failed_drop: 0,
-    missed_pickup: 0,
-    missed_drop: 0,
-  };
-
-  for (const order of orders) {
-    const issue = resolveOpsIssueType(order);
-    if (issue && counts[issue] != null) counts[issue] += 1;
-  }
-
-  return counts;
-};
-
-const fetchTotalOperations = async (start, end, pincodeGroupId) => {
-  const { rows } = await sql.query(
-    `
-    WITH period_orders AS (
-      SELECT o.*
-      FROM orders o
-      ${PINCODE_JOINS}
-      WHERE o.created_at::date BETWEEN $1::date AND $2::date
-        AND o.status NOT IN ('draft', 'cancelled')
-        AND ${pincodeFilter(3)}
     ),
-    batches AS (
-      SELECT vendor_id, vendor_received_at
+    user_last_order AS (
+      SELECT
+        o.user_id,
+        MAX(COALESCE(o.delivered_at, o.created_at)) AS last_order_at
+      FROM orders o
+      WHERE o.user_id IS NOT NULL
+        AND o.status NOT IN ('draft', 'cancelled')
+      GROUP BY o.user_id
+    ),
+    period_orders AS (
+      SELECT o.id, o.user_id, COALESCE(o.final_total, o.estimated_total, 0) AS order_total
+      FROM orders o
+      ${ORDER_PINCODE_JOINS}
+      WHERE o.status NOT IN ('draft', 'cancelled')
+        AND ($1::date IS NULL OR o.created_at::date >= $1::date)
+        AND ($2::date IS NULL OR o.created_at::date <= $2::date)
+        AND ${orderPincodeFilter(3)}
+    ),
+    period_draft_carts AS (
+      SELECT DISTINCT o.user_id
+      FROM orders o
+      ${ORDER_PINCODE_JOINS}
+      WHERE o.status = 'draft'
+        AND o.user_id IS NOT NULL
+        AND (
+          ($1::date IS NULL AND $2::date IS NULL)
+          OR (
+            o.created_at::date >= $1::date
+            AND o.created_at::date <= $2::date
+          )
+        )
+        AND ${orderPincodeFilter(3)}
+    ),
+    users_with_orders AS (
+      SELECT DISTINCT user_id
       FROM period_orders
-      WHERE vendor_received_at IS NOT NULL
-      GROUP BY vendor_id, vendor_received_at
+      WHERE user_id IS NOT NULL
+    ),
+    registered_in_period AS (
+      SELECT fu.id AS user_id
+      FROM filtered_users fu
+      WHERE ($1::date IS NULL AND $2::date IS NULL)
+        OR (
+          fu.created_at::date >= $1::date
+          AND fu.created_at::date <= $2::date
+        )
+    ),
+    registered_or_ordered AS (
+      SELECT user_id FROM registered_in_period
+      UNION
+      SELECT user_id FROM users_with_orders
     )
     SELECT
-      (
-        SELECT COUNT(DISTINCT u.id)::int
-        FROM users u
-        LEFT JOIN user_address_details uad ON uad.user_id = u.id
-        LEFT JOIN pincodes p ON p.pincode = uad.pincode
-        WHERE u.role = 'user'
-          AND ${pincodeFilter(3)}
-      ) AS total_customers,
-      (SELECT COUNT(*)::int FROM batches) AS total_batches,
+      (SELECT COUNT(*)::int FROM users_with_orders) AS total_users,
       (SELECT COUNT(*)::int FROM period_orders) AS total_orders,
-      COALESCE((
-        SELECT SUM(COALESCE(final_total, estimated_total, 0))
-        FROM period_orders
-      ), 0) AS total_revenue
+      COALESCE((SELECT SUM(order_total) FROM period_orders), 0) AS total_revenue,
+      (SELECT COUNT(*)::int FROM registered_or_ordered) AS total_registered,
+      (SELECT COUNT(*)::int FROM period_draft_carts) AS add_to_cart,
+      (
+        SELECT COUNT(*)::int
+        FROM filtered_users fu
+        LEFT JOIN user_last_order ulo ON ulo.user_id = fu.id
+        WHERE (
+          ulo.last_order_at IS NULL
+          AND fu.created_at::date <= ($4::date - INTERVAL '30 days')::date
+        ) OR (
+          ulo.last_order_at IS NOT NULL
+          AND ulo.last_order_at::date <= ($4::date - INTERVAL '30 days')::date
+        )
+      ) AS inactive_users_30,
+      (
+        SELECT COUNT(*)::int
+        FROM filtered_users fu
+        LEFT JOIN user_last_order ulo ON ulo.user_id = fu.id
+        WHERE (
+          ulo.last_order_at IS NULL
+          AND fu.created_at::date <= ($4::date - INTERVAL '45 days')::date
+        ) OR (
+          ulo.last_order_at IS NOT NULL
+          AND ulo.last_order_at::date <= ($4::date - INTERVAL '45 days')::date
+        )
+      ) AS inactive_users_45,
+      (
+        SELECT COUNT(*)::int
+        FROM filtered_users fu
+        LEFT JOIN user_last_order ulo ON ulo.user_id = fu.id
+        WHERE (
+          ulo.last_order_at IS NULL
+          AND fu.created_at::date <= ($4::date - INTERVAL '60 days')::date
+        ) OR (
+          ulo.last_order_at IS NOT NULL
+          AND ulo.last_order_at::date <= ($4::date - INTERVAL '60 days')::date
+        )
+      ) AS inactive_users_60
     `,
-    [start, end, pincodeGroupId],
+    [dateFrom, dateTo, pincodeGroupId, referenceDate],
   );
 
   const row = rows[0];
-  const totalBatches = parseInt(row.total_batches, 10);
   const totalOrders = parseInt(row.total_orders, 10);
-  const avgOrdersPerBatch =
-    totalBatches > 0 ? Math.round(totalOrders / totalBatches) : 0;
+  const totalRegistered = parseInt(row.total_registered, 10);
+  const conversionRate =
+    totalRegistered > 0
+      ? Math.round((totalOrders / totalRegistered) * 1000) / 10
+      : 0;
 
   return {
-    total_customers: parseInt(row.total_customers, 10),
-    total_batches: totalBatches,
+    total_users: parseInt(row.total_users, 10),
     total_orders: totalOrders,
-    avg_orders_per_batch: avgOrdersPerBatch,
     total_revenue: Math.round(parseFloat(row.total_revenue) || 0),
+    total_registered: totalRegistered,
+    conversion_rate: conversionRate,
+    add_to_cart: parseInt(row.add_to_cart, 10),
+    inactive_users_30: parseInt(row.inactive_users_30, 10),
+    inactive_users_45: parseInt(row.inactive_users_45, 10),
+    inactive_users_60: parseInt(row.inactive_users_60, 10),
   };
 };
 
-const buildLiveOperations = (metrics) => [
-  { key: 'orders_received', value: metrics.orders_received },
-  { key: 'picked_up', value: metrics.picked_up },
-  { key: 'picked_up_completed', value: metrics.picked_up_completed },
-  { key: 'delivery_today', value: metrics.delivery_today },
-  { key: 'delivery_completed', value: metrics.delivery_completed },
-];
+const fetchInactiveUsersList = async (inactiveDays, dateTo, pincodeGroupId) => {
+  const referenceDate = dateTo || formatDate(new Date());
 
-const buildRevenueTickers = (metrics) => [
-  { key: 'total_revenue', value: metrics.total_revenue },
-  { key: 'advance_revenue', value: metrics.advance_revenue },
-  { key: 'remaining_revenue', value: metrics.remaining_revenue },
-];
+  const { rows } = await sql.query(
+    `
+    WITH filtered_users AS (
+      SELECT u.id, u.created_at
+      FROM users u
+      WHERE u.role = 'user'
+        AND (
+          $1::int IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM user_address_details uad
+            JOIN pincodes p ON p.pincode = uad.pincode
+            WHERE uad.user_id = u.id
+              AND p.pincode_group_id = $1::int
+          )
+        )
+    ),
+    user_last_order AS (
+      SELECT
+        o.user_id,
+        MAX(COALESCE(o.delivered_at, o.created_at)) AS last_order_at
+      FROM orders o
+      WHERE o.user_id IS NOT NULL
+        AND o.status NOT IN ('draft', 'cancelled')
+      GROUP BY o.user_id
+    ),
+    user_order_stats AS (
+      SELECT
+        o.user_id,
+        COUNT(*)::int AS total_orders,
+        COALESCE(
+          SUM(COALESCE(o.final_total, o.estimated_total, 0)),
+          0
+        ) AS total_spend
+      FROM orders o
+      WHERE o.status NOT IN ('draft', 'cancelled')
+      GROUP BY o.user_id
+    )
+    SELECT
+      u.id,
+      u.full_name,
+      u.mobile,
+      u.email,
+      u.status AS account_status,
+      fu.created_at AS registered_at,
+      ulo.last_order_at,
+      COALESCE(uos.total_orders, 0) AS total_orders,
+      COALESCE(uos.total_spend, 0) AS total_spend
+    FROM filtered_users fu
+    JOIN users u ON u.id = fu.id
+    LEFT JOIN user_last_order ulo ON ulo.user_id = fu.id
+    LEFT JOIN user_order_stats uos ON uos.user_id = fu.id
+    WHERE (
+      ulo.last_order_at IS NULL
+      AND fu.created_at::date <= ($2::date - ($3::int * INTERVAL '1 day'))::date
+    ) OR (
+      ulo.last_order_at IS NOT NULL
+      AND ulo.last_order_at::date <= ($2::date - ($3::int * INTERVAL '1 day'))::date
+    )
+    ORDER BY COALESCE(ulo.last_order_at, fu.created_at) ASC, u.id ASC
+    `,
+    [pincodeGroupId, referenceDate, inactiveDays],
+  );
 
-const buildActionRequired = (metrics) => [
-  { key: 'failed_pickups', value: metrics.failed_pickup },
-  { key: 'failed_drops', value: metrics.failed_drop },
-  { key: 'missed_pickups', value: metrics.missed_pickup },
-  { key: 'missed_drops', value: metrics.missed_drop },
-];
+  const reference = new Date(`${referenceDate}T12:00:00`);
 
-const buildTotalOperations = (metrics) => [
-  { key: 'total_customers', value: metrics.total_customers },
-  { key: 'total_batches', value: metrics.total_batches },
-  { key: 'total_orders', value: metrics.total_orders },
-  { key: 'avg_orders_per_batch', value: metrics.avg_orders_per_batch },
-  { key: 'total_revenue', value: metrics.total_revenue, suffix: '₹' },
+  return rows.map((row) => {
+    const lastActivity = row.last_order_at || row.registered_at;
+    const daysInactive = daysBetween(lastActivity, reference);
+
+    return {
+      id: String(row.id),
+      customer_id: formatCustomerId(row.id),
+      name: row.full_name || null,
+      phone_number: row.mobile || null,
+      email: row.email || null,
+      account_status: row.account_status || 'active',
+      registered_at: toIsoOrNull(row.registered_at),
+      last_order_date: toIsoOrNull(row.last_order_at),
+      days_inactive: daysInactive,
+      total_orders: Number(row.total_orders),
+      total_spend: String(Math.round(Number(row.total_spend))),
+      inactive_days: inactiveDays,
+    };
+  });
+};
+
+const buildTickers = (metrics) => [
+  { key: 'total_users', title: 'Total Users', value: metrics.total_users },
+  { key: 'total_orders', title: 'Total Orders', value: metrics.total_orders },
+  {
+    key: 'total_revenue',
+    title: 'Total Revenue',
+    value: metrics.total_revenue,
+    suffix: '₹',
+  },
+  {
+    key: 'total_registered',
+    title: 'Total Registered',
+    value: metrics.total_registered,
+  },
+  {
+    key: 'conversion_rate',
+    title: 'Conversion Rate',
+    value: metrics.conversion_rate,
+    suffix: '%',
+  },
+  { key: 'add_to_cart', title: 'Add to Cart', value: metrics.add_to_cart },
+  {
+    key: 'inactive_users_30',
+    title: 'Inactive Users 30 days',
+    value: metrics.inactive_users_30,
+  },
+  {
+    key: 'inactive_users_45',
+    title: 'Inactive Users 45 days',
+    value: metrics.inactive_users_45,
+  },
+  {
+    key: 'inactive_users_60',
+    title: 'Inactive Users 60 days',
+    value: metrics.inactive_users_60,
+  },
 ];
 
 export const getAdminDashboardService = async (query = {}) => {
-  const { period, start, end } = resolvePeriodRange(query);
+  const { dateFrom, dateTo } = resolveDateFilters(query);
   const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
+  const inactiveTicker = parseInactiveTicker(query.ticker);
 
+  let zoneGroup = null;
   if (pincodeGroupId != null) {
     const groupCheck = await sql.query(
-      `SELECT id FROM pincode_groups WHERE id = $1`,
+      `SELECT id, name FROM pincode_groups WHERE id = $1`,
       [pincodeGroupId],
     );
     if (groupCheck.rows.length === 0) {
       throw { status: 404, message: 'pincode_group_id not found' };
     }
+    zoneGroup = groupCheck.rows[0].name;
   }
 
-  const [liveMetrics, revenueMetrics, actionMetrics, totalMetrics] =
-    await Promise.all([
-      fetchLiveOperations(start, end, pincodeGroupId),
-      fetchRevenueTickers(start, end, pincodeGroupId),
-      fetchActionRequired(start, end, pincodeGroupId),
-      fetchTotalOperations(start, end, pincodeGroupId),
-    ]);
+  const metrics = await fetchDashboardMetrics(dateFrom, dateTo, pincodeGroupId);
 
   const data = {
-    period,
-    live_operations: buildLiveOperations(liveMetrics),
-    revenue_tickers: buildRevenueTickers(revenueMetrics),
-    action_required: buildActionRequired(actionMetrics),
-    total_operations: buildTotalOperations(totalMetrics),
+    filters: {
+      date_from: dateFrom,
+      date_to: dateTo,
+      pincode_group_id: pincodeGroupId,
+      zone_group: zoneGroup,
+    },
+    tickers: buildTickers(metrics),
   };
 
-  if (pincodeGroupId != null) {
-    data.pincode_group_id = pincodeGroupId;
+  if (inactiveTicker) {
+    data.ticker = inactiveTicker.ticker;
+    data.details = await fetchInactiveUsersList(
+      inactiveTicker.inactiveDays,
+      dateTo,
+      pincodeGroupId,
+    );
   }
 
   return data;
