@@ -10,8 +10,21 @@ import {
   clearShiftScheduleForLaundry,
 } from '../common/laundryGroupShiftSchedule.service.js';
 import { validateVendorFields } from '../../utils/vendorValidation.js';
+import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 
 const BCRYPT_ROUNDS = 10;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DAYS_WINDOW = 7;
+const VALID_SHIFTS = ['morning', 'evening'];
+
+const PICKUP_COMPLETED_STATUSES = [
+  'picked_up',
+  'in_process',
+  'order_finalized',
+  'ready_for_delivery',
+  'out_for_delivery',
+  'delivered',
+];
 
 const VENDOR_PROFILE_COLUMNS = `
   v.service_area,
@@ -219,11 +232,14 @@ const getServiceKey = (serviceId) =>
   SERVICE_CONFIG[Number(serviceId)]?.key || 'wash_by_kilo';
 
 const getAdminDisplayStatus = (status) => {
-  if (status === 'in_process') return 'in_progress';
+  if (status === 'in_process') return 'in_processing';
   return status;
 };
 
 const resolveIssueType = (order) => {
+  const opsIssue = resolveOpsIssueType(order);
+  if (opsIssue) return opsIssue;
+
   if (order.open_issue_type) return order.open_issue_type;
 
   if (
@@ -252,25 +268,319 @@ const buildEstFin = (order) => {
   return `${est}/${fin} Items`;
 };
 
-const buildCharges = (order) => {
-  const amount = order.final_total ?? order.estimated_total ?? 0;
-  return String(Math.round(Number(amount)));
+const buildCharges = (order) =>
+  Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
+
+const resolveShiftKey = (shiftName) => {
+  if (!shiftName) return null;
+  return String(shiftName).trim().toLowerCase().split(/\s+/)[0];
 };
 
-const mapMerchantOrder = (order) => {
-  const issueType = resolveIssueType(order);
+const toDateStr = (value) => {
+  if (value == null) return null;
+  if (value instanceof Date) return formatDate(value);
+  const raw = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null;
+};
+
+const addDays = (dateStr, days) => {
+  const date = new Date(`${dateStr}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+};
+
+const getIsoDayOfWeek = (dateStr) => {
+  const date = new Date(`${dateStr}T12:00:00`);
+  return ((date.getDay() + 6) % 7) + 1;
+};
+
+const parseOptionalDate = (value, fieldName) => {
+  if (value == null || value === '') return null;
+  if (!DATE_RE.test(String(value))) {
+    throw { status: 400, message: `${fieldName} must be in YYYY-MM-DD format` };
+  }
+  return String(value);
+};
+
+const parseOptionalPincodeGroupId = (value) => {
+  if (value == null || value === '') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
+  }
+  return id;
+};
+
+const parseOptionalShift = (value) => {
+  if (value == null || value === '') return null;
+  const shift = String(value).trim().toLowerCase();
+  if (!VALID_SHIFTS.includes(shift)) {
+    throw { status: 400, message: 'shift must be morning or evening' };
+  }
+  return shift;
+};
+
+const resolvePickupStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_pickup' || issue === 'missed_pickup') return 'failed';
+  if (PICKUP_COMPLETED_STATUSES.includes(order.status)) return 'completed';
+  return 'pending';
+};
+
+const resolveDeliveryStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_drop' || issue === 'missed_drop') return 'failed';
+  if (order.status === 'delivered') return 'completed';
+  return 'pending';
+};
+
+const isDeliveryOnDate = (order, dateStr) =>
+  toDateStr(order.delivery_date) === dateStr;
+
+const resolveMerchantZoneMeta = (
+  shiftSchedule = [],
+  { dayOfWeek = null, shift = null, pincodeGroupId = null } = {},
+) => {
+  let entries = [...shiftSchedule];
+
+  if (pincodeGroupId != null) {
+    entries = entries.filter((e) => Number(e.pincode_group_id) === Number(pincodeGroupId));
+  }
+  if (dayOfWeek != null) {
+    entries = entries.filter((e) => Number(e.day_of_week) === Number(dayOfWeek));
+  }
+  if (shift) {
+    entries = entries.filter((e) => resolveShiftKey(e.shift_name) === shift);
+  }
+
+  const entry = entries[0] || shiftSchedule[0] || null;
+  if (!entry) {
+    return { zone_id: null, zone_name: null, shift: shift || null };
+  }
 
   return {
-    id: order.id,
+    zone_id: entry.pincode_group_id ?? null,
+    zone_name: entry.group_name || entry.group_code || null,
+    shift: resolveShiftKey(entry.shift_name) || shift || null,
+  };
+};
+
+const resolveShiftSlotIds = async (shift) => {
+  if (!shift) return null;
+  const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
+  return pickupShiftSlotIds.filter(
+    (slotId) => resolveShiftKey(shiftByPickupSlot[slotId]?.shift_type) === shift,
+  );
+};
+
+const resolvePincodeGroupName = async (pincodeGroupId) => {
+  if (pincodeGroupId == null) return null;
+  const { rows } = await sql.query(
+    `SELECT id, name FROM pincode_groups WHERE id = $1`,
+    [pincodeGroupId],
+  );
+  if (!rows.length) {
+    throw { status: 404, message: 'pincode_group_id not found' };
+  }
+  return rows[0].name;
+};
+
+const resolveMerchantListFilters = (query = {}) => {
+  const dateFrom = parseOptionalDate(query.date_from, 'date_from');
+  const dateTo = parseOptionalDate(query.date_to, 'date_to');
+  const hasFrom = dateFrom != null;
+  const hasTo = dateTo != null;
+
+  if (hasFrom !== hasTo) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to must be provided together',
+    };
+  }
+
+  if (hasFrom && dateFrom > dateTo) {
+    throw { status: 400, message: 'date_from must be on or before date_to' };
+  }
+
+  const weekStart = parseOptionalDate(query.week_start, 'week_start');
+  const requestedDate = parseOptionalDate(query.date, 'date');
+
+  let selectedDate;
+  let rangeStart;
+  let rangeEnd;
+
+  if (hasFrom) {
+    rangeStart = dateFrom;
+    rangeEnd = dateTo;
+    if (requestedDate && requestedDate >= dateFrom && requestedDate <= dateTo) {
+      selectedDate = requestedDate;
+    } else {
+      selectedDate = dateFrom;
+    }
+  } else {
+    selectedDate = requestedDate || weekStart || formatDate(new Date());
+    rangeStart = weekStart || selectedDate;
+    rangeEnd = addDays(rangeStart, DAYS_WINDOW - 1);
+  }
+
+  return {
+    selectedDate,
+    weekStart,
+    dateFrom,
+    dateTo,
+    rangeStart,
+    rangeEnd,
+    shift: parseOptionalShift(query.shift),
+    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
+  };
+};
+
+const mapMerchantOrder = (order, selectedDate, shiftByPickupSlot = {}) => {
+  const shiftMeta = shiftByPickupSlot[order.pickup_slot_id];
+  const shift = resolveShiftKey(shiftMeta?.shift_type || order.pickup_shift_name);
+
+  return {
+    id: Number(order.id),
     order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
     customer_id: formatCustomerId(order.user_id),
+    customer_name: order.customer_name || null,
     service_type: getServiceKey(order.service_id),
-    category: isExpressOrder(order.service_type_name) ? 'express' : 'regular',
     status: getAdminDisplayStatus(order.status),
-    ...(issueType ? { issue_type: issueType } : {}),
+    shift,
+    issue_type: resolveIssueType(order),
     est_fin: buildEstFin(order),
     charges: buildCharges(order),
+    pickup_status: resolvePickupStatus(order),
+    delivery_status: resolveDeliveryStatus(order),
+    scheduled_date: toDateStr(order.delivery_date) || selectedDate,
   };
+};
+
+const buildMerchantLotCode = (vendorId, pickupShiftSlotIds, orders = []) => {
+  const slotId = orders
+    .map((o) => Number(o.pickup_slot_id))
+    .find((id) => pickupShiftSlotIds.includes(id));
+  const batchIndex =
+    slotId != null ? Math.max(0, pickupShiftSlotIds.indexOf(slotId)) : 0;
+
+  return `LOT-${String(vendorId).padStart(3, '0')}-${String(batchIndex + 1).padStart(2, '0')}`;
+};
+
+const countInProcessing = (orders) =>
+  orders.filter(
+    (o) =>
+      o.status === 'order_finalized' ||
+      (o.status === 'in_process' && !isClassificationPending(o)),
+  ).length;
+
+const countReadyForDispatch = (orders) =>
+  orders.filter((o) =>
+    ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
+  ).length;
+
+const buildOverviewKpis = (orders) => ({
+  total_orders: orders.length,
+  total_kg: Math.round(getWashLoadKg(orders)),
+  total_pieces: Math.round(getOrderPieces(orders)),
+  pending_backlog: orders.filter(isClassificationPending).length,
+  in_processing: countInProcessing(orders),
+  ready_for_dispatch: countReadyForDispatch(orders),
+});
+
+const buildOverviewDays = (rangeStart, rangeEnd, orders) => {
+  const days = [];
+  let date = rangeStart;
+
+  while (date <= rangeEnd) {
+    days.push({
+      date,
+      total_orders: orders.filter((o) => isDeliveryOnDate(o, date)).length,
+    });
+    date = addDays(date, 1);
+  }
+
+  return days;
+};
+
+const fetchMerchantScheduleOrders = async ({
+  vendorIds = null,
+  rangeStart,
+  rangeEnd,
+  pincodeGroupId = null,
+  shiftSlotIds = null,
+}) => {
+  const params = [rangeStart, rangeEnd, pincodeGroupId];
+  const conditions = [
+    `o.vendor_id IS NOT NULL`,
+    `o.status NOT IN ('draft', 'cancelled')`,
+    `o.delivery_date BETWEEN $1::date AND $2::date`,
+    `($3::int IS NULL OR p.pincode_group_id = $3::int)`,
+  ];
+
+  if (vendorIds?.length) {
+    params.push(vendorIds);
+    conditions.push(`o.vendor_id = ANY($${params.length}::int[])`);
+  }
+
+  if (shiftSlotIds?.length) {
+    params.push(shiftSlotIds);
+    conditions.push(`o.pickup_slot_id = ANY($${params.length}::int[])`);
+  }
+
+  const { rows } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      u.full_name AS customer_name,
+      o.vendor_id,
+      o.pickup_slot_id,
+      o.pickup_date,
+      o.delivery_date,
+      o.status,
+      o.service_id,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.clothes_count,
+      o.estimated_total,
+      o.final_total,
+      o.out_for_pickup_at,
+      o.pickup_started_at,
+      o.out_for_delivery_at,
+      st.name AS service_type_name,
+      ts.shift_name AS pickup_shift_name,
+      ir.issue_type AS open_issue_type,
+      oc.reason_type AS cancel_reason_type
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
+    LEFT JOIN user_address_details uad ON uad.id = o.address_id
+    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    LEFT JOIN LATERAL (
+      SELECT issue_type
+      FROM order_reports
+      WHERE order_id = o.id AND status = 'open'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) ir ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT reason_type
+      FROM order_cancellations
+      WHERE order_id = o.id
+      ORDER BY cancelled_at DESC
+      LIMIT 1
+    ) oc ON TRUE
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY o.id DESC
+    `,
+    params,
+  );
+
+  return rows;
 };
 
 const getWashLoadKg = (orders) =>
@@ -284,14 +594,11 @@ const getWashLoadKg = (orders) =>
       return sum + weight;
     }, 0);
 
-const getDryCleanPieces = (orders) =>
-  orders
-    .filter((o) => Number(o.service_id) === 2)
-    .reduce(
-      (sum, o) =>
-        sum + Number(o.actual_clothes_count ?? o.clothes_count ?? 0),
-      0,
-    );
+const getOrderPieces = (orders) =>
+  orders.reduce(
+    (sum, o) => sum + Number(o.actual_clothes_count || 0),
+    0,
+  );
 
 const buildWorkloads = (orders) => {
   const washOrders = orders.filter((o) => Number(o.service_id) === 1);
@@ -307,7 +614,7 @@ const buildWorkloads = (orders) => {
   }
 
   if (dryOrders.length) {
-    const pcs = Math.round(getDryCleanPieces(dryOrders));
+    const pcs = Math.round(getOrderPieces(dryOrders));
     workloads.push({
       key: 'dry_clean',
       value: `${pcs} pcs | ${dryOrders.length} orders`,
@@ -498,7 +805,9 @@ const buildTopStats = (orders) => {
     ACTIVE_VENDOR_STATUSES.includes(o.status),
   );
   const washKg = Math.round(getWashLoadKg(pipelineOrders));
-  const dryPcs = Math.round(getDryCleanPieces(pipelineOrders));
+  const dryPcs = Math.round(
+    getOrderPieces(pipelineOrders.filter((o) => Number(o.service_id) === 2)),
+  );
 
   return [
     { key: 'total_laundry_kg', value: `${washKg} kg` },
@@ -1163,82 +1472,148 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
     throw { status: 404, message: 'Merchant not found' };
   }
 
-  const { start, end, period, orderStatus } = resolveOrderFilters(query);
-  const orders = await fetchMerchantOrders({
+  const selectedDate =
+    parseOptionalDate(query.date, 'date') || formatDate(new Date());
+  const shift = parseOptionalShift(query.shift);
+  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
+
+  if (pincodeGroupId != null) {
+    await resolvePincodeGroupName(pincodeGroupId);
+  }
+
+  const shiftSlotIds = await resolveShiftSlotIds(shift);
+  const { shiftByPickupSlot } = await getPickupShiftConfig();
+
+  const orders = await fetchMerchantScheduleOrders({
     vendorIds: [vendorId],
-    start,
-    end,
-    orderStatus,
+    rangeStart: selectedDate,
+    rangeEnd: selectedDate,
+    pincodeGroupId,
+    shiftSlotIds,
   });
 
-  const { pickupShiftSlotIds, shiftByPickupSlot } =
-    await getPickupShiftConfig();
-
-  const pipelineOrders = orders.filter((o) =>
-    ACTIVE_VENDOR_STATUSES.includes(o.status),
+  const dayOrders = orders.filter((order) =>
+    isDeliveryOnDate(order, selectedDate),
   );
-  const washLoad = Math.round(getWashLoadKg(pipelineOrders));
-  const dryLoad = Math.round(getDryCleanPieces(pipelineOrders));
-  const revenue = orders
-    .filter((o) =>
-      ['ready_for_delivery', 'out_for_delivery', 'delivered'].includes(o.status),
-    )
-    .reduce((sum, o) => sum + Number(o.final_total ?? o.estimated_total ?? 0), 0);
-
-  const groupMap = new Map();
-
-  orders.forEach((order) => {
-    const receivedDate = order.vendor_received_date || start;
-    const slotId = Number(order.pickup_slot_id) || 0;
-    const groupKey = `${receivedDate}:${slotId}`;
-
-    if (!groupMap.has(groupKey)) {
-      groupMap.set(groupKey, {
-        date: receivedDate,
-        slotId,
-        orders: [],
-      });
-    }
-
-    groupMap.get(groupKey).orders.push(order);
+  const shiftSchedule = await getShiftScheduleForLaundry(vendorId);
+  const zoneMeta = resolveMerchantZoneMeta(shiftSchedule, {
+    dayOfWeek: getIsoDayOfWeek(selectedDate),
+    shift,
+    pincodeGroupId,
   });
-
-  const groups = [...groupMap.values()]
-    .sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return pickupShiftSlotIds.indexOf(a.slotId) - pickupShiftSlotIds.indexOf(b.slotId);
-    })
-    .map((group) => {
-      const lotIndex = pickupShiftSlotIds.indexOf(Number(group.slotId));
-      const lotCode =
-        lotIndex >= 0
-          ? `LOT-${String(lotIndex + 1).padStart(3, '0')}`
-          : `LOT-${String(group.slotId).padStart(3, '0')}`;
-      const shiftType =
-        shiftByPickupSlot[group.slotId]?.shift_type || 'shift';
-
-      return {
-        date_label: formatDateLabel(group.date),
-        shift_type: shiftType,
-        batch: buildBatchPayload(group.orders, lotCode),
-        orders: group.orders.map(mapMerchantOrder),
-      };
-    });
-
-  const maxWashKg = Number(vendor.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG);
-  const maxDryPcs = Number(vendor.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS);
 
   return {
-    period: period === 'custom' ? 'today' : period,
-    capacity: {
-      wash_by_kilo: { max: maxWashKg, current_load: washLoad },
-      dry_clean: { max: maxDryPcs, current_load: dryLoad },
+    merchant: {
+      id: vendor.id,
+      merchant_id: formatMerchantId(vendor.id),
+      name: vendor.laundry_shop_name || 'N/A',
+      status: formatMerchantStatus(vendor.is_active),
+      shift: zoneMeta.shift || shift || null,
+      zone_name: zoneMeta.zone_name,
     },
-    summary: {
-      total_completed_orders: orders.filter((o) => o.status === 'delivered')
-        .length,
-      revenue: formatRevenue(revenue),
+    filters: {
+      date: selectedDate,
+      shift,
+      pincode_group_id: pincodeGroupId,
     },
-    groups,
+    orders: dayOrders.map((order) =>
+      mapMerchantOrder(order, selectedDate, shiftByPickupSlot),
+    ),
+  };
+};
+
+export const getAdminMerchantsOverviewService = async (query = {}) => {
+  const {
+    selectedDate,
+    weekStart,
+    dateFrom,
+    dateTo,
+    rangeStart,
+    rangeEnd,
+    shift,
+    pincodeGroupId,
+  } = resolveMerchantListFilters(query);
+
+  const zoneGroup = await resolvePincodeGroupName(pincodeGroupId);
+  const shiftSlotIds = await resolveShiftSlotIds(shift);
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
+
+  const vendors = await fetchVendors(true);
+  const vendorMap = new Map(vendors.map((v) => [Number(v.id), v]));
+  const scheduleMap = await getShiftSchedulesForLaundries(
+    vendors.map((v) => Number(v.id)),
+  );
+  const dayOfWeek = getIsoDayOfWeek(selectedDate);
+
+  const orders = await fetchMerchantScheduleOrders({
+    rangeStart,
+    rangeEnd,
+    pincodeGroupId,
+    shiftSlotIds,
+  });
+
+  const selectedOrders = orders.filter((order) =>
+    isDeliveryOnDate(order, selectedDate),
+  );
+
+  const ordersByVendor = selectedOrders.reduce((acc, order) => {
+    const vendorId = Number(order.vendor_id);
+    if (!acc[vendorId]) acc[vendorId] = [];
+    acc[vendorId].push(order);
+    return acc;
+  }, {});
+
+  const merchants = Object.keys(ordersByVendor)
+    .map((vendorIdRaw) => {
+      const vendorId = Number(vendorIdRaw);
+      const vendor = vendorMap.get(vendorId);
+      if (!vendor) return null;
+
+      const vendorOrders = ordersByVendor[vendorId] || [];
+      const shiftSchedule = scheduleMap.get(vendorId) || [];
+      const zoneMeta = resolveMerchantZoneMeta(shiftSchedule, {
+        dayOfWeek,
+        shift,
+        pincodeGroupId,
+      });
+
+      return {
+        id: Number(vendor.id),
+        merchant_id: formatMerchantId(vendor.id),
+        name: vendor.laundry_shop_name || 'N/A',
+        location:
+          vendor.shop_address
+          || summarizeShiftScheduleLocation(shiftSchedule)
+          || 'N/A',
+        contact: formatPhone(vendor.mobile_number),
+        status: formatMerchantStatus(vendor.is_active),
+        shift: zoneMeta.shift || shift || null,
+        zone_id: zoneMeta.zone_id,
+        zone_name: zoneMeta.zone_name,
+        date: selectedDate,
+        total_orders: vendorOrders.length,
+        total_kg: Math.round(getWashLoadKg(vendorOrders)),
+        total_pieces: Math.round(getOrderPieces(vendorOrders)),
+        utilization: buildBatchUtilization(vendorOrders),
+        lot: buildMerchantLotCode(Number(vendor.id), pickupShiftSlotIds, vendorOrders),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.total_orders - a.total_orders || a.id - b.id);
+
+  return {
+    filters: {
+      date: selectedDate,
+      week_start: weekStart,
+      date_from: dateFrom,
+      date_to: dateTo,
+      shift,
+      pincode_group_id: pincodeGroupId,
+      zone_group: zoneGroup,
+    },
+    days: buildOverviewDays(rangeStart, rangeEnd, orders),
+    selected_date: selectedDate,
+    kpis: buildOverviewKpis(selectedOrders),
+    merchants,
   };
 };

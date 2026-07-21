@@ -140,10 +140,11 @@ export const getShiftSchedulesForLaundries = async (laundryIds = []) => {
 
   const scheduleMap = new Map();
   for (const row of rows) {
-    if (!scheduleMap.has(row.laundry_id)) {
-      scheduleMap.set(row.laundry_id, []);
+    const laundryId = Number(row.laundry_id);
+    if (!scheduleMap.has(laundryId)) {
+      scheduleMap.set(laundryId, []);
     }
-    scheduleMap.get(row.laundry_id).push(formatShiftScheduleRow(row));
+    scheduleMap.get(laundryId).push(formatShiftScheduleRow(row));
   }
 
   return scheduleMap;

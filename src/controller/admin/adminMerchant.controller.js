@@ -2,6 +2,7 @@ import {
   getAdminMerchantsService,
   getAdminMerchantDetailsService,
   getAdminMerchantOrdersService,
+  getAdminMerchantsOverviewService,
   createAdminMerchantService,
   updateAdminMerchantService,
 } from '../../services/admin/adminMerchant.service.js';
@@ -65,6 +66,22 @@ export const getAdminMerchants = async (req, res, next) => {
   }
 };
 
+export const getAdminMerchantsOverview = async (req, res, next) => {
+  try {
+    const data = await getAdminMerchantsOverviewService(req.query);
+    return res.status(200).json({
+      success: true,
+      message: 'Merchants overview fetched successfully',
+      data,
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
 export const getAdminMerchantDetails = async (req, res, next) => {
   try {
     const data = await getAdminMerchantDetailsService(req.params.id);
@@ -80,7 +97,11 @@ export const getAdminMerchantDetails = async (req, res, next) => {
 export const getAdminMerchantOrders = async (req, res, next) => {
   try {
     const data = await getAdminMerchantOrdersService(req.params.id, req.query);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({
+      success: true,
+      message: 'Merchant orders fetched successfully',
+      data,
+    });
   } catch (err) {
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message });
