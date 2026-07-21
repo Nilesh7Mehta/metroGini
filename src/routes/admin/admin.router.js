@@ -75,6 +75,7 @@ router.put('/merchants/:id', authenticate, adminMerchantController.updateAdminMe
 router.get('/merchants/:id', authenticate, adminMerchantController.getAdminMerchantDetails);
 router.get('/riders', authenticate, adminRiderController.getAdminRiders);
 router.post('/riders', authenticate, adminRiderController.createAdminRider);
+router.get('/riders/overview', authenticate, adminRiderController.getAdminRidersOverview);
 router.get('/riders/:id/orders', authenticate, adminRiderController.getAdminRiderOrders);
 router.get('/riders/:id', authenticate, adminRiderController.getAdminRiderDetails);
 router.put('/riders/:id', authenticate, adminRiderController.updateAdminRider);

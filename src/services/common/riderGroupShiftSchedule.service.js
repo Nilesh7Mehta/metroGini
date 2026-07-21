@@ -115,10 +115,11 @@ export const getShiftSchedulesForRiders = async (riderIds = []) => {
 
   const scheduleMap = new Map();
   for (const row of rows) {
-    if (!scheduleMap.has(row.rider_id)) {
-      scheduleMap.set(row.rider_id, []);
+    const riderId = Number(row.rider_id);
+    if (!scheduleMap.has(riderId)) {
+      scheduleMap.set(riderId, []);
     }
-    scheduleMap.get(row.rider_id).push(formatShiftScheduleRow(row));
+    scheduleMap.get(riderId).push(formatShiftScheduleRow(row));
   }
 
   return scheduleMap;

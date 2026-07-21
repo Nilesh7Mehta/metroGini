@@ -8,17 +8,37 @@ import {
   saveShiftScheduleForRider,
   clearShiftScheduleForRider,
 } from '../common/riderGroupShiftSchedule.service.js';
+import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 
 const AADHAR_REGEX = /^\d{12}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const ACCOUNT_NUMBER_REGEX = /^\d{9,18}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DAYS_WINDOW = 7;
+const VALID_SHIFTS = ['morning', 'evening'];
+
+const SERVICE_CONFIG = {
+  1: { key: 'wash_by_kilo' },
+  2: { key: 'dry_clean' },
+};
+
+const PICKUP_COMPLETED_STATUSES = [
+  'picked_up',
+  'in_process',
+  'order_finalized',
+  'ready_for_delivery',
+  'out_for_delivery',
+  'delivered',
+];
 
 const formatDate = (date) => date.toLocaleDateString('en-CA');
 
 const formatRiderId = (id) => `RID-${String(id).padStart(3, '0')}`;
 
 const formatLotCode = (riderId) => `LOT-${String(riderId).padStart(3, '0')}`;
+
+const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
 const PICKUP_SUCCESS_STATUSES = [
   'picked_up',
@@ -51,6 +71,378 @@ const formatRiderStatus = (isActive) => (isActive ? 'active' : 'inactive');
 const resolveShiftKey = (shiftName) => {
   if (!shiftName) return null;
   return String(shiftName).trim().toLowerCase().split(/\s+/)[0];
+};
+
+const addDays = (dateStr, days) => {
+  const date = new Date(`${dateStr}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+};
+
+const toDateStr = (value) => {
+  if (value == null) return null;
+  if (value instanceof Date) return formatDate(value);
+  const raw = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null;
+};
+
+const getIsoDayOfWeek = (dateStr) => {
+  const date = new Date(`${dateStr}T12:00:00`);
+  return ((date.getDay() + 6) % 7) + 1;
+};
+
+const parseOptionalDate = (value, fieldName) => {
+  if (value == null || value === '') return null;
+  if (!DATE_RE.test(String(value))) {
+    throw { status: 400, message: `${fieldName} must be in YYYY-MM-DD format` };
+  }
+  return String(value);
+};
+
+const parseOptionalPincodeGroupId = (value) => {
+  if (value == null || value === '') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
+  }
+  return id;
+};
+
+const parseOptionalShift = (value) => {
+  if (value == null || value === '') return null;
+  const shift = String(value).trim().toLowerCase();
+  if (!VALID_SHIFTS.includes(shift)) {
+    throw { status: 400, message: 'shift must be morning or evening' };
+  }
+  return shift;
+};
+
+const getServiceKey = (serviceId) =>
+  SERVICE_CONFIG[Number(serviceId)]?.key || 'wash_by_kilo';
+
+const getAdminDisplayStatus = (status) => {
+  if (status === 'in_process') return 'in_processing';
+  return status;
+};
+
+const getEstimatedKg = (min, max) => {
+  const weightMin = Number(min || 0);
+  const weightMax = Number(max || 0);
+  if (weightMin && weightMax) {
+    return parseFloat(((weightMin + weightMax) / 2).toFixed(1));
+  }
+  return parseFloat((weightMax || weightMin || 0).toFixed(1));
+};
+
+const resolveIssueType = (order) => {
+  const opsIssue = resolveOpsIssueType(order);
+  if (opsIssue) return opsIssue;
+  if (order.open_issue_type) return order.open_issue_type;
+
+  if (
+    order.actual_clothes_count != null &&
+    order.clothes_count != null &&
+    order.clothes_count > 0 &&
+    Math.abs(order.actual_clothes_count - order.clothes_count) >= 3
+  ) {
+    return 'count_mismatch';
+  }
+
+  return null;
+};
+
+const buildEstFin = (order) => {
+  if (Number(order.service_id) === 1) {
+    const est = getEstimatedKg(order.estimated_weight_min, order.estimated_weight_max);
+    const fin = order.actual_weight != null ? Number(order.actual_weight) : est;
+    return `${est}kg/${fin}kg`;
+  }
+
+  const est = Number(order.clothes_count || 0);
+  const fin = Number(order.actual_clothes_count ?? order.clothes_count ?? 0);
+  return `${est}/${fin} Items`;
+};
+
+const buildCharges = (order) =>
+  Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
+
+const resolvePickupStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_pickup' || issue === 'missed_pickup') return 'failed';
+  if (PICKUP_COMPLETED_STATUSES.includes(order.status)) return 'completed';
+  return 'pending';
+};
+
+const resolveDeliveryStatus = (order) => {
+  const issue = resolveOpsIssueType(order);
+  if (issue === 'failed_drop' || issue === 'missed_drop') return 'failed';
+  if (order.status === 'delivered') return 'completed';
+  return 'pending';
+};
+
+const isPickupOnDate = (order, dateStr) => toDateStr(order.pickup_date) === dateStr;
+const isDeliveryOnDate = (order, dateStr) =>
+  toDateStr(order.delivery_date) === dateStr;
+const isActiveOnDate = (order, dateStr) =>
+  isPickupOnDate(order, dateStr) || isDeliveryOnDate(order, dateStr);
+
+const resolveShiftSlotIds = async (shift) => {
+  if (!shift) return null;
+  const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
+  return pickupShiftSlotIds.filter(
+    (slotId) => resolveShiftKey(shiftByPickupSlot[slotId]?.shift_type) === shift,
+  );
+};
+
+const resolvePincodeGroupName = async (pincodeGroupId) => {
+  if (pincodeGroupId == null) return null;
+  const { rows } = await sql.query(
+    `SELECT id, name FROM pincode_groups WHERE id = $1`,
+    [pincodeGroupId],
+  );
+  if (!rows.length) {
+    throw { status: 404, message: 'pincode_group_id not found' };
+  }
+  return rows[0].name;
+};
+
+const resolveRiderZoneMeta = (
+  shiftSchedule = [],
+  { dayOfWeek = null, shift = null, pincodeGroupId = null } = {},
+) => {
+  let entries = [...shiftSchedule];
+
+  if (pincodeGroupId != null) {
+    entries = entries.filter((e) => Number(e.pincode_group_id) === Number(pincodeGroupId));
+  }
+  if (dayOfWeek != null) {
+    entries = entries.filter((e) => Number(e.day_of_week) === Number(dayOfWeek));
+  }
+  if (shift) {
+    entries = entries.filter((e) => resolveShiftKey(e.shift_name) === shift);
+  }
+
+  const entry = entries[0] || shiftSchedule[0] || null;
+  if (!entry) {
+    return { zone_id: null, zone_name: null, shift: shift || null };
+  }
+
+  return {
+    zone_id: entry.pincode_group_id != null ? Number(entry.pincode_group_id) : null,
+    zone_name: entry.group_name || entry.group_code || null,
+    shift: resolveShiftKey(entry.shift_name) || shift || null,
+  };
+};
+
+const resolveRiderListFilters = (query = {}) => {
+  const dateFrom = parseOptionalDate(query.date_from, 'date_from');
+  const dateTo = parseOptionalDate(query.date_to, 'date_to');
+  const hasFrom = dateFrom != null;
+  const hasTo = dateTo != null;
+
+  if (hasFrom !== hasTo) {
+    throw {
+      status: 400,
+      message: 'date_from and date_to must be provided together',
+    };
+  }
+
+  if (hasFrom && dateFrom > dateTo) {
+    throw { status: 400, message: 'date_from must be on or before date_to' };
+  }
+
+  const weekStart = parseOptionalDate(query.week_start, 'week_start');
+  const requestedDate = parseOptionalDate(query.date, 'date');
+
+  let selectedDate;
+  let rangeStart;
+  let rangeEnd;
+
+  if (hasFrom) {
+    rangeStart = dateFrom;
+    rangeEnd = dateTo;
+    if (requestedDate && requestedDate >= dateFrom && requestedDate <= dateTo) {
+      selectedDate = requestedDate;
+    } else {
+      selectedDate = dateFrom;
+    }
+  } else {
+    selectedDate = requestedDate || weekStart || formatDate(new Date());
+    rangeStart = weekStart || selectedDate;
+    rangeEnd = addDays(rangeStart, DAYS_WINDOW - 1);
+  }
+
+  return {
+    selectedDate,
+    weekStart,
+    dateFrom,
+    dateTo,
+    rangeStart,
+    rangeEnd,
+    shift: parseOptionalShift(query.shift),
+    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
+  };
+};
+
+const mapRiderOrderRow = (order, selectedDate, shiftByPickupSlot = {}) => {
+  const shiftMeta = shiftByPickupSlot[order.pickup_slot_id];
+  const shift = resolveShiftKey(shiftMeta?.shift_type || order.pickup_shift_name);
+  const scheduledDate = isPickupOnDate(order, selectedDate)
+    ? toDateStr(order.pickup_date)
+    : toDateStr(order.delivery_date) || selectedDate;
+
+  return {
+    id: Number(order.id),
+    order_id: order.order_code || `ORD-${String(order.id).padStart(3, '0')}`,
+    customer_id: formatCustomerId(order.user_id),
+    customer_name: order.customer_name || null,
+    service_type: getServiceKey(order.service_id),
+    status: getAdminDisplayStatus(order.status),
+    shift,
+    issue_type: resolveIssueType(order),
+    est_fin: buildEstFin(order),
+    charges: buildCharges(order),
+    pickup_status: resolvePickupStatus(order),
+    delivery_status: resolveDeliveryStatus(order),
+    scheduled_date: scheduledDate,
+  };
+};
+
+const buildRiderLotCode = (riderId, pickupShiftSlotIds, orders = []) => {
+  const slotId = orders
+    .map((o) => Number(o.pickup_slot_id))
+    .find((id) => pickupShiftSlotIds.includes(id));
+  const batchIndex =
+    slotId != null ? Math.max(0, pickupShiftSlotIds.indexOf(slotId)) : 0;
+
+  return `LOT-R${String(riderId).padStart(3, '0')}-${String(batchIndex + 1).padStart(2, '0')}`;
+};
+
+const countDayTasks = (orders, dateStr) => {
+  const pickupOrders = orders.filter((o) => isPickupOnDate(o, dateStr));
+  const deliveryOrders = orders.filter((o) => isDeliveryOnDate(o, dateStr));
+
+  const pickupsCompleted = pickupOrders.filter(
+    (o) => resolvePickupStatus(o) === 'completed',
+  ).length;
+  const deliveriesCompleted = deliveryOrders.filter(
+    (o) => resolveDeliveryStatus(o) === 'completed',
+  ).length;
+  const pendingTasks =
+    pickupOrders.filter((o) => resolvePickupStatus(o) === 'pending').length
+    + deliveryOrders.filter((o) => resolveDeliveryStatus(o) === 'pending').length;
+  const failedTasks =
+    pickupOrders.filter((o) => resolvePickupStatus(o) === 'failed').length
+    + deliveryOrders.filter((o) => resolveDeliveryStatus(o) === 'failed').length;
+
+  return {
+    total_pickups: pickupOrders.length,
+    pickups_completed: pickupsCompleted,
+    total_deliveries: deliveryOrders.length,
+    deliveries_completed: deliveriesCompleted,
+    pending_tasks: pendingTasks,
+    failed_tasks: failedTasks,
+    total_tasks: pickupOrders.length + deliveryOrders.length,
+  };
+};
+
+const buildOverviewDays = (rangeStart, rangeEnd, orders) => {
+  const days = [];
+  let date = rangeStart;
+
+  while (date <= rangeEnd) {
+    days.push({
+      date,
+      total_tasks: countDayTasks(orders, date).total_tasks,
+    });
+    date = addDays(date, 1);
+  }
+
+  return days;
+};
+
+const fetchRiderScheduleOrders = async ({
+  riderIds = null,
+  rangeStart,
+  rangeEnd,
+  pincodeGroupId = null,
+  shiftSlotIds = null,
+}) => {
+  const params = [rangeStart, rangeEnd, pincodeGroupId];
+  const conditions = [
+    `o.assigned_rider_id IS NOT NULL`,
+    `o.status <> 'draft'`,
+    `(
+      o.pickup_date BETWEEN $1::date AND $2::date
+      OR o.delivery_date BETWEEN $1::date AND $2::date
+    )`,
+    `($3::int IS NULL OR p.pincode_group_id = $3::int)`,
+  ];
+
+  if (riderIds?.length) {
+    params.push(riderIds);
+    conditions.push(`o.assigned_rider_id = ANY($${params.length}::int[])`);
+  }
+
+  if (shiftSlotIds?.length) {
+    params.push(shiftSlotIds);
+    conditions.push(`o.pickup_slot_id = ANY($${params.length}::int[])`);
+  }
+
+  const { rows } = await sql.query(
+    `
+    SELECT
+      o.id,
+      o.order_code,
+      o.user_id,
+      u.full_name AS customer_name,
+      o.assigned_rider_id,
+      o.pickup_slot_id,
+      o.pickup_date,
+      o.delivery_date,
+      o.status,
+      o.service_id,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.actual_weight,
+      o.actual_clothes_count,
+      o.clothes_count,
+      o.estimated_total,
+      o.final_total,
+      o.out_for_pickup_at,
+      o.pickup_started_at,
+      o.out_for_delivery_at,
+      st.name AS service_type_name,
+      ts.shift_name AS pickup_shift_name,
+      ir.issue_type AS open_issue_type,
+      oc.reason_type AS cancel_reason_type
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN service_types st ON o.service_type_id = st.id
+    LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
+    LEFT JOIN user_address_details uad ON uad.id = o.address_id
+    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    LEFT JOIN LATERAL (
+      SELECT issue_type
+      FROM order_reports
+      WHERE order_id = o.id AND status = 'open'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) ir ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT reason_type
+      FROM order_cancellations
+      WHERE order_id = o.id
+      ORDER BY cancelled_at DESC
+      LIMIT 1
+    ) oc ON TRUE
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY o.id DESC
+    `,
+    params,
+  );
+
+  return rows;
 };
 
 const resolveShiftLabel = (shiftName) => {
@@ -902,68 +1294,166 @@ export const getAdminRiderOrdersService = async (rawId, query = {}) => {
     throw { status: 404, message: 'Rider not found' };
   }
 
-  const { start, end, period, orderStatus } = resolveRiderOrderFilters(query);
-  const orders = await fetchRiderOrders({
-    riderId,
-    start,
-    end,
-    orderStatus,
+  const selectedDate =
+    parseOptionalDate(query.date, 'date') || formatDate(new Date());
+  const shift = parseOptionalShift(query.shift);
+  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
+
+  if (pincodeGroupId != null) {
+    await resolvePincodeGroupName(pincodeGroupId);
+  }
+
+  const shiftSlotIds = await resolveShiftSlotIds(shift);
+  const { shiftByPickupSlot } = await getPickupShiftConfig();
+
+  const orders = await fetchRiderScheduleOrders({
+    riderIds: [riderId],
+    rangeStart: selectedDate,
+    rangeEnd: selectedDate,
+    pincodeGroupId,
+    shiftSlotIds,
   });
 
-  const { pickupShiftSlotIds, shiftByPickupSlot } =
-    await getPickupShiftConfig();
-
-  const groupMap = new Map();
-
-  orders.forEach((order) => {
-    const pickupDate = order.pickup_date || start;
-    const slotId = Number(order.pickup_slot_id) || 0;
-    const groupKey = `${pickupDate}:${slotId}`;
-
-    if (!groupMap.has(groupKey)) {
-      groupMap.set(groupKey, {
-        date: pickupDate,
-        slotId,
-        orders: [],
-      });
-    }
-
-    groupMap.get(groupKey).orders.push(order);
+  const dayOrders = orders.filter((order) => isActiveOnDate(order, selectedDate));
+  const shiftSchedule = await getShiftScheduleForRider(riderId);
+  const zoneMeta = resolveRiderZoneMeta(shiftSchedule, {
+    dayOfWeek: getIsoDayOfWeek(selectedDate),
+    shift,
+    pincodeGroupId,
   });
-
-  const lotCode = formatLotCode(riderId);
-
-  const groups = [...groupMap.values()]
-    .sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return (
-        pickupShiftSlotIds.indexOf(a.slotId)
-        - pickupShiftSlotIds.indexOf(b.slotId)
-      );
-    })
-    .map((group) => {
-      const shiftMeta = shiftByPickupSlot[group.slotId];
-      const shiftType =
-        shiftMeta?.shift_type
-        || resolveShiftKey(group.orders[0]?.pickup_shift_name)
-        || 'shift';
-      const shiftLabel =
-        shiftMeta?.title_prefix
-        || resolveShiftLabel(group.orders[0]?.pickup_shift_name)
-        || 'Shift';
-
-      return {
-        date_label: formatDateLabel(group.date),
-        shift_type: shiftType,
-        shift_label: shiftLabel,
-        batch: buildRiderOrderBatch(group.orders, lotCode),
-      };
-    });
 
   return {
-    rider_id: formatRiderId(riderId),
-    period: period === 'custom' ? 'week' : period,
-    groups,
+    rider: {
+      id: Number(rider.id),
+      rider_id: formatRiderId(rider.id),
+      name: rider.full_name || 'N/A',
+      status: formatRiderStatus(rider.is_active),
+      shift: zoneMeta.shift || shift || resolveShiftKey(rider.shift_name) || null,
+      zone_name: zoneMeta.zone_name || rider.zone || null,
+    },
+    filters: {
+      date: selectedDate,
+      shift,
+      pincode_group_id: pincodeGroupId,
+    },
+    orders: dayOrders.map((order) =>
+      mapRiderOrderRow(order, selectedDate, shiftByPickupSlot),
+    ),
+  };
+};
+
+export const getAdminRidersOverviewService = async (query = {}) => {
+  const {
+    selectedDate,
+    weekStart,
+    dateFrom,
+    dateTo,
+    rangeStart,
+    rangeEnd,
+    shift,
+    pincodeGroupId,
+  } = resolveRiderListFilters(query);
+
+  const zoneGroup = await resolvePincodeGroupName(pincodeGroupId);
+  const shiftSlotIds = await resolveShiftSlotIds(shift);
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
+
+  const riders = await fetchRiders(true);
+  const riderMap = new Map(riders.map((r) => [Number(r.id), r]));
+  const scheduleMap = await getShiftSchedulesForRiders(
+    riders.map((r) => Number(r.id)),
+  );
+  const dayOfWeek = getIsoDayOfWeek(selectedDate);
+
+  const orders = await fetchRiderScheduleOrders({
+    rangeStart,
+    rangeEnd,
+    pincodeGroupId,
+    shiftSlotIds,
+  });
+
+  const selectedOrders = orders.filter((order) =>
+    isActiveOnDate(order, selectedDate),
+  );
+
+  const dayKpis = countDayTasks(selectedOrders, selectedDate);
+
+  const ordersByRider = selectedOrders.reduce((acc, order) => {
+    const riderId = Number(order.assigned_rider_id);
+    if (!acc[riderId]) acc[riderId] = [];
+    acc[riderId].push(order);
+    return acc;
+  }, {});
+
+  const overviewRiders = Object.keys(ordersByRider)
+    .map((riderIdRaw) => {
+      const riderId = Number(riderIdRaw);
+      const rider = riderMap.get(riderId);
+      if (!rider) return null;
+
+      const riderOrders = ordersByRider[riderId] || [];
+      const shiftSchedule = scheduleMap.get(riderId) || [];
+      const zoneMeta = resolveRiderZoneMeta(shiftSchedule, {
+        dayOfWeek,
+        shift,
+        pincodeGroupId,
+      });
+      const stats = countDayTasks(riderOrders, selectedDate);
+
+      return {
+        id: Number(rider.id),
+        rider_id: formatRiderId(rider.id),
+        name: rider.full_name || 'N/A',
+        location: rider.residential_address || rider.zone || 'N/A',
+        contact: formatPhone(rider.mobile_number),
+        status: formatRiderStatus(rider.is_active),
+        shift:
+          zoneMeta.shift
+          || shift
+          || resolveShiftKey(rider.shift_name)
+          || null,
+        zone_id: zoneMeta.zone_id,
+        zone_name: zoneMeta.zone_name || rider.zone || null,
+        date: selectedDate,
+        total_pickups: stats.total_pickups,
+        pickups_completed: stats.pickups_completed,
+        total_deliveries: stats.total_deliveries,
+        deliveries_completed: stats.deliveries_completed,
+        pending_tasks: stats.pending_tasks,
+        failed_tasks: stats.failed_tasks,
+        lot: buildRiderLotCode(Number(rider.id), pickupShiftSlotIds, riderOrders),
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        (b.total_pickups + b.total_deliveries)
+        - (a.total_pickups + a.total_deliveries)
+        || a.id - b.id,
+    );
+
+  return {
+    filters: {
+      date: selectedDate,
+      week_start: weekStart,
+      date_from: dateFrom,
+      date_to: dateTo,
+      shift,
+      pincode_group_id: pincodeGroupId,
+      zone_group: zoneGroup,
+    },
+    days: buildOverviewDays(rangeStart, rangeEnd, orders),
+    selected_date: selectedDate,
+    kpis: {
+      active_riders: overviewRiders.length,
+      total_pickups: dayKpis.total_pickups,
+      pickups_completed: dayKpis.pickups_completed,
+      total_deliveries: dayKpis.total_deliveries,
+      deliveries_completed: dayKpis.deliveries_completed,
+      pending_tasks: dayKpis.pending_tasks,
+      failed_tasks: dayKpis.failed_tasks,
+    },
+    riders: overviewRiders,
   };
 };
 
