@@ -764,6 +764,40 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "Get User Order Detail",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/Orderdetail",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "Orderdetail"
+                  ]
+                },
+                "description": "Get a single user order detail by id."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             }
           ]
         },
@@ -801,6 +835,119 @@
                     "1",
                     "pay"
                   ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Razorpay Order",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/payment/1/create-order",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "payment",
+                    "1",
+                    "create-order"
+                  ]
+                },
+                "description": "Create Razorpay order for payment. Path param: order `id`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify Razorpay Payment",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/payment/1/verify",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "payment",
+                    "1",
+                    "verify"
+                  ]
+                },
+                "description": "Verify Razorpay payment for an order.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"razorpay_order_id\": \"\",\n  \"razorpay_payment_id\": \"\",\n  \"razorpay_signature\": \"\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Razorpay Webhook",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/payment/razorpay/webhook",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "payment",
+                    "razorpay",
+                    "webhook"
+                  ]
+                },
+                "description": "Razorpay webhook receiver (raw JSON body). No Bearer auth.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
                 }
               },
               "response": []
@@ -1540,6 +1687,36 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "Delete Banner",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/deleteBanner/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "deleteBanner",
+                    "1"
+                  ]
+                },
+                "description": "Delete a banner by id."
+              },
+              "response": []
             }
           ]
         },
@@ -2035,6 +2212,156 @@
           "name": "Vendor",
           "item": [
             {
+              "name": "Notifications",
+              "item": [
+                {
+                  "name": "Unread Count",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{token}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}api/vendor/notifications/unread-count",
+                      "host": [
+                        "{{baseUrl}}api"
+                      ],
+                      "path": [
+                        "vendor",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    },
+                    "description": "Unread notification count for the logged-in vendor."
+                  },
+                  "response": [],
+                  "protocolProfileBehavior": {
+                    "disableBodyPruning": true
+                  }
+                },
+                {
+                  "name": "Mark All Read",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{token}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "PATCH",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}api/vendor/notifications/read-all",
+                      "host": [
+                        "{{baseUrl}}api"
+                      ],
+                      "path": [
+                        "vendor",
+                        "notifications",
+                        "read-all"
+                      ]
+                    },
+                    "description": "Mark all vendor notifications as read."
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Mark One Read",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{token}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "PATCH",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}api/vendor/notifications/1/read",
+                      "host": [
+                        "{{baseUrl}}api"
+                      ],
+                      "path": [
+                        "vendor",
+                        "notifications",
+                        "1",
+                        "read"
+                      ]
+                    },
+                    "description": "Mark a single notification as read. Path param: `notification_id`."
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Payout",
+              "item": [
+                {
+                  "name": "Get My Payout",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{token}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}api/vendor/payout",
+                      "host": [
+                        "{{baseUrl}}api"
+                      ],
+                      "path": [
+                        "vendor",
+                        "payout"
+                      ],
+                      "query": [
+                        {
+                          "key": "week_start",
+                          "value": "2026-07-13",
+                          "disabled": true,
+                          "description": "Optional YYYY-MM-DD"
+                        },
+                        {
+                          "key": "pincode_group_id",
+                          "value": "1",
+                          "disabled": true,
+                          "description": "Optional zone filter"
+                        }
+                      ]
+                    },
+                    "description": "Vendor payout overview for the logged-in vendor.\n\n**Auth:** Bearer vendor JWT (`vendor_id` from token).\n\n**Optional query:** `week_start`, `pincode_group_id`\n\n**Response:** `mode`, `summary` (pending/paid amounts, batches, orders), `tickers`, `pending`, `paid`."
+                  },
+                  "response": [],
+                  "protocolProfileBehavior": {
+                    "disableBodyPruning": true
+                  }
+                }
+              ]
+            },
+            {
               "name": "Add Vendor",
               "request": {
                 "auth": {
@@ -2250,9 +2577,6 @@
           "item": [
             {
               "name": "Get Dashboard",
-              "protocolProfileBehavior": {
-                "disableBodyPruning": true
-              },
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -2266,12 +2590,8 @@
                 },
                 "method": "GET",
                 "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": ""
-                },
                 "url": {
-                  "raw": "{{baseUrl}}api/admin/dashboard?period=today",
+                  "raw": "{{baseUrl}}api/admin/dashboard",
                   "host": [
                     "{{baseUrl}}api"
                   ],
@@ -2281,31 +2601,37 @@
                   ],
                   "query": [
                     {
-                      "key": "period",
-                      "value": "today",
-                      "description": "today | week | month"
+                      "key": "date_from",
+                      "value": "2026-07-01",
+                      "disabled": true,
+                      "description": "YYYY-MM-DD (with date_to)"
                     },
                     {
-                      "key": "period",
-                      "value": "week",
-                      "disabled": true
-                    },
-                    {
-                      "key": "period",
-                      "value": "month",
-                      "disabled": true
+                      "key": "date_to",
+                      "value": "2026-07-20",
+                      "disabled": true,
+                      "description": "YYYY-MM-DD (with date_from)"
                     },
                     {
                       "key": "pincode_group_id",
                       "value": "1",
                       "disabled": true,
-                      "description": "Optional — filter metrics to a pincode group"
+                      "description": "Optional zone filter"
+                    },
+                    {
+                      "key": "ticker",
+                      "value": "inactive_users_30",
+                      "disabled": true,
+                      "description": "inactive_users_30 | inactive_users_45 | inactive_users_60 — returns details list"
                     }
                   ]
                 },
-                "description": "Admin operations dashboard.\n\n**Query:**\n- `period` = `today` | `week` | `month`\n- `pincode_group_id` (optional)\n\n**Sections:** `live_operations`, `revenue_tickers`, `action_required`, `total_operations`"
+                "description": "Admin dashboard tickers.\n\n**Query (all optional):**\n- `date_from` + `date_to` (YYYY-MM-DD, together)\n- `pincode_group_id`\n- `ticker` = `inactive_users_30` | `inactive_users_45` | `inactive_users_60` (returns `details` user list)\n\n**Response:** `filters`, `tickers` (total_users, total_orders, total_revenue, total_registered, conversion_rate, add_to_cart, inactive_users_30/45/60)."
               },
-              "response": []
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             }
           ]
         },
@@ -2329,8 +2655,14 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}api/admin/vendor-payout/master",
-                  "host": ["{{baseUrl}}api"],
-                  "path": ["admin", "vendor-payout", "master"],
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "vendor-payout",
+                    "master"
+                  ],
                   "query": [
                     {
                       "key": "pincode_group_id",
@@ -2365,8 +2697,16 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}api/admin/vendor-payout/master/1/orders?pincode_group_id=1",
-                  "host": ["{{baseUrl}}api"],
-                  "path": ["admin", "vendor-payout", "master", "1", "orders"],
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "vendor-payout",
+                    "master",
+                    "1",
+                    "orders"
+                  ],
                   "query": [
                     {
                       "key": "pincode_group_id",
@@ -2405,8 +2745,14 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}api/admin/vendor-payout/pending",
-                  "host": ["{{baseUrl}}api"],
-                  "path": ["admin", "vendor-payout", "pending"]
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "vendor-payout",
+                    "pending"
+                  ]
                 },
                 "description": "Live pending + open-week rows (mode=live).\n\n- `tickers` — closed unpaid week ranges\n- `pending` first (invoice auto-generated), `invoice_not_generated` last"
               },
@@ -2429,8 +2775,14 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}api/admin/vendor-payout/paid",
-                  "host": ["{{baseUrl}}api"],
-                  "path": ["admin", "vendor-payout", "paid"]
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "vendor-payout",
+                    "paid"
+                  ]
                 },
                 "description": "Dummy paid payouts with transaction_id, payment_date, auto invoice_id/invoice_image, paid_at."
               },
@@ -2462,8 +2814,15 @@
                 },
                 "url": {
                   "raw": "{{baseUrl}}api/admin/vendor-payout/vpb-201/pay",
-                  "host": ["{{baseUrl}}api"],
-                  "path": ["admin", "vendor-payout", "vpb-201", "pay"]
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "vendor-payout",
+                    "vpb-201",
+                    "pay"
+                  ]
                 },
                 "description": "Mark a pending dummy batch as paid.\n\nUse a `pending` batch_id (e.g. `vpb-201`). Rejects `invoice_not_generated` and already `paid`.\n\nJSON body only:\n- `transaction_id` (required)\n- `date` (required, YYYY-MM-DD) — payment date\n\nInvoice is auto-generated when the week closes (no file upload)."
               },
@@ -2476,9 +2835,6 @@
           "item": [
             {
               "name": "Get Orders",
-              "protocolProfileBehavior": {
-                "disableBodyPruning": true
-              },
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -2492,12 +2848,8 @@
                 },
                 "method": "GET",
                 "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": ""
-                },
                 "url": {
-                  "raw": "{{baseUrl}}api/admin/orders?period=today",
+                  "raw": "{{baseUrl}}api/admin/orders?date=2026-07-20",
                   "host": [
                     "{{baseUrl}}api"
                   ],
@@ -2507,38 +2859,42 @@
                   ],
                   "query": [
                     {
-                      "key": "period",
-                      "value": "today"
-                    },
-                    {
-                      "key": "period",
-                      "value": "week",
-                      "disabled": true
-                    },
-                    {
-                      "key": "period",
-                      "value": "month",
-                      "disabled": true
-                    },
-                    {
-                      "key": "order_status",
-                      "value": "booked",
-                      "disabled": true
+                      "key": "date",
+                      "value": "2026-07-20",
+                      "description": "Selected day (YYYY-MM-DD)"
                     },
                     {
                       "key": "date_from",
-                      "value": "2026-04-01",
-                      "disabled": true
+                      "value": "2026-07-18",
+                      "disabled": true,
+                      "description": "Optional range start"
                     },
                     {
                       "key": "date_to",
-                      "value": "2026-04-07",
-                      "disabled": true
+                      "value": "2026-07-24",
+                      "disabled": true,
+                      "description": "Optional range end"
+                    },
+                    {
+                      "key": "shift",
+                      "value": "morning",
+                      "disabled": true,
+                      "description": "morning | evening"
+                    },
+                    {
+                      "key": "pincode_group_id",
+                      "value": "1",
+                      "disabled": true,
+                      "description": "Optional zone filter"
                     }
                   ]
-                }
+                },
+                "description": "Admin orders board.\n\n**Query:**\n- `date` — selected day (default today)\n- `date_from` + `date_to` — echoed in filters\n- `shift` — morning | evening\n- `pincode_group_id`\n\n**Day logic:** order appears when `pickup_date` or `delivery_date` matches the day.\n**Response:** `filters`, `days` (7-day strip + total_plan), `selected_date`, `kpis`, `orders`."
               },
-              "response": []
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             },
             {
               "name": "Get Order Details",
@@ -2825,6 +3181,47 @@
                 "description": "Merchant orders grouped by `vendor_received_at` date and pickup shift.\n\nQuery: `period=today|week|month`, `order_status=in_progress`, or `date_from` + `date_to`.\n\nResponse includes `capacity`, `summary`, and `groups[]` with batch workloads and order list."
               },
               "response": []
+            },
+            {
+              "name": "Get Merchants Overview",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/merchants/overview",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "merchants",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "disabled": true,
+                      "description": "active | inactive"
+                    }
+                  ]
+                },
+                "description": "Merchants overview stats for admin."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             }
           ]
         },
@@ -3299,6 +3696,47 @@
                 "description": "Update a rider — same body shape as Create Rider.\n\n- `status`: `active` | `inactive` toggles `is_active`.\n- Masked `aadhar_number` / `account_number` (`XXXX XXXX 4582`) keeps existing stored values.\n- Send `rider_schedule` to replace schedule rows; send `[]` to clear; omit to keep current schedule.\n- Returns the same profile shape as Get Rider Details.\n- Accepts `RID-001` or numeric id `5`."
               },
               "response": []
+            },
+            {
+              "name": "Get Riders Overview",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/riders/overview",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "riders",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "disabled": true,
+                      "description": "active | inactive"
+                    }
+                  ]
+                },
+                "description": "Riders overview stats for admin."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             }
           ]
         },
@@ -3600,6 +4038,85 @@
     {
       "name": "Common APIS",
       "item": [
+        {
+          "name": "Slots",
+          "item": [
+            {
+              "name": "Slot Availability",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/slots/availability?pincode=400601",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "slots",
+                    "availability"
+                  ],
+                  "query": [
+                    {
+                      "key": "pincode",
+                      "value": "400601",
+                      "description": "Serviceable pincode"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2026-07-20",
+                      "disabled": true,
+                      "description": "Optional date"
+                    }
+                  ]
+                },
+                "description": "Pickup/delivery slot availability for a pincode."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
+            },
+            {
+              "name": "Delivery Dates",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/slots/delivery-dates?pincode=400601&pickup_date=2026-07-20",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "slots",
+                    "delivery-dates"
+                  ],
+                  "query": [
+                    {
+                      "key": "pincode",
+                      "value": "400601"
+                    },
+                    {
+                      "key": "pickup_date",
+                      "value": "2026-07-20"
+                    },
+                    {
+                      "key": "service_type_id",
+                      "value": "1",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Available delivery dates for a pickup date + pincode."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
+            }
+          ]
+        },
         {
           "name": "Get Cities",
           "request": {
@@ -4707,6 +5224,39 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "Get Today Delivery Orders",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/getTodayDeliveryOrders",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "getTodayDeliveryOrders"
+                  ]
+                },
+                "description": "List today delivery orders for the logged-in rider."
+              },
+              "response": [],
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              }
             }
           ]
         },
