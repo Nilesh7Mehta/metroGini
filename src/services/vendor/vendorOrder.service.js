@@ -7,6 +7,7 @@ import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
 import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 // Orders still on the vendor's task board for a given deadline day.
 // ready_for_delivery stays visible for that day (dispatch), but does not
@@ -429,12 +430,15 @@ export const orderTaskDashboardService = async (vendor_id) => {
   };
 };
 
-export const getVendorTaskOrdersService = async (vendor_id) => {
+export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
   const taskDeadline = (await resolveVendorTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
   const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
   const shiftType = taskDeadline.shift_name
     ? String(taskDeadline.shift_name).trim().toLowerCase()
     : null;
+
+  const mappedOrders = orders.map(mapTaskOrderToListItem);
+  const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
 
   const shiftPayload = {
     id: taskDeadline.shift_id,
@@ -446,7 +450,7 @@ export const getVendorTaskOrdersService = async (vendor_id) => {
       total_orders: orders.length,
       services: buildDashboardBatchServices(orders),
     },
-    orders: orders.map(mapTaskOrderToListItem),
+    orders: pageOrders,
   };
 
   return {
@@ -454,6 +458,7 @@ export const getVendorTaskOrdersService = async (vendor_id) => {
     task_deadline: taskDeadline,
     task_progress: buildTaskProgress(orders),
     shifts: taskDeadline.shift_id || orders.length ? [shiftPayload] : [],
+    pagination,
   };
 };
 
@@ -574,8 +579,12 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
     [vendor_id, date_from, date_to, pickupShiftSlotIds],
   );
 
+  const { items: pageOrders, pagination } = paginateArray(orders, query);
+
   const shifts = pickupShiftSlotIds
-    .map((slotId) => buildHistoryShiftPayload(slotId, orders, shiftByPickupSlot))
+    .map((slotId) =>
+      buildHistoryShiftPayload(slotId, pageOrders, shiftByPickupSlot),
+    )
     .filter(Boolean);
 
   return {
@@ -584,6 +593,7 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
     date_from,
     date_to,
     shifts,
+    pagination,
   };
 };
 
@@ -977,7 +987,7 @@ export const orderDashboardService = async (vendor_id, filter = 'today') => {
   };
 };
 
-export const getVendorOrdersService = async (vendor_id, selectedDate) => {
+export const getVendorOrdersService = async (vendor_id, selectedDate, query = {}) => {
   const { pickupShiftSlotIds, shiftByPickupSlot } =
     await getPickupShiftConfig();
   const date =
@@ -1017,12 +1027,14 @@ export const getVendorOrdersService = async (vendor_id, selectedDate) => {
   );
 
   const lotCode = `LOT-${String(vendor_id).padStart(3, '0')}`;
+  const { items: pageOrders, pagination } = paginateArray(orders, query);
 
   return {
     selected_date: date,
     shifts: pickupShiftSlotIds.map((slotId) =>
-      buildShiftPayload(slotId, orders, lotCode, shiftByPickupSlot),
+      buildShiftPayload(slotId, pageOrders, lotCode, shiftByPickupSlot),
     ),
+    pagination,
   };
 };
 

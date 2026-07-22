@@ -1,4 +1,5 @@
 import sql from '../../config/db.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
 const VALID_STATUSES = ['pending', 'resolved'];
@@ -200,10 +201,12 @@ export const getAdminHelpSupportService = async (query = {}) => {
   const requests = allRequests.filter((request) => matchesFilters(request, filters));
   const resolvedToday = await fetchResolvedTodayCount(filters.start, filters.end);
   const topStats = buildTopStats(allRequests, resolvedToday);
+  const { items: pageRequests, pagination } = paginateArray(requests, query);
 
   return {
     period: filters.period === 'custom' ? 'today' : filters.period,
     top_stats: topStats,
-    requests,
+    requests: pageRequests,
+    pagination,
   };
 };

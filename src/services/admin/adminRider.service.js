@@ -9,6 +9,7 @@ import {
   clearShiftScheduleForRider,
 } from '../common/riderGroupShiftSchedule.service.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const AADHAR_REGEX = /^\d{12}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -1244,31 +1245,36 @@ export const getAdminRidersService = async (query = {}) => {
   const top_stats = await fetchRiderTopStats();
   const scheduleMap = await getShiftSchedulesForRiders(riderIds);
 
+  const ridersList = riders.map((rider) => {
+    const lot = formatLotCode(rider.id);
+    const riderOrders = ordersByRider[rider.id] || [];
+    const batch = rider.is_active
+      ? buildRiderBatch(riderOrders, lot)
+      : null;
+
+    return {
+      id: rider.id,
+      rider_id: formatRiderId(rider.id),
+      name: rider.full_name || 'N/A',
+      shift: resolveShiftKey(rider.shift_name),
+      shift_label: resolveShiftLabel(rider.shift_name),
+      lot,
+      zone: rider.zone || null,
+      location: rider.residential_address || null,
+      contact: formatPhone(rider.mobile_number),
+      status: formatRiderStatus(rider.is_active),
+      avatar_type: resolveAvatarType(rider),
+      rider_schedule: formatScheduleForProfile(scheduleMap.get(rider.id) || []),
+      batch,
+    };
+  });
+
+  const { items: pageRiders, pagination } = paginateArray(ridersList, query);
+
   return {
     top_stats,
-    riders: riders.map((rider) => {
-      const lot = formatLotCode(rider.id);
-      const riderOrders = ordersByRider[rider.id] || [];
-      const batch = rider.is_active
-        ? buildRiderBatch(riderOrders, lot)
-        : null;
-
-      return {
-        id: rider.id,
-        rider_id: formatRiderId(rider.id),
-        name: rider.full_name || 'N/A',
-        shift: resolveShiftKey(rider.shift_name),
-        shift_label: resolveShiftLabel(rider.shift_name),
-        lot,
-        zone: rider.zone || null,
-        location: rider.residential_address || null,
-        contact: formatPhone(rider.mobile_number),
-        status: formatRiderStatus(rider.is_active),
-        avatar_type: resolveAvatarType(rider),
-        rider_schedule: formatScheduleForProfile(scheduleMap.get(rider.id) || []),
-        batch,
-      };
-    }),
+    riders: pageRiders,
+    pagination,
   };
 };
 

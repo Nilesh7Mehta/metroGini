@@ -25,8 +25,9 @@ export const getVendorOrders = async (req, res, next) => {
     const mode = String(req.query.mode || '').toLowerCase();
 
     if (mode === 'task') {
-      const data = await getVendorTaskOrdersService(vendor_id);
-      const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+      const data = await getVendorTaskOrdersService(vendor_id, req.query);
+      const totalOrders = data.pagination?.total
+        ?? data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
       return res.status(200).json({
         success: true,
         message:
@@ -38,13 +39,9 @@ export const getVendorOrders = async (req, res, next) => {
     }
 
     if (mode === 'history') {
-      const data = await getVendorHistoryOrdersService(vendor_id, {
-        period: req.query.period,
-        date: req.query.date,
-        date_from: req.query.date_from,
-        date_to: req.query.date_to,
-      });
-      const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+      const data = await getVendorHistoryOrdersService(vendor_id, req.query);
+      const totalOrders = data.pagination?.total
+        ?? data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
       return res.status(200).json({
         success: true,
         message:
@@ -56,8 +53,9 @@ export const getVendorOrders = async (req, res, next) => {
     }
 
     const selectedDate = req.query.date || req.query.selected_date;
-    const data = await getVendorOrdersService(vendor_id, selectedDate);
-    const totalOrders = data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
+    const data = await getVendorOrdersService(vendor_id, selectedDate, req.query);
+    const totalOrders = data.pagination?.total
+      ?? data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
     return res.status(200).json({
       success: true,
       message:

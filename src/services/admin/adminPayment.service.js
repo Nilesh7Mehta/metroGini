@@ -1,5 +1,6 @@
 import sql from '../../config/db.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
 const VALID_PAYMENT_STATUSES = [
@@ -373,10 +374,32 @@ export const getAdminPaymentsService = async (query = {}) => {
     return buildShiftPayload(slotId, orders, lotCode, shiftKey, filters);
   });
 
+  const allTransactions = shifts.flatMap((shift) =>
+    (shift.transactions || []).map((tx) => ({
+      ...tx,
+      shift: shift.key,
+      lot: shift.lot,
+    })),
+  );
+  const { items: pageTransactions, pagination } = paginateArray(
+    allTransactions,
+    query,
+  );
+
+  // Keep shift shells; attach only this page's transactions
+  const pageIds = new Set(pageTransactions.map((tx) => String(tx.id ?? tx.order_id)));
+  const pagedShifts = shifts.map((shift) => ({
+    ...shift,
+    transactions: (shift.transactions || []).filter((tx) =>
+      pageIds.has(String(tx.id ?? tx.order_id)),
+    ),
+  }));
+
   return {
     period: filters.period === 'custom' ? 'today' : filters.period,
     date_label: formatDateLabel(filters.start, filters.end),
     top_stats: topStats,
-    shifts,
+    shifts: pagedShifts,
+    pagination,
   };
 };

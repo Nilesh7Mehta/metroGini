@@ -2,6 +2,7 @@ import sql from '../../config/db.js';
 import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -409,6 +410,11 @@ export const getAdminOrdersService = async (query = {}) => {
     isActiveOnDate(order, selectedDate),
   );
 
+  const mappedOrders = selectedOrders.map((order) =>
+    mapAdminOrderRow(order, selectedDate, shiftByPickupSlot),
+  );
+  const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
+
   return {
     filters: {
       date: selectedDate,
@@ -421,9 +427,8 @@ export const getAdminOrdersService = async (query = {}) => {
     days: buildDays(selectedDate, orders),
     selected_date: selectedDate,
     kpis: buildKpis(selectedDate, orders),
-    orders: selectedOrders.map((order) =>
-      mapAdminOrderRow(order, selectedDate, shiftByPickupSlot),
-    ),
+    orders: pageOrders,
+    pagination,
   };
 };
 

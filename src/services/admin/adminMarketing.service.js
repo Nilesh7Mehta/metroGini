@@ -1,4 +1,5 @@
 import sql from '../../config/db.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_PERIODS = ['today', 'week', 'month'];
@@ -681,6 +682,12 @@ export const getAdminMarketingService = async (query = {}) => {
     buildActiveUsersTrend(filters.start, filters.end, filters.pincodeGroupId),
   ]);
 
+  const segmentDetails = buildSegmentDetails(customers, filters.status);
+  const { items: pageDetails, pagination } = paginateArray(
+    segmentDetails,
+    query,
+  );
+
   return {
     filters: {
       zone_group: filters.zoneGroup,
@@ -692,6 +699,7 @@ export const getAdminMarketingService = async (query = {}) => {
     marketing_funnel: buildMarketingFunnel(customers),
     charts,
     active_users_trend: activeUsersTrend,
-    segment_details: buildSegmentDetails(customers, filters.status),
+    segment_details: pageDetails,
+    pagination,
   };
 };

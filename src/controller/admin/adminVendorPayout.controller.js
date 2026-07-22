@@ -5,6 +5,7 @@ import {
   getVendorPayoutPendingService,
   payVendorPayoutBatchService,
 } from '../../services/admin/adminVendorPayout.service.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const handle = (err, res, next) => {
   if (err.status) {
@@ -16,7 +17,14 @@ const handle = (err, res, next) => {
 export const getVendorPayoutMaster = async (req, res, next) => {
   try {
     const data = await getVendorPayoutMasterService(req.query);
-    return res.status(200).json({ success: true, data });
+    const { items: pageItems, pagination } = paginateArray(
+      data.items || [],
+      req.query,
+    );
+    return res.status(200).json({
+      success: true,
+      data: { ...data, items: pageItems, pagination },
+    });
   } catch (err) {
     return handle(err, res, next);
   }
@@ -28,7 +36,19 @@ export const getVendorPayoutMasterOrders = async (req, res, next) => {
       req.params.vendorId,
       req.query,
     );
-    return res.status(200).json({ success: true, data });
+    const { items: pageOrders, pagination } = paginateArray(
+      data.orders || [],
+      req.query,
+    );
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...data,
+        orders: pageOrders,
+        total_orders: pagination.total,
+        pagination,
+      },
+    });
   } catch (err) {
     return handle(err, res, next);
   }
@@ -37,7 +57,14 @@ export const getVendorPayoutMasterOrders = async (req, res, next) => {
 export const getVendorPayoutPending = async (req, res, next) => {
   try {
     const data = await getVendorPayoutPendingService(req.query);
-    return res.status(200).json({ success: true, data });
+    const { items: pageItems, pagination } = paginateArray(
+      data.items || [],
+      req.query,
+    );
+    return res.status(200).json({
+      success: true,
+      data: { ...data, items: pageItems, pagination },
+    });
   } catch (err) {
     return handle(err, res, next);
   }
@@ -46,7 +73,14 @@ export const getVendorPayoutPending = async (req, res, next) => {
 export const getVendorPayoutPaid = async (req, res, next) => {
   try {
     const data = await getVendorPayoutPaidService(req.query);
-    return res.status(200).json({ success: true, data });
+    const { items: pageItems, pagination } = paginateArray(
+      data.items || [],
+      req.query,
+    );
+    return res.status(200).json({
+      success: true,
+      data: { ...data, items: pageItems, pagination },
+    });
   } catch (err) {
     return handle(err, res, next);
   }

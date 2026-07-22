@@ -11,6 +11,7 @@ import {
 } from '../common/laundryGroupShiftSchedule.service.js';
 import { validateVendorFields } from '../../utils/vendorValidation.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const BCRYPT_ROUNDS = 10;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -1180,29 +1181,34 @@ export const getAdminMerchantsService = async (query = {}) => {
 
   const scheduleMap = await getShiftSchedulesForLaundries(vendorIds);
 
+  const merchants = vendors.map((vendor) => {
+    const shiftSchedule = scheduleMap.get(vendor.id) || [];
+
+    return {
+      id: vendor.id,
+      merchant_id: formatMerchantId(vendor.id),
+      name: vendor.laundry_shop_name || 'N/A',
+      location:
+        vendor.shop_address
+        || summarizeShiftScheduleLocation(shiftSchedule)
+        || 'N/A',
+      contact: formatPhone(vendor.mobile_number),
+      status: formatMerchantStatus(vendor.is_active),
+      avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
+      shift_schedule: shiftSchedule,
+      batches: buildMerchantBatches(
+        ordersByVendor[vendor.id] || [],
+        pickupShiftSlotIds,
+      ),
+    };
+  });
+
+  const { items: pageMerchants, pagination } = paginateArray(merchants, query);
+
   return {
     top_stats: buildTopStats(statsOrders),
-    merchants: vendors.map((vendor) => {
-      const shiftSchedule = scheduleMap.get(vendor.id) || [];
-
-      return {
-        id: vendor.id,
-        merchant_id: formatMerchantId(vendor.id),
-        name: vendor.laundry_shop_name || 'N/A',
-        location:
-          vendor.shop_address
-          || summarizeShiftScheduleLocation(shiftSchedule)
-          || 'N/A',
-        contact: formatPhone(vendor.mobile_number),
-        status: formatMerchantStatus(vendor.is_active),
-        avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-        shift_schedule: shiftSchedule,
-        batches: buildMerchantBatches(
-          ordersByVendor[vendor.id] || [],
-          pickupShiftSlotIds,
-        ),
-      };
-    }),
+    merchants: pageMerchants,
+    pagination,
   };
 };
 

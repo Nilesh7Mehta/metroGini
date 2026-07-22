@@ -2,6 +2,7 @@ import {
   getVendorPayoutPaidService,
   getVendorPayoutPendingService,
 } from '../admin/adminVendorPayout.service.js';
+import { paginateArray } from '../../utils/pagination.util.js';
 
 const sumPayable = (items = []) =>
   Math.round(
@@ -44,7 +45,7 @@ const toVendorBatch = (row) => {
 
 /**
  * GET /api/vendor/payout
- * Optional query: week_start (YYYY-MM-DD), pincode_group_id
+ * Optional query: week_start (YYYY-MM-DD), pincode_group_id, page, limit
  */
 export const getMyVendorPayoutService = async (vendorId, query = {}) => {
   const vendor_id = Number(vendorId);
@@ -66,17 +67,18 @@ export const getMyVendorPayoutService = async (vendorId, query = {}) => {
   const pendingRaw = pendingData.items ?? [];
   const paidRaw = paidData.items ?? [];
 
-  // UI "pending" card: closed weeks awaiting payment (invoice ready)
   const pendingOnly = pendingRaw.filter(
     (row) => row.payment_status === 'pending',
   );
-  // Still show open-week rows so vendor can see in-progress earnings
   const openWeek = pendingRaw.filter(
     (row) => row.payment_status === 'invoice_not_generated',
   );
 
-  const pending = [...pendingOnly, ...openWeek].map(toVendorBatch);
-  const paid = paidRaw.map(toVendorBatch);
+  const pendingAll = [...pendingOnly, ...openWeek].map(toVendorBatch);
+  const paidAll = paidRaw.map(toVendorBatch);
+
+  const pendingPage = paginateArray(pendingAll, query);
+  const paidPage = paginateArray(paidAll, query);
 
   return {
     mode: 'live',
@@ -89,7 +91,11 @@ export const getMyVendorPayoutService = async (vendorId, query = {}) => {
       paid_orders: sumOrders(paidRaw),
     },
     tickers: pendingData.tickers ?? [],
-    pending,
-    paid,
+    pending: pendingPage.items,
+    paid: paidPage.items,
+    pagination: {
+      pending: pendingPage.pagination,
+      paid: paidPage.pagination,
+    },
   };
 };
