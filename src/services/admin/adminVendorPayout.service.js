@@ -281,6 +281,14 @@ const fetchBatches = async (query = {}) => {
   const params = [];
   const where = [];
 
+  if (query.vendor_id) {
+    const vid = Number(query.vendor_id);
+    if (Number.isInteger(vid) && vid > 0) {
+      params.push(vid);
+      where.push(`b.vendor_id = $${params.length}`);
+    }
+  }
+
   if (query.pincode_group_id) {
     const gid = Number(query.pincode_group_id);
     if (Number.isInteger(gid) && gid > 0) {
