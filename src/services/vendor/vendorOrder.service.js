@@ -44,26 +44,49 @@ const hasConfirmedWeight = (order) => {
   return order.actual_weight != null && Number(order.actual_weight) > 0;
 };
 
-const normalizeStainImages = (value) => {
-  if (value == null) return null;
-  if (Array.isArray(value)) {
-    const images = value.filter((path) => typeof path === 'string' && path.trim());
-    return images.length ? images : null;
-  }
-  if (typeof value === 'string' && value.trim()) {
+const parseStainEntries = (value) => {
+  let list = value;
+
+  if (typeof list === 'string' && list.trim()) {
     try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        const images = parsed.filter((path) => typeof path === 'string' && path.trim());
-        return images.length ? images : null;
-      }
+      const parsed = JSON.parse(list);
+      list = Array.isArray(parsed) ? parsed : [list];
     } catch {
-      return [value];
+      list = [list];
     }
-    return [value];
   }
-  return null;
+
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((item) => {
+      if (typeof item === 'string' && item.trim()) {
+        return { path: item.trim(), strain_size: null };
+      }
+
+      if (item && typeof item === 'object') {
+        const path = String(item.path || item.url || item.image || '').trim();
+        if (!path) return null;
+
+        const rawSize = item.strain_size ?? item.strainSize ?? null;
+        const strain_size =
+          rawSize === 'small' || rawSize === 'big' ? rawSize : null;
+
+        return { path, strain_size };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 };
+
+const normalizeStainImages = (value) => {
+  const paths = parseStainEntries(value).map((entry) => entry.path);
+  return paths.length ? paths : null;
+};
+
+const normalizeStainSizes = (value) =>
+  parseStainEntries(value).map((entry) => entry.strain_size);
 
 /** Vendor has received the order but has not confirmed weight/piece count yet */
 const isClassificationPending = (order) => {
@@ -1129,6 +1152,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
     actual_weight: order.actual_weight ? parseFloat(order.actual_weight) : null,
     is_stained: order.is_stained ? parseInt(order.is_stained, 10) : 0,
     stain_images: normalizeStainImages(order.stain_images),
+    stain_sizes: normalizeStainSizes(order.stain_images),
     vendor_request_amount: order.vendor_request_amount
       ? parseFloat(order.vendor_request_amount)
       : null,
@@ -1225,7 +1249,13 @@ export const confirmClothesService = async (vendor_id, order_id, actual_clothes)
 };
 
 export const confirmWeightService = async (vendor_id, order_id, payload) => {
-  const { actual_weight, is_stained, stain_images, vendor_request_amount } = payload;
+  const {
+    actual_weight,
+    is_stained,
+    stain_images,
+    stain_sizes,
+    vendor_request_amount,
+  } = payload;
 
   const orderCheck = await sql.query(
     `SELECT o.id, o.status, o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
@@ -1254,12 +1284,24 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     throw { status: 400, message: 'is_stained must be 0 or 1' };
   }
 
-  const images = Array.isArray(stain_images)
+  const imagePaths = Array.isArray(stain_images)
     ? stain_images.filter((path) => typeof path === 'string' && path.trim())
     : [];
 
+  let sizeList = [];
+  if (Array.isArray(stain_sizes)) {
+    sizeList = stain_sizes;
+  } else if (typeof stain_sizes === 'string' && stain_sizes.trim()) {
+    try {
+      const parsed = JSON.parse(stain_sizes);
+      sizeList = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      sizeList = [];
+    }
+  }
+
   if (stained === 1) {
-    if (images.length === 0) {
+    if (imagePaths.length === 0) {
       throw { status: 400, message: 'At least one image is required when is_stained is 1' };
     }
     const amount = parseFloat(vendor_request_amount);
@@ -1296,7 +1338,15 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     order,
   );
 
-  const resolvedImages = stained === 1 ? images : null;
+  const resolvedImages =
+    stained === 1
+      ? imagePaths.map((path, index) => {
+          const rawSize = sizeList[index];
+          const strain_size =
+            rawSize === 'small' || rawSize === 'big' ? rawSize : null;
+          return strain_size ? { path, strain_size } : { path };
+        })
+      : null;
   const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
   const ratePerKg = resolveVendorAmountPerKg(order, order.vendor_per_kg_amount);
   // Vendor payout = per-kg earnings + their stain request (markup is platform side)
@@ -1311,7 +1361,6 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   );
   const { gst, final_total } = applyGst(subtotalBeforeGst);
   const remaining_amount = parseFloat(final_total - order.amount_paid);
-  // console.log('Remaining amount after GST:', remaining_amount);
 
   await sql.query(
     `UPDATE orders
@@ -1344,7 +1393,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   );
 
   return {
-    order_id:      parseInt(order_id),
+    order_id: parseInt(order_id),
     actual_weight: weight,
     estimated_range: { min: weight_min, max: weight_max },
     pricing_note,
@@ -1361,7 +1410,12 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     gst_rate: 18,
     final_total,
     is_stained: stained,
-    stain_images: resolvedImages,
+    stain_images: resolvedImages
+      ? resolvedImages.map((entry) => entry.path)
+      : null,
+    stain_sizes: resolvedImages
+      ? resolvedImages.map((entry) => entry.strain_size ?? null)
+      : null,
   };
 };
 

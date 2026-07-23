@@ -106,7 +106,8 @@ export const confirmWeight = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
     const { order_id } = req.params;
-    const { actual_weight, is_stained, vendor_request_amount } = req.body;
+    const { actual_weight, is_stained, vendor_request_amount, stain_sizes } =
+      req.body;
 
     if (!actual_weight || actual_weight <= 0) {
       return res.status(400).json({ success: false, message: 'actual_weight must be a positive number' });
@@ -124,6 +125,7 @@ export const confirmWeight = async (req, res, next) => {
       actual_weight,
       is_stained: stained,
       stain_images,
+      stain_sizes,
       vendor_request_amount,
     });
     return res.status(200).json({ success: true, data });

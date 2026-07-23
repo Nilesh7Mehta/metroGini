@@ -1607,6 +1607,8 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     .filter(Boolean)
     .sort((a, b) => b.total_orders - a.total_orders || a.id - b.id);
 
+  const { items: pageMerchants, pagination } = paginateArray(merchants, query);
+
   return {
     filters: {
       date: selectedDate,
@@ -1620,6 +1622,7 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     days: buildOverviewDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,
     kpis: buildOverviewKpis(selectedOrders),
-    merchants,
+    merchants: pageMerchants,
+    pagination,
   };
 };

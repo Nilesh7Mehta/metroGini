@@ -1438,6 +1438,8 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         || a.id - b.id,
     );
 
+  const { items: pageRiders, pagination } = paginateArray(overviewRiders, query);
+
   return {
     filters: {
       date: selectedDate,
@@ -1459,7 +1461,8 @@ export const getAdminRidersOverviewService = async (query = {}) => {
       pending_tasks: dayKpis.pending_tasks,
       failed_tasks: dayKpis.failed_tasks,
     },
-    riders: overviewRiders,
+    riders: pageRiders,
+    pagination,
   };
 };
 

@@ -94,26 +94,31 @@ const resolveListFilters = (query = {}) => {
 };
 
 const normalizeStainImages = (value) => {
-  if (value == null) return null;
-  if (Array.isArray(value)) {
-    const images = value.filter((path) => typeof path === 'string' && path.trim());
-    return images.length ? images : null;
-  }
-  if (typeof value === 'string' && value.trim()) {
+  let list = value;
+
+  if (typeof list === "string" && list.trim()) {
     try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        const images = parsed.filter(
-          (path) => typeof path === 'string' && path.trim(),
-        );
-        return images.length ? images : null;
-      }
+      const parsed = JSON.parse(list);
+      list = Array.isArray(parsed) ? parsed : [list];
     } catch {
-      return [value];
+      list = [list];
     }
-    return [value];
   }
-  return null;
+
+  if (!Array.isArray(list)) return null;
+
+  const images = list
+    .map((item) => {
+      if (typeof item === "string" && item.trim()) return item.trim();
+      if (item && typeof item === "object") {
+        const path = String(item.path || item.url || item.image || "").trim();
+        return path || null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  return images.length ? images : null;
 };
 
 const getEstimatedKg = (min, max) => {
