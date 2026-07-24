@@ -17,7 +17,7 @@ Run in order. Each file depends on the ones before it.
 | 011_support_requests.sql | support_requests (unified need-help) | 001, 002, 003 |
 | 012_order_timestamps.sql | orders (lifecycle TIMESTAMP columns) | 006 |
 | 014_vendor_merchant_profile.sql | vendors (merchant profile, equipment, capacity) | 002, 010 |
-| 015_pincode_groups.sql | pincode_groups | — |
+| 015_pincode_groups.sql | pincode_groups | 004 |
 | 016_pincodes.sql | pincodes | 015 |
 | 017_laundry_group_shift_schedule.sql | laundry_group_shift_schedule | 003, 015, laundries |
 | 018_rider_group_shift_schedule.sql | rider_group_shift_schedule | 003, 015 |
@@ -28,3 +28,5 @@ Run in order. Each file depends on the ones before it.
 | 028_vendor_per_kg.sql | vendors (vendor_per_kg_amount) | 002 |
 | 029_coupon_maximum_amount.sql | coupons (maximum_amount_value) | 005 |
 | 031_order_vendor_amount_per_kg.sql | orders (vendor_amount_per_kg) | 028 |
+| 032_vendor_payout_batches.sql | vendor_payout_batches; orders (vendor_payout_batch_id) | 031, 015 |
+| 033_pincode_groups_city_id.sql | pincode_groups (city_id) | 004, 015 |

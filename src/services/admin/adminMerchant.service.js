@@ -356,11 +356,12 @@ const resolveMerchantZoneMeta = (
 
   const entry = entries[0] || shiftSchedule[0] || null;
   if (!entry) {
-    return { zone_id: null, zone_name: null, shift: shift || null };
+    return { zone_id: null, zone_code: null, zone_name: null, shift: shift || null };
   }
 
   return {
     zone_id: entry.pincode_group_id ?? null,
+    zone_code: entry.group_code || null,
     zone_name: entry.group_name || entry.group_code || null,
     shift: resolveShiftKey(entry.shift_name) || shift || null,
   };
@@ -374,16 +375,58 @@ const resolveShiftSlotIds = async (shift) => {
   );
 };
 
-const resolvePincodeGroupName = async (pincodeGroupId) => {
-  if (pincodeGroupId == null) return null;
-  const { rows } = await sql.query(
-    `SELECT id, name FROM pincode_groups WHERE id = $1`,
-    [pincodeGroupId],
+const resolveZoneFilter = async (query = {}) => {
+  const zoneId = parseOptionalPincodeGroupId(
+    query.pincode_group_id ?? query.zone_id,
   );
-  if (!rows.length) {
-    throw { status: 404, message: 'pincode_group_id not found' };
+  const zoneCodeRaw = query.zone_code;
+  const zoneCode =
+    zoneCodeRaw != null && String(zoneCodeRaw).trim() !== ''
+      ? String(zoneCodeRaw).trim()
+      : null;
+
+  if (zoneId == null && zoneCode == null) {
+    return {
+      pincode_group_id: null,
+      zone_id: null,
+      zone_code: null,
+      zone_name: null,
+    };
   }
-  return rows[0].name;
+
+  let rows;
+  if (zoneId != null) {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE id = $1`,
+      [zoneId],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'pincode_group_id not found' };
+    }
+  } else {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE group_code = $1`,
+      [zoneCode],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'zone_code not found' };
+    }
+  }
+
+  const row = rows[0];
+  return {
+    pincode_group_id: Number(row.id),
+    zone_id: Number(row.id),
+    zone_code: row.group_code || null,
+    zone_name: row.name || null,
+  };
+};
+
+const merchantMatchesZone = (shiftSchedule = [], pincodeGroupId) => {
+  if (pincodeGroupId == null) return true;
+  return shiftSchedule.some(
+    (entry) => Number(entry.pincode_group_id) === Number(pincodeGroupId),
+  );
 };
 
 const resolveMerchantListFilters = (query = {}) => {
@@ -432,7 +475,13 @@ const resolveMerchantListFilters = (query = {}) => {
     rangeStart,
     rangeEnd,
     shift: parseOptionalShift(query.shift),
-    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
+    pincodeGroupId: parseOptionalPincodeGroupId(
+      query.pincode_group_id ?? query.zone_id,
+    ),
+    zoneCode:
+      query.zone_code != null && String(query.zone_code).trim() !== ''
+        ? String(query.zone_code).trim()
+        : null,
   };
 };
 
@@ -801,47 +850,6 @@ const buildMerchantBatches = (orders, pickupShiftSlotIds) => {
   return batches;
 };
 
-const buildTopStats = (orders) => {
-  const pipelineOrders = orders.filter((o) =>
-    ACTIVE_VENDOR_STATUSES.includes(o.status),
-  );
-  const washKg = Math.round(getWashLoadKg(pipelineOrders));
-  const dryPcs = Math.round(
-    getOrderPieces(pipelineOrders.filter((o) => Number(o.service_id) === 2)),
-  );
-
-  return [
-    { key: 'total_laundry_kg', value: `${washKg} kg` },
-    { key: 'dry_clean_pieces', value: `${dryPcs} pcs` },
-    {
-      key: 'orders_in_processing',
-      value: String(
-        pipelineOrders.filter(
-          (o) =>
-            o.status === 'order_finalized' ||
-            (o.status === 'in_process' && !isClassificationPending(o)),
-        ).length,
-      ),
-    },
-    {
-      key: 'ready_for_dispatch',
-      value: String(
-        pipelineOrders.filter((o) =>
-          ['ready_for_delivery', 'out_for_delivery'].includes(o.status),
-        ).length,
-      ),
-    },
-    {
-      key: 'pending_backlog',
-      value: String(pipelineOrders.filter(isClassificationPending).length),
-    },
-    {
-      key: 'order_completed',
-      value: String(orders.filter((o) => o.status === 'delivered').length),
-    },
-  ];
-};
-
 const buildDetailKeyValue = (key, value) => ({
   key,
   value: value != null && String(value).trim() !== '' ? String(value) : 'N/A',
@@ -1097,65 +1105,75 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
   };
 };
 
-const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => ({
-  id: vendor.id,
-  merchant_id: formatMerchantId(vendor.id),
-  name: vendor.laundry_shop_name || 'N/A',
-  contact: formatPhone(vendor.mobile_number),
-  status: formatMerchantStatus(vendor.is_active),
-  avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-  address: vendor.shop_address || 'N/A',
-  shift_schedule: shiftSchedule,
-  business_details: [
-    buildDetailKeyValue('business_name', vendor.laundry_shop_name),
-    buildDetailKeyValue('owner_name', vendor.owner_contact_name),
-    buildDetailKeyValue('phone', formatPhone(vendor.mobile_number)),
-    buildDetailKeyValue('email', vendor.email),
-    buildDetailKeyValue('address', vendor.shop_address),
-    buildDetailKeyValue('aadhar_number', vendor.aadhar_number),
-    buildDetailKeyValue('service_areas', vendor.service_area),
-    buildDetailKeyValue('gst_number', vendor.gst_number),
-    buildDetailKeyValue('pan_number', vendor.pan_card_number),
-    buildDetailKeyValue('business_type', vendor.business_type),
-    buildDetailKeyValue(
-      'registration_date',
-      vendor.registration_date
-        ? formatRegistrationDate(vendor.registration_date)
-        : formatRegistrationDate(vendor.created_at),
+const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
+  const zoneMeta = resolveMerchantZoneMeta(shiftSchedule);
+
+  return {
+    id: vendor.id,
+    merchant_id: formatMerchantId(vendor.id),
+    name: vendor.laundry_shop_name || 'N/A',
+    contact: formatPhone(vendor.mobile_number),
+    status: formatMerchantStatus(vendor.is_active),
+    avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
+    address: vendor.shop_address || 'N/A',
+    zone_id: zoneMeta.zone_id,
+    zone_code: zoneMeta.zone_code,
+    zone_name: zoneMeta.zone_name,
+    shift_schedule: shiftSchedule,
+    business_details: [
+      buildDetailKeyValue('business_name', vendor.laundry_shop_name),
+      buildDetailKeyValue('owner_name', vendor.owner_contact_name),
+      buildDetailKeyValue('phone', formatPhone(vendor.mobile_number)),
+      buildDetailKeyValue('email', vendor.email),
+      buildDetailKeyValue('address', vendor.shop_address),
+      buildDetailKeyValue('aadhar_number', vendor.aadhar_number),
+      buildDetailKeyValue('service_areas', vendor.service_area),
+      buildDetailKeyValue('gst_number', vendor.gst_number),
+      buildDetailKeyValue('pan_number', vendor.pan_card_number),
+      buildDetailKeyValue('business_type', vendor.business_type),
+      buildDetailKeyValue(
+        'registration_date',
+        vendor.registration_date
+          ? formatRegistrationDate(vendor.registration_date)
+          : formatRegistrationDate(vendor.created_at),
+      ),
+    ],
+    equipment_details: [
+      buildDetailKeyValue('washing_machines', vendor.washing_machines),
+      buildDetailKeyValue('washing_capacity_kg', vendor.washing_capacity_kg),
+      buildDetailKeyValue('dryers', vendor.dryers),
+      buildDetailKeyValue('iron_stations', vendor.iron_stations),
+      buildDetailKeyValue('dry_cleaning_machines', vendor.dry_cleaning_machines),
+      buildDetailKeyValue('detergents_used', vendor.detergents_used),
+      buildDetailKeyValue('fabric_conditioners', vendor.fabric_conditioners),
+      buildDetailKeyValue('special_chemicals', vendor.special_chemicals),
+      buildDetailKeyValue('special_handling', vendor.special_handling),
+      buildDetailKeyValue('quality_checks', vendor.quality_checks),
+      buildDetailKeyValue('water_supply', vendor.water_supply),
+      buildDetailKeyValue('power_backup', vendor.power_backup),
+    ],
+    banking_details: [
+      buildDetailKeyValue('account_holder', vendor.account_holder_name),
+      buildDetailKeyValue('bank', vendor.bank_name),
+      buildDetailKeyValue('account_number', maskAccountNumber(vendor.account_number)),
+      buildDetailKeyValue('ifsc_code', vendor.ifsc_code),
+      buildDetailKeyValue('upi_id', vendor.upi_id),
+    ],
+    capacity: {
+      max_wash_kg: Number(vendor.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG),
+      max_dry_pcs: Number(vendor.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS),
+    },
+    vendor_per_kg_amount: parseFloat(
+      Number(vendor.vendor_per_kg_amount ?? DEFAULT_VENDOR_PER_KG_AMOUNT).toFixed(2),
     ),
-  ],
-  equipment_details: [
-    buildDetailKeyValue('washing_machines', vendor.washing_machines),
-    buildDetailKeyValue('washing_capacity_kg', vendor.washing_capacity_kg),
-    buildDetailKeyValue('dryers', vendor.dryers),
-    buildDetailKeyValue('iron_stations', vendor.iron_stations),
-    buildDetailKeyValue('dry_cleaning_machines', vendor.dry_cleaning_machines),
-    buildDetailKeyValue('detergents_used', vendor.detergents_used),
-    buildDetailKeyValue('fabric_conditioners', vendor.fabric_conditioners),
-    buildDetailKeyValue('special_chemicals', vendor.special_chemicals),
-    buildDetailKeyValue('special_handling', vendor.special_handling),
-    buildDetailKeyValue('quality_checks', vendor.quality_checks),
-    buildDetailKeyValue('water_supply', vendor.water_supply),
-    buildDetailKeyValue('power_backup', vendor.power_backup),
-  ],
-  banking_details: [
-    buildDetailKeyValue('account_holder', vendor.account_holder_name),
-    buildDetailKeyValue('bank', vendor.bank_name),
-    buildDetailKeyValue('account_number', maskAccountNumber(vendor.account_number)),
-    buildDetailKeyValue('ifsc_code', vendor.ifsc_code),
-    buildDetailKeyValue('upi_id', vendor.upi_id),
-  ],
-  capacity: {
-    max_wash_kg: Number(vendor.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG),
-    max_dry_pcs: Number(vendor.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS),
-  },
-  vendor_per_kg_amount: parseFloat(
-    Number(vendor.vendor_per_kg_amount ?? DEFAULT_VENDOR_PER_KG_AMOUNT).toFixed(2),
-  ),
-});
+  };
+};
 
 export const getAdminMerchantsService = async (query = {}) => {
   const isActiveFilter = resolveVendorStatusFilter(query.status);
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
+
   const vendors = await fetchVendors(isActiveFilter);
   const vendorIds = vendors.map((v) => v.id);
 
@@ -1163,14 +1181,6 @@ export const getAdminMerchantsService = async (query = {}) => {
     ? await fetchMerchantOrders({ vendorIds, pipelineOnly: true })
     : [];
 
-  const deliveredOrders = vendorIds.length
-    ? await fetchMerchantOrders({
-        vendorIds,
-        orderStatus: 'delivered',
-      })
-    : [];
-
-  const statsOrders = [...orders, ...deliveredOrders];
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
 
   const ordersByVendor = orders.reduce((acc, order) => {
@@ -1181,32 +1191,50 @@ export const getAdminMerchantsService = async (query = {}) => {
 
   const scheduleMap = await getShiftSchedulesForLaundries(vendorIds);
 
-  const merchants = vendors.map((vendor) => {
-    const shiftSchedule = scheduleMap.get(vendor.id) || [];
+  const merchants = vendors
+    .map((vendor) => {
+      const vendorId = Number(vendor.id);
+      const shiftSchedule = scheduleMap.get(vendorId) || [];
 
-    return {
-      id: vendor.id,
-      merchant_id: formatMerchantId(vendor.id),
-      name: vendor.laundry_shop_name || 'N/A',
-      location:
-        vendor.shop_address
-        || summarizeShiftScheduleLocation(shiftSchedule)
-        || 'N/A',
-      contact: formatPhone(vendor.mobile_number),
-      status: formatMerchantStatus(vendor.is_active),
-      avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-      shift_schedule: shiftSchedule,
-      batches: buildMerchantBatches(
-        ordersByVendor[vendor.id] || [],
-        pickupShiftSlotIds,
-      ),
-    };
-  });
+      if (!merchantMatchesZone(shiftSchedule, pincodeGroupId)) {
+        return null;
+      }
+
+      const zoneMeta = resolveMerchantZoneMeta(shiftSchedule, { pincodeGroupId });
+
+      return {
+        id: vendor.id,
+        merchant_id: formatMerchantId(vendor.id),
+        name: vendor.laundry_shop_name || 'N/A',
+        location:
+          vendor.shop_address
+          || summarizeShiftScheduleLocation(shiftSchedule)
+          || 'N/A',
+        zone_id: zoneMeta.zone_id,
+        zone_code: zoneMeta.zone_code,
+        zone_name: zoneMeta.zone_name,
+        contact: formatPhone(vendor.mobile_number),
+        status: formatMerchantStatus(vendor.is_active),
+        avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
+        shift_schedule: shiftSchedule,
+        batches: buildMerchantBatches(
+          ordersByVendor[vendor.id] || ordersByVendor[vendorId] || [],
+          pickupShiftSlotIds,
+        ),
+      };
+    })
+    .filter(Boolean);
 
   const { items: pageMerchants, pagination } = paginateArray(merchants, query);
 
   return {
-    top_stats: buildTopStats(statsOrders),
+    filters: {
+      status: query.status || null,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
+    },
     merchants: pageMerchants,
     pagination,
   };
@@ -1481,11 +1509,8 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
   const selectedDate =
     parseOptionalDate(query.date, 'date') || formatDate(new Date());
   const shift = parseOptionalShift(query.shift);
-  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
-
-  if (pincodeGroupId != null) {
-    await resolvePincodeGroupName(pincodeGroupId);
-  }
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
 
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { shiftByPickupSlot } = await getPickupShiftConfig();
@@ -1515,12 +1540,17 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
       name: vendor.laundry_shop_name || 'N/A',
       status: formatMerchantStatus(vendor.is_active),
       shift: zoneMeta.shift || shift || null,
+      zone_id: zoneMeta.zone_id,
+      zone_code: zoneMeta.zone_code,
       zone_name: zoneMeta.zone_name,
     },
     filters: {
       date: selectedDate,
       shift,
-      pincode_group_id: pincodeGroupId,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
     },
     orders: dayOrders.map((order) =>
       mapMerchantOrder(order, selectedDate, shiftByPickupSlot),
@@ -1537,10 +1567,10 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     rangeStart,
     rangeEnd,
     shift,
-    pincodeGroupId,
   } = resolveMerchantListFilters(query);
 
-  const zoneGroup = await resolvePincodeGroupName(pincodeGroupId);
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
 
@@ -1595,6 +1625,7 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
         status: formatMerchantStatus(vendor.is_active),
         shift: zoneMeta.shift || shift || null,
         zone_id: zoneMeta.zone_id,
+        zone_code: zoneMeta.zone_code,
         zone_name: zoneMeta.zone_name,
         date: selectedDate,
         total_orders: vendorOrders.length,
@@ -1616,8 +1647,11 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
       date_from: dateFrom,
       date_to: dateTo,
       shift,
-      pincode_group_id: pincodeGroupId,
-      zone_group: zoneGroup,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
+      zone_group: zoneFilter.zone_name,
     },
     days: buildOverviewDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,

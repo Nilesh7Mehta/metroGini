@@ -11,18 +11,41 @@ const validateStatus = (status) => {
   return normalized;
 };
 
+const validateCityId = async (cityId, { required = true } = {}) => {
+  if (cityId === undefined || cityId === null || cityId === "") {
+    if (required) {
+      throw { status: 400, message: "city_id is required" };
+    }
+    return null;
+  }
+
+  const id = Number(cityId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: "city_id must be a valid positive integer" };
+  }
+
+  const { rows } = await sql.query(`SELECT id FROM cities WHERE id = $1`, [id]);
+  if (rows.length === 0) {
+    throw { status: 400, message: "city_id does not exist" };
+  }
+
+  return id;
+};
+
 export const createPincodeGroup = async (body) => {
-  const { group_code, name, status } = body;
+  const { group_code, name, city_id, status } = body;
 
   if (!group_code?.trim() || !name?.trim()) {
     throw { status: 400, message: "group_code and name are required" };
   }
 
+  const validatedCityId = await validateCityId(city_id, { required: true });
+
   const { rows } = await sql.query(
-    `INSERT INTO pincode_groups (group_code, name, status)
-     VALUES ($1, $2, $3)
+    `INSERT INTO pincode_groups (group_code, name, city_id, status)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [group_code.trim(), name.trim(), validateStatus(status)],
+    [group_code.trim(), name.trim(), validatedCityId, validateStatus(status)],
   );
 
   return rows[0];
@@ -62,19 +85,26 @@ export const getPincodeGroupById = async (id) => {
 
 export const updatePincodeGroup = async (id, body) => {
   const existing = await getPincodeGroupById(id);
-  const { group_code, name, status } = body;
+  const { group_code, name, city_id, status } = body;
+
+  const validatedCityId =
+    city_id !== undefined
+      ? await validateCityId(city_id, { required: true })
+      : existing.city_id;
 
   const { rows } = await sql.query(
     `UPDATE pincode_groups
      SET group_code = $1,
          name = $2,
-         status = $3,
+         city_id = $3,
+         status = $4,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $4
+     WHERE id = $5
      RETURNING *`,
     [
       group_code?.trim() || existing.group_code,
       name?.trim() || existing.name,
+      validatedCityId,
       status !== undefined ? validateStatus(status) : existing.status,
       id,
     ],
