@@ -1,4 +1,10 @@
 import sql from '../../config/db.js';
+import {
+  ORDER_ZONE_JOINS,
+  orderZoneCityFilterSql,
+  resolveGeoFilters,
+  userZoneCityExistsSql,
+} from '../../utils/adminGeoFilter.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -70,15 +76,6 @@ const parseOptionalDate = (value, fieldName) => {
   return String(value);
 };
 
-const parseOptionalPincodeGroupId = (value) => {
-  if (value == null || value === '') return null;
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
-  }
-  return id;
-};
-
 const resolveFilters = async (query = {}) => {
   const dateFrom = parseOptionalDate(query.date_from, 'date_from');
   const dateTo = parseOptionalDate(query.date_to, 'date_to');
@@ -101,20 +98,7 @@ const resolveFilters = async (query = {}) => {
     ? { start: dateFrom, end: dateTo }
     : getDateRangeFromPeriod(period);
 
-  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
-  let zoneGroup = null;
-
-  if (pincodeGroupId != null) {
-    const { rows } = await sql.query(
-      `SELECT id, name FROM pincode_groups WHERE id = $1`,
-      [pincodeGroupId],
-    );
-    if (!rows.length) {
-      throw { status: 404, message: 'pincode_group_id not found' };
-    }
-    zoneGroup = rows[0].name;
-  }
-
+  const geoFilter = await resolveGeoFilters(query);
   const status = VALID_STATUS_FILTERS.includes(query.status) ? query.status : null;
 
   return {
@@ -123,8 +107,10 @@ const resolveFilters = async (query = {}) => {
     end: range.end,
     dateFrom: hasFrom ? dateFrom : null,
     dateTo: hasTo ? dateTo : null,
-    pincodeGroupId,
-    zoneGroup,
+    pincodeGroupId: geoFilter.pincode_group_id,
+    zoneGroup: geoFilter.zone_name,
+    cityId: geoFilter.city_id,
+    cityName: geoFilter.city_name,
     status,
   };
 };
@@ -217,30 +203,14 @@ const resolveDetailAction = (status) => {
   return 'view_details';
 };
 
-const userZoneFilterSql = (paramIndex) => `
-  (
-    $${paramIndex}::int IS NULL
-    OR EXISTS (
-      SELECT 1
-      FROM user_address_details uad
-      JOIN pincodes p ON p.pincode = uad.pincode
-      WHERE uad.user_id = u.id
-        AND p.pincode_group_id = $${paramIndex}::int
-    )
-  )
-`;
-
-const orderZoneFilterSql = (paramIndex) =>
-  `($${paramIndex}::int IS NULL OR p.pincode_group_id = $${paramIndex}::int)`;
-
-const fetchCustomerMetrics = async (pincodeGroupId) => {
+const fetchCustomerMetrics = async (pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     WITH customer_users AS (
       SELECT u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
       FROM users u
       WHERE u.role = 'user'
-        AND ${userZoneFilterSql(1)}
+        AND ${userZoneCityExistsSql(1, 2)}
     ),
     order_stats AS (
       SELECT
@@ -254,10 +224,9 @@ const fetchCustomerMetrics = async (pincodeGroupId) => {
         MAX(COALESCE(o.delivered_at, o.created_at))
           FILTER (WHERE o.status NOT IN ('draft', 'cancelled')) AS last_order_date
       FROM orders o
-      LEFT JOIN user_address_details uad ON uad.id = o.address_id
-      LEFT JOIN pincodes p ON p.pincode = uad.pincode
+      ${ORDER_ZONE_JOINS}
       WHERE o.user_id IS NOT NULL
-        AND ${orderZoneFilterSql(1)}
+        AND ${orderZoneCityFilterSql(1, 2)}
       GROUP BY o.user_id
     ),
     last_orders AS (
@@ -267,11 +236,10 @@ const fetchCustomerMetrics = async (pincodeGroupId) => {
         o.order_code,
         COALESCE(o.delivered_at, o.created_at) AS last_order_date
       FROM orders o
-      LEFT JOIN user_address_details uad ON uad.id = o.address_id
-      LEFT JOIN pincodes p ON p.pincode = uad.pincode
+      ${ORDER_ZONE_JOINS}
       WHERE o.user_id IS NOT NULL
         AND o.status NOT IN ('draft', 'cancelled')
-        AND ${orderZoneFilterSql(1)}
+        AND ${orderZoneCityFilterSql(1, 2)}
       ORDER BY o.user_id, COALESCE(o.delivered_at, o.created_at) DESC, o.id DESC
     ),
     draft_carts AS (
@@ -280,11 +248,10 @@ const fetchCustomerMetrics = async (pincodeGroupId) => {
         o.id AS cart_order_id,
         o.updated_at AS cart_updated_at
       FROM orders o
-      LEFT JOIN user_address_details uad ON uad.id = o.address_id
-      LEFT JOIN pincodes p ON p.pincode = uad.pincode
+      ${ORDER_ZONE_JOINS}
       WHERE o.user_id IS NOT NULL
         AND o.status = 'draft'
-        AND ${orderZoneFilterSql(1)}
+        AND ${orderZoneCityFilterSql(1, 2)}
       ORDER BY o.user_id, o.updated_at DESC, o.id DESC
     )
     SELECT
@@ -306,7 +273,7 @@ const fetchCustomerMetrics = async (pincodeGroupId) => {
     LEFT JOIN draft_carts dc ON dc.user_id = u.id
     ORDER BY u.id DESC
     `,
-    [pincodeGroupId],
+    [pincodeGroupId, cityId],
   );
 
   return rows.map((row) => {
@@ -342,7 +309,7 @@ const fetchCustomerMetrics = async (pincodeGroupId) => {
   });
 };
 
-const fetchPeriodOrderStats = async (start, end, pincodeGroupId) => {
+const fetchPeriodOrderStats = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT
@@ -350,13 +317,12 @@ const fetchPeriodOrderStats = async (start, end, pincodeGroupId) => {
       COALESCE(SUM(COALESCE(o.final_total, o.estimated_total, 0)), 0) AS total_revenue,
       COUNT(DISTINCT o.user_id)::int AS users_with_orders
     FROM orders o
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    ${ORDER_ZONE_JOINS}
     WHERE o.status NOT IN ('draft', 'cancelled')
       AND o.created_at::date BETWEEN $1::date AND $2::date
-      AND ${orderZoneFilterSql(3)}
+      AND ${orderZoneCityFilterSql(3, 4)}
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return {
@@ -366,29 +332,34 @@ const fetchPeriodOrderStats = async (start, end, pincodeGroupId) => {
   };
 };
 
-const fetchNewUsersCount = async (start, end, pincodeGroupId) => {
+const fetchNewUsersCount = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT COUNT(*)::int AS count
     FROM users u
     WHERE u.role = 'user'
       AND u.created_at::date BETWEEN $1::date AND $2::date
-      AND ${userZoneFilterSql(3)}
+      AND ${userZoneCityExistsSql(3, 4)}
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return Number(rows[0]?.count || 0);
 };
 
-const buildTopStats = async (customers, start, end, pincodeGroupId) => {
+const buildTopStats = async (customers, start, end, pincodeGroupId, cityId) => {
   const totalUsers = customers.length;
   const usersBooked = customers.filter((c) => c.total_orders > 0).length;
   const usersNeverOrdered = totalUsers - usersBooked;
   const activeUsers = customers.filter((c) => c.segment === 'active_customers').length;
   const repeatUsers = customers.filter((c) => c.total_orders > 1).length;
-  const newUsers = await fetchNewUsersCount(start, end, pincodeGroupId);
-  const periodStats = await fetchPeriodOrderStats(start, end, pincodeGroupId);
+  const newUsers = await fetchNewUsersCount(start, end, pincodeGroupId, cityId);
+  const periodStats = await fetchPeriodOrderStats(
+    start,
+    end,
+    pincodeGroupId,
+    cityId,
+  );
 
   const conversionRate =
     totalUsers > 0 ? Math.round((usersBooked / totalUsers) * 100) : 0;
@@ -493,7 +464,7 @@ const mapSeriesToDays = (dates, rows, valueKey) => {
   return dates.map((date) => byDay[date] || 0);
 };
 
-const fetchOrdersRevenueByDay = async (start, end, pincodeGroupId) => {
+const fetchOrdersRevenueByDay = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT
@@ -501,21 +472,20 @@ const fetchOrdersRevenueByDay = async (start, end, pincodeGroupId) => {
       COUNT(*)::int AS order_count,
       COALESCE(SUM(COALESCE(o.final_total, o.estimated_total, 0)), 0) AS revenue
     FROM orders o
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    ${ORDER_ZONE_JOINS}
     WHERE o.status NOT IN ('draft', 'cancelled')
       AND o.created_at::date BETWEEN $1::date AND $2::date
-      AND ${orderZoneFilterSql(3)}
+      AND ${orderZoneCityFilterSql(3, 4)}
     GROUP BY o.created_at::date
     ORDER BY day ASC
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return rows;
 };
 
-const fetchNewUsersByDay = async (start, end, pincodeGroupId) => {
+const fetchNewUsersByDay = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT
@@ -524,66 +494,63 @@ const fetchNewUsersByDay = async (start, end, pincodeGroupId) => {
     FROM users u
     WHERE u.role = 'user'
       AND u.created_at::date BETWEEN $1::date AND $2::date
-      AND ${userZoneFilterSql(3)}
+      AND ${userZoneCityExistsSql(3, 4)}
     GROUP BY u.created_at::date
     ORDER BY day ASC
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return rows;
 };
 
-const fetchActiveUsersByDay = async (start, end, pincodeGroupId) => {
+const fetchActiveUsersByDay = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT
       o.created_at::date AS day,
       COUNT(DISTINCT o.user_id)::int AS active_users
     FROM orders o
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    ${ORDER_ZONE_JOINS}
     WHERE o.status NOT IN ('draft', 'cancelled')
       AND o.user_id IS NOT NULL
       AND o.created_at::date BETWEEN $1::date AND $2::date
-      AND ${orderZoneFilterSql(3)}
+      AND ${orderZoneCityFilterSql(3, 4)}
     GROUP BY o.created_at::date
     ORDER BY day ASC
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return rows;
 };
 
-const fetchOrdersByZone = async (start, end, pincodeGroupId) => {
+const fetchOrdersByZone = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     SELECT
       COALESCE(pg.name, 'Unknown') AS zone_name,
       COUNT(*)::int AS order_count
     FROM orders o
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
-    LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
+    ${ORDER_ZONE_JOINS}
     WHERE o.status NOT IN ('draft', 'cancelled')
       AND o.created_at::date BETWEEN $1::date AND $2::date
-      AND ${orderZoneFilterSql(3)}
+      AND ${orderZoneCityFilterSql(3, 4)}
     GROUP BY COALESCE(pg.name, 'Unknown')
     ORDER BY order_count DESC, zone_name ASC
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   return rows;
 };
 
-const buildCharts = async (customers, start, end, pincodeGroupId) => {
+const buildCharts = async (customers, start, end, pincodeGroupId, cityId) => {
   const { labels, dates } = buildDayLabels(start, end);
   const [orderRows, newUserRows, zoneRows] = await Promise.all([
-    fetchOrdersRevenueByDay(start, end, pincodeGroupId),
-    fetchNewUsersByDay(start, end, pincodeGroupId),
-    fetchOrdersByZone(start, end, pincodeGroupId),
+    fetchOrdersRevenueByDay(start, end, pincodeGroupId, cityId),
+    fetchNewUsersByDay(start, end, pincodeGroupId, cityId),
+    fetchOrdersByZone(start, end, pincodeGroupId, cityId),
   ]);
 
   const usersBooked = customers.filter((c) => c.total_orders > 0).length;
@@ -621,9 +588,9 @@ const buildCharts = async (customers, start, end, pincodeGroupId) => {
   };
 };
 
-const buildActiveUsersTrend = async (start, end, pincodeGroupId) => {
+const buildActiveUsersTrend = async (start, end, pincodeGroupId, cityId) => {
   const { labels, dates } = buildDayLabels(start, end);
-  const rows = await fetchActiveUsersByDay(start, end, pincodeGroupId);
+  const rows = await fetchActiveUsersByDay(start, end, pincodeGroupId, cityId);
 
   return {
     labels,
@@ -674,12 +641,32 @@ export const getAdminMarketingService = async (query = {}) => {
   }
 
   const filters = await resolveFilters(query);
-  const customers = await fetchCustomerMetrics(filters.pincodeGroupId);
+  const customers = await fetchCustomerMetrics(
+    filters.pincodeGroupId,
+    filters.cityId,
+  );
 
   const [topStats, charts, activeUsersTrend] = await Promise.all([
-    buildTopStats(customers, filters.start, filters.end, filters.pincodeGroupId),
-    buildCharts(customers, filters.start, filters.end, filters.pincodeGroupId),
-    buildActiveUsersTrend(filters.start, filters.end, filters.pincodeGroupId),
+    buildTopStats(
+      customers,
+      filters.start,
+      filters.end,
+      filters.pincodeGroupId,
+      filters.cityId,
+    ),
+    buildCharts(
+      customers,
+      filters.start,
+      filters.end,
+      filters.pincodeGroupId,
+      filters.cityId,
+    ),
+    buildActiveUsersTrend(
+      filters.start,
+      filters.end,
+      filters.pincodeGroupId,
+      filters.cityId,
+    ),
   ]);
 
   const segmentDetails = buildSegmentDetails(customers, filters.status);
@@ -691,6 +678,9 @@ export const getAdminMarketingService = async (query = {}) => {
   return {
     filters: {
       zone_group: filters.zoneGroup,
+      pincode_group_id: filters.pincodeGroupId,
+      city_id: filters.cityId,
+      city_name: filters.cityName,
       date_from: filters.dateFrom || filters.start,
       date_to: filters.dateTo || filters.end,
     },

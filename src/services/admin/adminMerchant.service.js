@@ -9,6 +9,12 @@ import {
   saveShiftScheduleForLaundry,
   clearShiftScheduleForLaundry,
 } from '../common/laundryGroupShiftSchedule.service.js';
+import {
+  ORDER_ZONE_JOINS,
+  orderZoneCityFilterSql,
+  resolveGeoFilters,
+  scheduleMatchesGeo,
+} from '../../utils/adminGeoFilter.util.js';
 import { validateVendorFields } from '../../utils/vendorValidation.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
@@ -303,15 +309,6 @@ const parseOptionalDate = (value, fieldName) => {
   return String(value);
 };
 
-const parseOptionalPincodeGroupId = (value) => {
-  if (value == null || value === '') return null;
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
-  }
-  return id;
-};
-
 const parseOptionalShift = (value) => {
   if (value == null || value === '') return null;
   const shift = String(value).trim().toLowerCase();
@@ -375,60 +372,6 @@ const resolveShiftSlotIds = async (shift) => {
   );
 };
 
-const resolveZoneFilter = async (query = {}) => {
-  const zoneId = parseOptionalPincodeGroupId(
-    query.pincode_group_id ?? query.zone_id,
-  );
-  const zoneCodeRaw = query.zone_code;
-  const zoneCode =
-    zoneCodeRaw != null && String(zoneCodeRaw).trim() !== ''
-      ? String(zoneCodeRaw).trim()
-      : null;
-
-  if (zoneId == null && zoneCode == null) {
-    return {
-      pincode_group_id: null,
-      zone_id: null,
-      zone_code: null,
-      zone_name: null,
-    };
-  }
-
-  let rows;
-  if (zoneId != null) {
-    ({ rows } = await sql.query(
-      `SELECT id, group_code, name FROM pincode_groups WHERE id = $1`,
-      [zoneId],
-    ));
-    if (!rows.length) {
-      throw { status: 404, message: 'pincode_group_id not found' };
-    }
-  } else {
-    ({ rows } = await sql.query(
-      `SELECT id, group_code, name FROM pincode_groups WHERE group_code = $1`,
-      [zoneCode],
-    ));
-    if (!rows.length) {
-      throw { status: 404, message: 'zone_code not found' };
-    }
-  }
-
-  const row = rows[0];
-  return {
-    pincode_group_id: Number(row.id),
-    zone_id: Number(row.id),
-    zone_code: row.group_code || null,
-    zone_name: row.name || null,
-  };
-};
-
-const merchantMatchesZone = (shiftSchedule = [], pincodeGroupId) => {
-  if (pincodeGroupId == null) return true;
-  return shiftSchedule.some(
-    (entry) => Number(entry.pincode_group_id) === Number(pincodeGroupId),
-  );
-};
-
 const resolveMerchantListFilters = (query = {}) => {
   const dateFrom = parseOptionalDate(query.date_from, 'date_from');
   const dateTo = parseOptionalDate(query.date_to, 'date_to');
@@ -475,13 +418,6 @@ const resolveMerchantListFilters = (query = {}) => {
     rangeStart,
     rangeEnd,
     shift: parseOptionalShift(query.shift),
-    pincodeGroupId: parseOptionalPincodeGroupId(
-      query.pincode_group_id ?? query.zone_id,
-    ),
-    zoneCode:
-      query.zone_code != null && String(query.zone_code).trim() !== ''
-        ? String(query.zone_code).trim()
-        : null,
   };
 };
 
@@ -557,14 +493,15 @@ const fetchMerchantScheduleOrders = async ({
   rangeStart,
   rangeEnd,
   pincodeGroupId = null,
+  cityId = null,
   shiftSlotIds = null,
 }) => {
-  const params = [rangeStart, rangeEnd, pincodeGroupId];
+  const params = [rangeStart, rangeEnd, pincodeGroupId, cityId];
   const conditions = [
     `o.vendor_id IS NOT NULL`,
     `o.status NOT IN ('draft', 'cancelled')`,
     `o.delivery_date BETWEEN $1::date AND $2::date`,
-    `($3::int IS NULL OR p.pincode_group_id = $3::int)`,
+    orderZoneCityFilterSql(3, 4),
   ];
 
   if (vendorIds?.length) {
@@ -608,8 +545,7 @@ const fetchMerchantScheduleOrders = async ({
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN service_types st ON o.service_type_id = st.id
     LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    ${ORDER_ZONE_JOINS}
     LEFT JOIN LATERAL (
       SELECT issue_type
       FROM order_reports
@@ -1171,8 +1107,9 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
 
 export const getAdminMerchantsService = async (query = {}) => {
   const isActiveFilter = resolveVendorStatusFilter(query.status);
-  const zoneFilter = await resolveZoneFilter(query);
-  const pincodeGroupId = zoneFilter.pincode_group_id;
+  const geoFilter = await resolveGeoFilters(query);
+  const pincodeGroupId = geoFilter.pincode_group_id;
+  const cityId = geoFilter.city_id;
 
   const vendors = await fetchVendors(isActiveFilter);
   const vendorIds = vendors.map((v) => v.id);
@@ -1196,7 +1133,12 @@ export const getAdminMerchantsService = async (query = {}) => {
       const vendorId = Number(vendor.id);
       const shiftSchedule = scheduleMap.get(vendorId) || [];
 
-      if (!merchantMatchesZone(shiftSchedule, pincodeGroupId)) {
+      if (
+        !scheduleMatchesGeo(shiftSchedule, {
+          pincodeGroupId,
+          cityId,
+        })
+      ) {
         return null;
       }
 
@@ -1230,10 +1172,12 @@ export const getAdminMerchantsService = async (query = {}) => {
   return {
     filters: {
       status: query.status || null,
-      pincode_group_id: zoneFilter.pincode_group_id,
-      zone_id: zoneFilter.zone_id,
-      zone_code: zoneFilter.zone_code,
-      zone_name: zoneFilter.zone_name,
+      pincode_group_id: geoFilter.pincode_group_id,
+      zone_id: geoFilter.zone_id,
+      zone_code: geoFilter.zone_code,
+      zone_name: geoFilter.zone_name,
+      city_id: geoFilter.city_id,
+      city_name: geoFilter.city_name,
     },
     merchants: pageMerchants,
     pagination,
@@ -1509,8 +1453,9 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
   const selectedDate =
     parseOptionalDate(query.date, 'date') || formatDate(new Date());
   const shift = parseOptionalShift(query.shift);
-  const zoneFilter = await resolveZoneFilter(query);
-  const pincodeGroupId = zoneFilter.pincode_group_id;
+  const geoFilter = await resolveGeoFilters(query);
+  const pincodeGroupId = geoFilter.pincode_group_id;
+  const cityId = geoFilter.city_id;
 
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { shiftByPickupSlot } = await getPickupShiftConfig();
@@ -1520,6 +1465,7 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
     rangeStart: selectedDate,
     rangeEnd: selectedDate,
     pincodeGroupId,
+    cityId,
     shiftSlotIds,
   });
 
@@ -1547,10 +1493,12 @@ export const getAdminMerchantOrdersService = async (rawId, query = {}) => {
     filters: {
       date: selectedDate,
       shift,
-      pincode_group_id: zoneFilter.pincode_group_id,
-      zone_id: zoneFilter.zone_id,
-      zone_code: zoneFilter.zone_code,
-      zone_name: zoneFilter.zone_name,
+      pincode_group_id: geoFilter.pincode_group_id,
+      zone_id: geoFilter.zone_id,
+      zone_code: geoFilter.zone_code,
+      zone_name: geoFilter.zone_name,
+      city_id: geoFilter.city_id,
+      city_name: geoFilter.city_name,
     },
     orders: dayOrders.map((order) =>
       mapMerchantOrder(order, selectedDate, shiftByPickupSlot),
@@ -1569,8 +1517,9 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     shift,
   } = resolveMerchantListFilters(query);
 
-  const zoneFilter = await resolveZoneFilter(query);
+  const zoneFilter = await resolveGeoFilters(query);
   const pincodeGroupId = zoneFilter.pincode_group_id;
+  const cityId = zoneFilter.city_id;
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
 
@@ -1585,6 +1534,7 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     rangeStart,
     rangeEnd,
     pincodeGroupId,
+    cityId,
     shiftSlotIds,
   });
 
@@ -1652,6 +1602,8 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
       zone_code: zoneFilter.zone_code,
       zone_name: zoneFilter.zone_name,
       zone_group: zoneFilter.zone_name,
+      city_id: zoneFilter.city_id,
+      city_name: zoneFilter.city_name,
     },
     days: buildOverviewDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,

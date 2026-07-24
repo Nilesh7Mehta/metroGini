@@ -9,6 +9,10 @@ import {
   toDateStr,
   weekForDate,
 } from '../../utils/vendorPayoutWeek.util.js';
+import {
+  parseOptionalPositiveInt,
+  resolveCityFilter,
+} from '../../utils/adminGeoFilter.util.js';
 
 const isValidDateStr = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 
@@ -297,6 +301,19 @@ const fetchBatches = async (query = {}) => {
     }
   }
 
+  const cityId = parseOptionalPositiveInt(query.city_id, 'city_id');
+  if (cityId != null) {
+    const cityCheck = await pool.query(
+      `SELECT id, city_name FROM cities WHERE id = $1`,
+      [cityId],
+    );
+    if (!cityCheck.rows.length) {
+      throw { status: 404, message: 'city_id not found' };
+    }
+    params.push(cityId);
+    where.push(`pg.city_id = $${params.length}`);
+  }
+
   if (query.search) {
     const q = String(query.search).trim();
     if (q) {
@@ -327,6 +344,8 @@ const fetchBatches = async (query = {}) => {
       b.pincode_group_id,
       pg.name AS zone_group,
       pg.name AS pincode_group_name,
+      pg.city_id,
+      c.city_name,
       TO_CHAR(b.week_start, 'YYYY-MM-DD') AS week_start,
       TO_CHAR(b.week_end, 'YYYY-MM-DD') AS week_end,
       b.total_orders,
@@ -339,10 +358,16 @@ const fetchBatches = async (query = {}) => {
       b.invoice_image,
       b.transaction_id,
       TO_CHAR(b.payment_date, 'YYYY-MM-DD') AS payment_date,
-      b.paid_at
+      b.paid_at,
+      COALESCE((
+        SELECT SUM(COALESCE(o.actual_clothes_count, o.clothes_count, 0))::int
+        FROM orders o
+        WHERE o.vendor_payout_batch_id = b.id
+      ), 0) AS no_of_clothes
     FROM vendor_payout_batches b
     JOIN vendors v ON v.id = b.vendor_id
     JOIN pincode_groups pg ON pg.id = b.pincode_group_id
+    LEFT JOIN cities c ON c.id = pg.city_id
     ${whereSql}
     ORDER BY b.week_start DESC, b.id DESC
     `,
@@ -367,12 +392,15 @@ const toPublicBatch = (batch) => {
     pincode_group_id: Number(batch.pincode_group_id),
     zone_group: batch.zone_group,
     pincode_group_name: batch.pincode_group_name,
+    city_id: batch.city_id != null ? Number(batch.city_id) : null,
+    city_name: batch.city_name || null,
     date_from: week_start,
     date_to: week_end,
     date_label: formatDateLabel(week_start, week_end),
     total_orders: Number(batch.total_orders) || 0,
     total_kg: num(batch.total_kg),
     total_weight: num(batch.total_kg),
+    no_of_clothes: Number(batch.no_of_clothes) || 0,
     gross_revenue: num(batch.gross_revenue),
     total_amount: num(batch.gross_revenue),
     gst_amount: num(batch.gst_amount, 0),
@@ -402,6 +430,7 @@ const toPublicBatch = (batch) => {
 
 export const getVendorPayoutMasterService = async (query = {}) => {
   await syncVendorPayoutBatches();
+  const cityFilter = await resolveCityFilter(query);
   const rows = await fetchBatches(query);
 
   const byVendor = new Map();
@@ -415,10 +444,13 @@ export const getVendorPayoutMasterService = async (query = {}) => {
         pincode_group_id: row.pincode_group_id,
         zone_group: row.zone_group,
         pincode_group_name: row.pincode_group_name,
+        city_id: row.city_id,
+        city_name: row.city_name,
         total_revenue: 0,
         total_kg: 0,
         total_weight: 0,
         total_orders: 0,
+        no_of_clothes: 0,
         paid_amount: 0,
         pending_amount: 0,
       });
@@ -429,6 +461,7 @@ export const getVendorPayoutMasterService = async (query = {}) => {
     agg.total_kg = num(agg.total_kg + row.total_kg);
     agg.total_weight = num(agg.total_weight + row.total_weight);
     agg.total_orders += row.total_orders;
+    agg.no_of_clothes += Number(row.no_of_clothes) || 0;
 
     if (row.payment_status === 'paid') {
       agg.paid_amount += row.payable_amount;
@@ -447,10 +480,18 @@ export const getVendorPayoutMasterService = async (query = {}) => {
 
   return {
     mode: 'live',
+    filters: {
+      city_id: cityFilter.city_id,
+      city_name: cityFilter.city_name,
+      pincode_group_id: query.pincode_group_id
+        ? Number(query.pincode_group_id) || null
+        : null,
+    },
     summary: {
       total_revenue: items.reduce((s, i) => s + i.total_revenue, 0),
       total_orders: items.reduce((s, i) => s + i.total_orders, 0),
       total_weight: num(items.reduce((s, i) => s + i.total_weight, 0)),
+      no_of_clothes: items.reduce((s, i) => s + i.no_of_clothes, 0),
       paid_amount: items.reduce((s, i) => s + i.paid_amount, 0),
       pending_amount: items.reduce((s, i) => s + i.pending_amount, 0),
     },
@@ -490,6 +531,12 @@ export const getVendorPayoutMasterOrdersService = async (vendorId, query = {}) =
     }
   }
 
+  const cityFilter = await resolveCityFilter(query);
+  if (cityFilter.city_id != null) {
+    params.push(cityFilter.city_id);
+    where.push(`pg.city_id = $${params.length}`);
+  }
+
   if (query.week_start) {
     params.push(query.week_start);
     where.push(`b.week_start = $${params.length}::date`);
@@ -517,13 +564,16 @@ export const getVendorPayoutMasterOrdersService = async (vendorId, query = {}) =
       b.payment_status,
       b.batch_code,
       p.pincode_group_id::int AS pincode_group_id,
-      pg.name AS zone_group
+      pg.name AS zone_group,
+      pg.city_id,
+      c.city_name
     FROM orders o
     LEFT JOIN service_types st ON st.id = o.service_type_id
     LEFT JOIN user_address_details uad ON uad.id = o.address_id
     LEFT JOIN pincodes p ON p.pincode = uad.pincode
     LEFT JOIN vendor_payout_batches b ON b.id = o.vendor_payout_batch_id
     LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
+    LEFT JOIN cities c ON c.id = pg.city_id
     WHERE ${where.join(' AND ')}
     ORDER BY o.ready_for_delivery_at DESC NULLS LAST, o.id DESC
     `,
@@ -537,20 +587,48 @@ export const getVendorPayoutMasterOrdersService = async (vendorId, query = {}) =
             rows.find((r) => r.pincode_group_id).pincode_group_id,
           ),
           zone_group: rows.find((r) => r.zone_group)?.zone_group || null,
+          city_id: rows.find((r) => r.city_id)?.city_id != null
+            ? Number(rows.find((r) => r.city_id).city_id)
+            : null,
+          city_name: rows.find((r) => r.city_name)?.city_name || null,
         }
-      : { pincode_group_id: null, zone_group: null };
+      : {
+          pincode_group_id: null,
+          zone_group: null,
+          city_id: cityFilter.city_id,
+          city_name: cityFilter.city_name,
+        };
 
   if (query.pincode_group_id) {
     const gid = Number(query.pincode_group_id);
-    const pg = await pool.query(`SELECT id, name FROM pincode_groups WHERE id = $1`, [
-      gid,
-    ]);
+    const pg = await pool.query(
+      `SELECT id, name, city_id FROM pincode_groups WHERE id = $1`,
+      [gid],
+    );
     if (pg.rows[0]) {
+      let city_name = cityFilter.city_name;
+      if (pg.rows[0].city_id != null && city_name == null) {
+        const cityRes = await pool.query(
+          `SELECT city_name FROM cities WHERE id = $1`,
+          [pg.rows[0].city_id],
+        );
+        city_name = cityRes.rows[0]?.city_name || null;
+      }
       zone = {
         pincode_group_id: Number(pg.rows[0].id),
         zone_group: pg.rows[0].name,
+        city_id:
+          cityFilter.city_id ??
+          (pg.rows[0].city_id != null ? Number(pg.rows[0].city_id) : null),
+        city_name,
       };
     }
+  } else if (cityFilter.city_id != null) {
+    zone = {
+      ...zone,
+      city_id: cityFilter.city_id,
+      city_name: cityFilter.city_name,
+    };
   }
 
   const orders = rows.map((o) => {
@@ -592,6 +670,13 @@ export const getVendorPayoutMasterOrdersService = async (vendorId, query = {}) =
       pincode_group_id: zone.pincode_group_id,
       zone_group: zone.zone_group,
       pincode_group_name: zone.zone_group,
+      city_id: zone.city_id ?? cityFilter.city_id,
+      city_name: zone.city_name ?? cityFilter.city_name,
+    },
+    filters: {
+      city_id: cityFilter.city_id,
+      city_name: cityFilter.city_name,
+      pincode_group_id: zone.pincode_group_id,
     },
     total_orders: orders.length,
     orders,
@@ -600,6 +685,7 @@ export const getVendorPayoutMasterOrdersService = async (vendorId, query = {}) =
 
 export const getVendorPayoutPendingService = async (query = {}) => {
   await syncVendorPayoutBatches();
+  const cityFilter = await resolveCityFilter(query);
 
   const STATUS_PRIORITY = {
     pending: 0,
@@ -650,6 +736,13 @@ export const getVendorPayoutPendingService = async (query = {}) => {
 
   return {
     mode: 'live',
+    filters: {
+      city_id: cityFilter.city_id,
+      city_name: cityFilter.city_name,
+      pincode_group_id: query.pincode_group_id
+        ? Number(query.pincode_group_id) || null
+        : null,
+    },
     tickers,
     items,
   };
@@ -657,12 +750,20 @@ export const getVendorPayoutPendingService = async (query = {}) => {
 
 export const getVendorPayoutPaidService = async (query = {}) => {
   await syncVendorPayoutBatches();
+  const cityFilter = await resolveCityFilter(query);
   const items = (await fetchBatches({ ...query, payment_status: 'paid' })).sort(
     (a, b) => String(b.paid_at || '').localeCompare(String(a.paid_at || '')),
   );
 
   return {
     mode: 'live',
+    filters: {
+      city_id: cityFilter.city_id,
+      city_name: cityFilter.city_name,
+      pincode_group_id: query.pincode_group_id
+        ? Number(query.pincode_group_id) || null
+        : null,
+    },
     items,
   };
 };

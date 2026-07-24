@@ -1,4 +1,9 @@
 import sql from '../../config/db.js';
+import {
+  ORDER_ZONE_JOINS,
+  orderZoneCityFilterSql,
+  resolveGeoFilters,
+} from '../../utils/adminGeoFilter.util.js';
 import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
@@ -46,15 +51,6 @@ const parseOptionalDate = (value, fieldName) => {
   return String(value);
 };
 
-const parseOptionalPincodeGroupId = (value) => {
-  if (value == null || value === '') return null;
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
-  }
-  return id;
-};
-
 const parseOptionalShift = (value) => {
   if (value == null || value === '') return null;
   const shift = String(value).trim().toLowerCase();
@@ -89,7 +85,6 @@ const resolveListFilters = (query = {}) => {
     dateFrom,
     dateTo,
     shift: parseOptionalShift(query.shift),
-    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
   };
 };
 
@@ -294,9 +289,10 @@ const fetchOrdersForRange = async ({
   rangeStart,
   rangeEnd,
   pincodeGroupId,
+  cityId,
   shiftSlotIds,
 }) => {
-  const params = [rangeStart, rangeEnd, pincodeGroupId];
+  const params = [rangeStart, rangeEnd, pincodeGroupId, cityId];
   let shiftClause = '';
 
   if (shiftSlotIds?.length) {
@@ -337,8 +333,7 @@ const fetchOrdersForRange = async ({
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN time_slots pickup_ts ON pickup_ts.id = o.pickup_slot_id
-    LEFT JOIN user_address_details uad ON uad.id = o.address_id
-    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    ${ORDER_ZONE_JOINS}
     LEFT JOIN (
       SELECT
         order_id,
@@ -365,7 +360,7 @@ const fetchOrdersForRange = async ({
         o.pickup_date BETWEEN $1::date AND $2::date
         OR o.delivery_date BETWEEN $1::date AND $2::date
       )
-      AND ($3::int IS NULL OR p.pincode_group_id = $3::int)
+      AND ${orderZoneCityFilterSql(3, 4)}
       ${shiftClause}
     ORDER BY o.id DESC
     `,
@@ -376,20 +371,10 @@ const fetchOrdersForRange = async ({
 };
 
 export const getAdminOrdersService = async (query = {}) => {
-  const { selectedDate, dateFrom, dateTo, shift, pincodeGroupId } =
-    resolveListFilters(query);
-
-  let zoneGroup = null;
-  if (pincodeGroupId != null) {
-    const groupCheck = await sql.query(
-      `SELECT id, name FROM pincode_groups WHERE id = $1`,
-      [pincodeGroupId],
-    );
-    if (groupCheck.rows.length === 0) {
-      throw { status: 404, message: 'pincode_group_id not found' };
-    }
-    zoneGroup = groupCheck.rows[0].name;
-  }
+  const { selectedDate, dateFrom, dateTo, shift } = resolveListFilters(query);
+  const geoFilter = await resolveGeoFilters(query);
+  const pincodeGroupId = geoFilter.pincode_group_id;
+  const cityId = geoFilter.city_id;
 
   const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
 
@@ -408,6 +393,7 @@ export const getAdminOrdersService = async (query = {}) => {
     rangeStart,
     rangeEnd,
     pincodeGroupId,
+    cityId,
     shiftSlotIds,
   });
 
@@ -427,7 +413,9 @@ export const getAdminOrdersService = async (query = {}) => {
       date_to: dateTo,
       shift,
       pincode_group_id: pincodeGroupId,
-      zone_group: zoneGroup,
+      zone_group: geoFilter.zone_name,
+      city_id: cityId,
+      city_name: geoFilter.city_name,
     },
     days: buildDays(selectedDate, orders),
     selected_date: selectedDate,

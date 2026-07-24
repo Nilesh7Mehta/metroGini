@@ -1,4 +1,10 @@
 import sql from '../../config/db.js';
+import {
+  ORDER_ZONE_JOINS,
+  orderZoneCityFilterSql,
+  resolveGeoFilters,
+  userZoneCityExistsSql,
+} from '../../utils/adminGeoFilter.util.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -26,15 +32,6 @@ const daysBetween = (fromDate, toDate = new Date()) => {
   const fromDay = new Date(`${formatDate(from)}T12:00:00`);
   const toDay = new Date(`${formatDate(toDate)}T12:00:00`);
   return Math.floor((toDay - fromDay) / (1000 * 60 * 60 * 24));
-};
-
-const parseOptionalPincodeGroupId = (value) => {
-  if (value == null || value === '') return null;
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw { status: 400, message: 'pincode_group_id must be a positive integer' };
-  }
-  return id;
 };
 
 const resolveDateFilters = (query = {}) => {
@@ -83,15 +80,13 @@ const parseInactiveTicker = (ticker) => {
   return { ticker, inactiveDays };
 };
 
-const ORDER_PINCODE_JOINS = `
-  LEFT JOIN user_address_details uad ON uad.id = o.address_id
-  LEFT JOIN pincodes p ON p.pincode = uad.pincode
-`;
-
-const orderPincodeFilter = (paramIndex) =>
-  `($${paramIndex}::int IS NULL OR p.pincode_group_id = $${paramIndex}::int)`;
-
-const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
+// Params: $1 dateFrom, $2 dateTo, $3 pincodeGroupId, $4 referenceDate, $5 cityId
+const fetchDashboardMetrics = async (
+  dateFrom,
+  dateTo,
+  pincodeGroupId,
+  cityId,
+) => {
   const referenceDate = dateTo || formatDate(new Date());
 
   const { rows } = await sql.query(
@@ -100,16 +95,7 @@ const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
       SELECT u.id, u.created_at
       FROM users u
       WHERE u.role = 'user'
-        AND (
-          $3::int IS NULL
-          OR EXISTS (
-            SELECT 1
-            FROM user_address_details uad
-            JOIN pincodes p ON p.pincode = uad.pincode
-            WHERE uad.user_id = u.id
-              AND p.pincode_group_id = $3::int
-          )
-        )
+        AND ${userZoneCityExistsSql(3, 5)}
     ),
     user_last_order AS (
       SELECT
@@ -123,16 +109,16 @@ const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
     period_orders AS (
       SELECT o.id, o.user_id, COALESCE(o.final_total, o.estimated_total, 0) AS order_total
       FROM orders o
-      ${ORDER_PINCODE_JOINS}
+      ${ORDER_ZONE_JOINS}
       WHERE o.status NOT IN ('draft', 'cancelled')
         AND ($1::date IS NULL OR o.created_at::date >= $1::date)
         AND ($2::date IS NULL OR o.created_at::date <= $2::date)
-        AND ${orderPincodeFilter(3)}
+        AND ${orderZoneCityFilterSql(3, 5)}
     ),
     period_draft_carts AS (
       SELECT DISTINCT o.user_id
       FROM orders o
-      ${ORDER_PINCODE_JOINS}
+      ${ORDER_ZONE_JOINS}
       WHERE o.status = 'draft'
         AND o.user_id IS NOT NULL
         AND (
@@ -142,7 +128,7 @@ const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
             AND o.created_at::date <= $2::date
           )
         )
-        AND ${orderPincodeFilter(3)}
+        AND ${orderZoneCityFilterSql(3, 5)}
     ),
     users_with_orders AS (
       SELECT DISTINCT user_id
@@ -206,7 +192,7 @@ const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
         )
       ) AS inactive_users_60
     `,
-    [dateFrom, dateTo, pincodeGroupId, referenceDate],
+    [dateFrom, dateTo, pincodeGroupId, referenceDate, cityId],
   );
 
   const row = rows[0];
@@ -230,7 +216,13 @@ const fetchDashboardMetrics = async (dateFrom, dateTo, pincodeGroupId) => {
   };
 };
 
-const fetchInactiveUsersList = async (inactiveDays, dateTo, pincodeGroupId) => {
+// Params: $1 pincodeGroupId, $2 referenceDate, $3 inactiveDays, $4 cityId
+const fetchInactiveUsersList = async (
+  inactiveDays,
+  dateTo,
+  pincodeGroupId,
+  cityId,
+) => {
   const referenceDate = dateTo || formatDate(new Date());
 
   const { rows } = await sql.query(
@@ -239,16 +231,7 @@ const fetchInactiveUsersList = async (inactiveDays, dateTo, pincodeGroupId) => {
       SELECT u.id, u.created_at
       FROM users u
       WHERE u.role = 'user'
-        AND (
-          $1::int IS NULL
-          OR EXISTS (
-            SELECT 1
-            FROM user_address_details uad
-            JOIN pincodes p ON p.pincode = uad.pincode
-            WHERE uad.user_id = u.id
-              AND p.pincode_group_id = $1::int
-          )
-        )
+        AND ${userZoneCityExistsSql(1, 4)}
     ),
     user_last_order AS (
       SELECT
@@ -294,7 +277,7 @@ const fetchInactiveUsersList = async (inactiveDays, dateTo, pincodeGroupId) => {
     )
     ORDER BY COALESCE(ulo.last_order_at, fu.created_at) ASC, u.id ASC
     `,
-    [pincodeGroupId, referenceDate, inactiveDays],
+    [pincodeGroupId, referenceDate, inactiveDays, cityId],
   );
 
   const reference = new Date(`${referenceDate}T12:00:00`);
@@ -360,29 +343,26 @@ const buildTickers = (metrics) => [
 
 export const getAdminDashboardService = async (query = {}) => {
   const { dateFrom, dateTo } = resolveDateFilters(query);
-  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
+  const geoFilter = await resolveGeoFilters(query);
+  const pincodeGroupId = geoFilter.pincode_group_id;
+  const cityId = geoFilter.city_id;
   const inactiveTicker = parseInactiveTicker(query.ticker);
 
-  let zoneGroup = null;
-  if (pincodeGroupId != null) {
-    const groupCheck = await sql.query(
-      `SELECT id, name FROM pincode_groups WHERE id = $1`,
-      [pincodeGroupId],
-    );
-    if (groupCheck.rows.length === 0) {
-      throw { status: 404, message: 'pincode_group_id not found' };
-    }
-    zoneGroup = groupCheck.rows[0].name;
-  }
-
-  const metrics = await fetchDashboardMetrics(dateFrom, dateTo, pincodeGroupId);
+  const metrics = await fetchDashboardMetrics(
+    dateFrom,
+    dateTo,
+    pincodeGroupId,
+    cityId,
+  );
 
   const data = {
     filters: {
       date_from: dateFrom,
       date_to: dateTo,
       pincode_group_id: pincodeGroupId,
-      zone_group: zoneGroup,
+      zone_group: geoFilter.zone_name,
+      city_id: cityId,
+      city_name: geoFilter.city_name,
     },
     tickers: buildTickers(metrics),
   };
@@ -393,6 +373,7 @@ export const getAdminDashboardService = async (query = {}) => {
       inactiveTicker.inactiveDays,
       dateTo,
       pincodeGroupId,
+      cityId,
     );
   }
 

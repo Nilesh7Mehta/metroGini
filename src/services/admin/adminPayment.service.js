@@ -1,5 +1,9 @@
 import sql from '../../config/db.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
+import {
+  orderZoneCityFilterSql,
+  resolveGeoFilters,
+} from '../../utils/adminGeoFilter.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
@@ -40,62 +44,6 @@ const getDateRange = (period) => {
 
   const today = formatDate(now);
   return { start: today, end: today };
-};
-
-const parseOptionalPincodeGroupId = (value) => {
-  if (value == null || value === '') return null;
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw { status: 400, message: 'zone_id / pincode_group_id must be a positive integer' };
-  }
-  return id;
-};
-
-const resolveZoneFilter = async (query = {}) => {
-  const zoneId = parseOptionalPincodeGroupId(
-    query.zone_id ?? query.pincode_group_id,
-  );
-  const zoneCodeRaw = query.zone_code;
-  const zoneCode =
-    zoneCodeRaw != null && String(zoneCodeRaw).trim() !== ''
-      ? String(zoneCodeRaw).trim()
-      : null;
-
-  if (zoneId == null && zoneCode == null) {
-    return {
-      pincode_group_id: null,
-      zone_id: null,
-      zone_code: null,
-      zone_name: null,
-    };
-  }
-
-  let rows;
-  if (zoneId != null) {
-    ({ rows } = await sql.query(
-      `SELECT id, group_code, name FROM pincode_groups WHERE id = $1`,
-      [zoneId],
-    ));
-    if (!rows.length) {
-      throw { status: 404, message: 'zone_id not found' };
-    }
-  } else {
-    ({ rows } = await sql.query(
-      `SELECT id, group_code, name FROM pincode_groups WHERE group_code = $1`,
-      [zoneCode],
-    ));
-    if (!rows.length) {
-      throw { status: 404, message: 'zone_code not found' };
-    }
-  }
-
-  const row = rows[0];
-  return {
-    pincode_group_id: Number(row.id),
-    zone_id: Number(row.id),
-    zone_code: row.group_code || null,
-    zone_name: row.name || null,
-  };
 };
 
 const resolveFilters = (query = {}) => {
@@ -201,8 +149,15 @@ const matchesPaymentStatusFilter = (order, paymentStatus) => {
   return String(order.payment_status || 'pending').toLowerCase() === paymentStatus;
 };
 
-const fetchOrders = async (start, end, pickupShiftSlotIds, method, pincodeGroupId) => {
-  const params = [start, end, pickupShiftSlotIds, pincodeGroupId];
+const fetchOrders = async (
+  start,
+  end,
+  pickupShiftSlotIds,
+  method,
+  pincodeGroupId,
+  cityId,
+) => {
+  const params = [start, end, pickupShiftSlotIds, pincodeGroupId, cityId];
   let methodClause = '';
 
   if (method) {
@@ -260,7 +215,7 @@ const fetchOrders = async (start, end, pickupShiftSlotIds, method, pincodeGroupI
     WHERE o.pickup_date BETWEEN $1::date AND $2::date
       AND o.pickup_slot_id = ANY($3::int[])
       AND o.status NOT IN ('draft', 'cancelled')
-      AND ($4::int IS NULL OR p.pincode_group_id = $4::int)
+      AND ${orderZoneCityFilterSql(4, 5)}
       ${methodClause}
     ORDER BY o.id DESC
     `,
@@ -270,7 +225,7 @@ const fetchOrders = async (start, end, pickupShiftSlotIds, method, pincodeGroupI
   return rows;
 };
 
-const fetchTopStats = async (start, end, pincodeGroupId) => {
+const fetchTopStats = async (start, end, pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     WITH period_orders AS (
@@ -285,6 +240,7 @@ const fetchTopStats = async (start, end, pincodeGroupId) => {
       FROM orders o
       LEFT JOIN user_address_details uad ON uad.id = o.address_id
       LEFT JOIN pincodes p ON p.pincode = uad.pincode
+      LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
       LEFT JOIN (
         SELECT
           order_id,
@@ -299,7 +255,7 @@ const fetchTopStats = async (start, end, pincodeGroupId) => {
       ) ps ON ps.order_id = o.id
       WHERE o.pickup_date BETWEEN $1::date AND $2::date
         AND o.status NOT IN ('draft', 'cancelled')
-        AND ($3::int IS NULL OR p.pincode_group_id = $3::int)
+        AND ${orderZoneCityFilterSql(3, 4)}
     )
     SELECT
       COUNT(*)::int AS total_orders,
@@ -333,7 +289,7 @@ const fetchTopStats = async (start, end, pincodeGroupId) => {
       ), 0) AS refunds_adjustments
     FROM period_orders
     `,
-    [start, end, pincodeGroupId],
+    [start, end, pincodeGroupId, cityId],
   );
 
   const row = rows[0] || {};
@@ -396,7 +352,7 @@ export const getAdminPaymentsService = async (query = {}) => {
     throw { status: 400, message: 'Invalid payment_status filter' };
   }
 
-  const zoneFilter = await resolveZoneFilter(query);
+  const geoFilter = await resolveGeoFilters(query);
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
 
   const orders = await fetchOrders(
@@ -404,7 +360,8 @@ export const getAdminPaymentsService = async (query = {}) => {
     filters.end,
     pickupShiftSlotIds,
     filters.method,
-    zoneFilter.pincode_group_id,
+    geoFilter.pincode_group_id,
+    geoFilter.city_id,
   );
 
   const filteredOrders = orders.filter((row) =>
@@ -414,7 +371,8 @@ export const getAdminPaymentsService = async (query = {}) => {
   const topStats = await fetchTopStats(
     filters.start,
     filters.end,
-    zoneFilter.pincode_group_id,
+    geoFilter.pincode_group_id,
+    geoFilter.city_id,
   );
 
   const transactions = filteredOrders.map(mapTransaction);
@@ -432,10 +390,12 @@ export const getAdminPaymentsService = async (query = {}) => {
       date_to: filters.end,
       payment_status: filters.paymentStatus,
       method: filters.method,
-      pincode_group_id: zoneFilter.pincode_group_id,
-      zone_id: zoneFilter.zone_id,
-      zone_code: zoneFilter.zone_code,
-      zone_name: zoneFilter.zone_name,
+      pincode_group_id: geoFilter.pincode_group_id,
+      zone_id: geoFilter.zone_id,
+      zone_code: geoFilter.zone_code,
+      zone_name: geoFilter.zone_name,
+      city_id: geoFilter.city_id,
+      city_name: geoFilter.city_name,
     },
     top_stats: topStats,
     transactions: pageTransactions,
