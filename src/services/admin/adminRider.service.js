@@ -195,16 +195,58 @@ const resolveShiftSlotIds = async (shift) => {
   );
 };
 
-const resolvePincodeGroupName = async (pincodeGroupId) => {
-  if (pincodeGroupId == null) return null;
-  const { rows } = await sql.query(
-    `SELECT id, name FROM pincode_groups WHERE id = $1`,
-    [pincodeGroupId],
+const resolveZoneFilter = async (query = {}) => {
+  const zoneId = parseOptionalPincodeGroupId(
+    query.pincode_group_id ?? query.zone_id,
   );
-  if (!rows.length) {
-    throw { status: 404, message: 'pincode_group_id not found' };
+  const zoneCodeRaw = query.zone_code;
+  const zoneCode =
+    zoneCodeRaw != null && String(zoneCodeRaw).trim() !== ''
+      ? String(zoneCodeRaw).trim()
+      : null;
+
+  if (zoneId == null && zoneCode == null) {
+    return {
+      pincode_group_id: null,
+      zone_id: null,
+      zone_code: null,
+      zone_name: null,
+    };
   }
-  return rows[0].name;
+
+  let rows;
+  if (zoneId != null) {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE id = $1`,
+      [zoneId],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'pincode_group_id not found' };
+    }
+  } else {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE group_code = $1`,
+      [zoneCode],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'zone_code not found' };
+    }
+  }
+
+  const row = rows[0];
+  return {
+    pincode_group_id: Number(row.id),
+    zone_id: Number(row.id),
+    zone_code: row.group_code || null,
+    zone_name: row.name || null,
+  };
+};
+
+const riderMatchesZone = (shiftSchedule = [], pincodeGroupId) => {
+  if (pincodeGroupId == null) return true;
+  return shiftSchedule.some(
+    (entry) => Number(entry.pincode_group_id) === Number(pincodeGroupId),
+  );
 };
 
 const resolveRiderZoneMeta = (
@@ -225,11 +267,12 @@ const resolveRiderZoneMeta = (
 
   const entry = entries[0] || shiftSchedule[0] || null;
   if (!entry) {
-    return { zone_id: null, zone_name: null, shift: shift || null };
+    return { zone_id: null, zone_code: null, zone_name: null, shift: shift || null };
   }
 
   return {
     zone_id: entry.pincode_group_id != null ? Number(entry.pincode_group_id) : null,
+    zone_code: entry.group_code || null,
     zone_name: entry.group_name || entry.group_code || null,
     shift: resolveShiftKey(entry.shift_name) || shift || null,
   };
@@ -281,7 +324,9 @@ const resolveRiderListFilters = (query = {}) => {
     rangeStart,
     rangeEnd,
     shift: parseOptionalShift(query.shift),
-    pincodeGroupId: parseOptionalPincodeGroupId(query.pincode_group_id),
+    pincodeGroupId: parseOptionalPincodeGroupId(
+      query.pincode_group_id ?? query.zone_id,
+    ),
   };
 };
 
@@ -1018,55 +1063,62 @@ const fetchRiderProfileStats = async (riderId) => {
   };
 };
 
-const buildAdminRiderProfileResponse = (rider, riderSchedule = [], stats = null) => ({
-  id: String(rider.id),
-  rider_id: formatRiderId(rider.id),
-  name: rider.full_name || 'N/A',
-  contact: formatPhone(rider.mobile_number),
-  status: formatRiderStatus(rider.is_active),
-  zone: rider.zone || null,
-  shift: {
-    label: resolveShiftLabel(rider.shift_name),
-    type: resolveShiftKey(rider.shift_name),
-    zone: rider.zone || null,
-  },
-  rider_schedule: formatScheduleForProfile(riderSchedule),
-  rider_details: [
-    buildDetailKeyValue('full_name', rider.full_name),
-    buildDetailKeyValue('phone', formatPhone(rider.mobile_number)),
-    buildDetailKeyValue(
-      'alternate_number',
-      rider.alternate_contact_number
-        ? formatPhone(rider.alternate_contact_number)
-        : null,
-    ),
-    buildDetailKeyValue('address', rider.residential_address),
-    buildDetailKeyValue('joining_date', formatDisplayDate(rider.joining_date)),
-    buildDetailKeyValue('aadhar_number', maskAadharNumber(rider.aadhaar_number)),
-    buildDetailKeyValue('pan_number', rider.pan_card_number),
-    buildDetailKeyValue('driving_license', rider.driving_license),
-    buildDetailKeyValue('valid_till', formatDisplayDate(rider.licence_validity_date)),
-  ],
-  vehicle_details: [
-    buildDetailKeyValue('vehicle_type', rider.vehicle_type),
-    buildDetailKeyValue('vehicle_number', rider.vehicle_registration_number),
-    buildDetailKeyValue('fuel_type', rider.fuel_type),
-    buildDetailKeyValue('insurance_status', rider.insurance_status),
-  ],
-  banking_details: [
-    buildDetailKeyValue('account_holder', rider.account_holder_name),
-    buildDetailKeyValue('bank', rider.bank_name),
-    buildDetailKeyValue('account_number', maskAccountNumber(rider.account_number)),
-    buildDetailKeyValue('ifsc_code', rider.ifsc_code),
-    buildDetailKeyValue('upi_id', rider.upi_id),
-  ],
-  stats: stats || {
-    pickups: { assigned: 0, completed: 0 },
-    deliveries: { assigned: 0, completed: 0 },
-    pending_tasks: 0,
-    revenue: '0',
-  },
-});
+const buildAdminRiderProfileResponse = (rider, riderSchedule = [], stats = null) => {
+  const zoneMeta = resolveRiderZoneMeta(riderSchedule);
+
+  return {
+    id: String(rider.id),
+    rider_id: formatRiderId(rider.id),
+    name: rider.full_name || 'N/A',
+    contact: formatPhone(rider.mobile_number),
+    status: formatRiderStatus(rider.is_active),
+    zone: zoneMeta.zone_name || rider.zone || null,
+    zone_id: zoneMeta.zone_id,
+    zone_code: zoneMeta.zone_code,
+    zone_name: zoneMeta.zone_name || rider.zone || null,
+    shift: {
+      label: resolveShiftLabel(rider.shift_name),
+      type: resolveShiftKey(rider.shift_name),
+      zone: zoneMeta.zone_name || rider.zone || null,
+    },
+    rider_schedule: formatScheduleForProfile(riderSchedule),
+    rider_details: [
+      buildDetailKeyValue('full_name', rider.full_name),
+      buildDetailKeyValue('phone', formatPhone(rider.mobile_number)),
+      buildDetailKeyValue(
+        'alternate_number',
+        rider.alternate_contact_number
+          ? formatPhone(rider.alternate_contact_number)
+          : null,
+      ),
+      buildDetailKeyValue('address', rider.residential_address),
+      buildDetailKeyValue('joining_date', formatDisplayDate(rider.joining_date)),
+      buildDetailKeyValue('aadhar_number', maskAadharNumber(rider.aadhaar_number)),
+      buildDetailKeyValue('pan_number', rider.pan_card_number),
+      buildDetailKeyValue('driving_license', rider.driving_license),
+      buildDetailKeyValue('valid_till', formatDisplayDate(rider.licence_validity_date)),
+    ],
+    vehicle_details: [
+      buildDetailKeyValue('vehicle_type', rider.vehicle_type),
+      buildDetailKeyValue('vehicle_number', rider.vehicle_registration_number),
+      buildDetailKeyValue('fuel_type', rider.fuel_type),
+      buildDetailKeyValue('insurance_status', rider.insurance_status),
+    ],
+    banking_details: [
+      buildDetailKeyValue('account_holder', rider.account_holder_name),
+      buildDetailKeyValue('bank', rider.bank_name),
+      buildDetailKeyValue('account_number', maskAccountNumber(rider.account_number)),
+      buildDetailKeyValue('ifsc_code', rider.ifsc_code),
+      buildDetailKeyValue('upi_id', rider.upi_id),
+    ],
+    stats: stats || {
+      pickups: { assigned: 0, completed: 0 },
+      deliveries: { assigned: 0, completed: 0 },
+      pending_tasks: 0,
+      revenue: '0',
+    },
+  };
+};
 
 const fetchRiderOrders = async ({ riderId, start, end, orderStatus }) => {
   const params = [riderId, start, end];
@@ -1162,73 +1214,11 @@ const fetchRiderTodayOrders = async (riderIds) => {
   return rows;
 };
 
-const fetchRiderTopStats = async () => {
-  const { rows } = await sql.query(
-    `
-    SELECT
-      (SELECT COUNT(*)::int FROM riders WHERE is_active = TRUE) AS active_riders,
-      (
-        SELECT COUNT(*)::int
-        FROM orders
-        WHERE pickup_date = CURRENT_DATE
-          AND status = ANY($1::text[])
-      ) AS pickups_completed_today,
-      (
-        SELECT COUNT(*)::int
-        FROM orders
-        WHERE delivery_completed_at::date = CURRENT_DATE
-          AND status = 'delivered'
-      ) AS deliveries_completed_today,
-      (
-        SELECT COUNT(*)::int
-        FROM orders
-        WHERE pickup_date = CURRENT_DATE
-          AND status = ANY($2::text[])
-          AND assigned_rider_id IS NOT NULL
-      ) AS pending_tasks,
-      (
-        SELECT COUNT(*)::int
-        FROM orders
-        WHERE pickup_date = CURRENT_DATE
-          AND status = 'cancelled'
-          AND assigned_rider_id IS NOT NULL
-      ) AS failed_missed_tasks,
-      (
-        SELECT ROUND(AVG(
-          EXTRACT(EPOCH FROM (delivery_completed_at - out_for_delivery_at)) / 60
-        ))::int
-        FROM orders
-        WHERE delivery_completed_at::date = CURRENT_DATE
-          AND out_for_delivery_at IS NOT NULL
-          AND delivery_completed_at IS NOT NULL
-      ) AS avg_delivery_time
-    `,
-    [PICKUP_SUCCESS_STATUSES, [...PICKUP_PENDING_STATUSES, 'ready_for_delivery', 'out_for_delivery']],
-  );
-
-  const stats = rows[0] || {};
-
-  return [
-    { key: 'active_riders', value: String(stats.active_riders || 0) },
-    {
-      key: 'pickups_completed_today',
-      value: `${stats.pickups_completed_today || 0} pcs`,
-    },
-    {
-      key: 'deliveries_completed_today',
-      value: String(stats.deliveries_completed_today || 0),
-    },
-    { key: 'pending_tasks', value: String(stats.pending_tasks || 0) },
-    { key: 'failed_missed_tasks', value: String(stats.failed_missed_tasks || 0) },
-    {
-      key: 'avg_delivery_time',
-      value: `${stats.avg_delivery_time || 0} mins`,
-    },
-  ];
-};
-
 export const getAdminRidersService = async (query = {}) => {
   const isActiveFilter = resolveRiderStatusFilter(query.status);
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
+
   const riders = await fetchRiders(isActiveFilter);
   const riderIds = riders.map((r) => r.id);
 
@@ -1242,37 +1232,56 @@ export const getAdminRidersService = async (query = {}) => {
     return acc;
   }, {});
 
-  const top_stats = await fetchRiderTopStats();
   const scheduleMap = await getShiftSchedulesForRiders(riderIds);
 
-  const ridersList = riders.map((rider) => {
-    const lot = formatLotCode(rider.id);
-    const riderOrders = ordersByRider[rider.id] || [];
-    const batch = rider.is_active
-      ? buildRiderBatch(riderOrders, lot)
-      : null;
+  const ridersList = riders
+    .map((rider) => {
+      const riderId = Number(rider.id);
+      const shiftSchedule = scheduleMap.get(riderId) || [];
 
-    return {
-      id: rider.id,
-      rider_id: formatRiderId(rider.id),
-      name: rider.full_name || 'N/A',
-      shift: resolveShiftKey(rider.shift_name),
-      shift_label: resolveShiftLabel(rider.shift_name),
-      lot,
-      zone: rider.zone || null,
-      location: rider.residential_address || null,
-      contact: formatPhone(rider.mobile_number),
-      status: formatRiderStatus(rider.is_active),
-      avatar_type: resolveAvatarType(rider),
-      rider_schedule: formatScheduleForProfile(scheduleMap.get(rider.id) || []),
-      batch,
-    };
-  });
+      if (!riderMatchesZone(shiftSchedule, pincodeGroupId)) {
+        return null;
+      }
+
+      const zoneMeta = resolveRiderZoneMeta(shiftSchedule, { pincodeGroupId });
+      const lot = formatLotCode(rider.id);
+      const riderOrders =
+        ordersByRider[rider.id] || ordersByRider[riderId] || [];
+      const batch = rider.is_active
+        ? buildRiderBatch(riderOrders, lot)
+        : null;
+
+      return {
+        id: rider.id,
+        rider_id: formatRiderId(rider.id),
+        name: rider.full_name || 'N/A',
+        shift: resolveShiftKey(rider.shift_name),
+        shift_label: resolveShiftLabel(rider.shift_name),
+        lot,
+        zone: zoneMeta.zone_name || rider.zone || null,
+        zone_id: zoneMeta.zone_id,
+        zone_code: zoneMeta.zone_code,
+        zone_name: zoneMeta.zone_name || rider.zone || null,
+        location: rider.residential_address || null,
+        contact: formatPhone(rider.mobile_number),
+        status: formatRiderStatus(rider.is_active),
+        avatar_type: resolveAvatarType(rider),
+        rider_schedule: formatScheduleForProfile(shiftSchedule),
+        batch,
+      };
+    })
+    .filter(Boolean);
 
   const { items: pageRiders, pagination } = paginateArray(ridersList, query);
 
   return {
-    top_stats,
+    filters: {
+      status: query.status || null,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
+    },
     riders: pageRiders,
     pagination,
   };
@@ -1303,11 +1312,8 @@ export const getAdminRiderOrdersService = async (rawId, query = {}) => {
   const selectedDate =
     parseOptionalDate(query.date, 'date') || formatDate(new Date());
   const shift = parseOptionalShift(query.shift);
-  const pincodeGroupId = parseOptionalPincodeGroupId(query.pincode_group_id);
-
-  if (pincodeGroupId != null) {
-    await resolvePincodeGroupName(pincodeGroupId);
-  }
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
 
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { shiftByPickupSlot } = await getPickupShiftConfig();
@@ -1335,12 +1341,17 @@ export const getAdminRiderOrdersService = async (rawId, query = {}) => {
       name: rider.full_name || 'N/A',
       status: formatRiderStatus(rider.is_active),
       shift: zoneMeta.shift || shift || resolveShiftKey(rider.shift_name) || null,
+      zone_id: zoneMeta.zone_id,
+      zone_code: zoneMeta.zone_code,
       zone_name: zoneMeta.zone_name || rider.zone || null,
     },
     filters: {
       date: selectedDate,
       shift,
-      pincode_group_id: pincodeGroupId,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
     },
     orders: dayOrders.map((order) =>
       mapRiderOrderRow(order, selectedDate, shiftByPickupSlot),
@@ -1357,10 +1368,10 @@ export const getAdminRidersOverviewService = async (query = {}) => {
     rangeStart,
     rangeEnd,
     shift,
-    pincodeGroupId,
   } = resolveRiderListFilters(query);
 
-  const zoneGroup = await resolvePincodeGroupName(pincodeGroupId);
+  const zoneFilter = await resolveZoneFilter(query);
+  const pincodeGroupId = zoneFilter.pincode_group_id;
   const shiftSlotIds = await resolveShiftSlotIds(shift);
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
 
@@ -1419,6 +1430,7 @@ export const getAdminRidersOverviewService = async (query = {}) => {
           || resolveShiftKey(rider.shift_name)
           || null,
         zone_id: zoneMeta.zone_id,
+        zone_code: zoneMeta.zone_code,
         zone_name: zoneMeta.zone_name || rider.zone || null,
         date: selectedDate,
         total_pickups: stats.total_pickups,
@@ -1447,8 +1459,11 @@ export const getAdminRidersOverviewService = async (query = {}) => {
       date_from: dateFrom,
       date_to: dateTo,
       shift,
-      pincode_group_id: pincodeGroupId,
-      zone_group: zoneGroup,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
+      zone_group: zoneFilter.zone_name,
     },
     days: buildOverviewDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,
