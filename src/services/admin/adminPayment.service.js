@@ -10,6 +10,7 @@ const VALID_PAYMENT_STATUSES = [
   'failed',
   'refunded',
 ];
+const GST_RATE = 0.18;
 
 const SERVICE_CONFIG = {
   1: { key: 'wash_by_kilo' },
@@ -39,6 +40,62 @@ const getDateRange = (period) => {
 
   const today = formatDate(now);
   return { start: today, end: today };
+};
+
+const parseOptionalPincodeGroupId = (value) => {
+  if (value == null || value === '') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: 'zone_id / pincode_group_id must be a positive integer' };
+  }
+  return id;
+};
+
+const resolveZoneFilter = async (query = {}) => {
+  const zoneId = parseOptionalPincodeGroupId(
+    query.zone_id ?? query.pincode_group_id,
+  );
+  const zoneCodeRaw = query.zone_code;
+  const zoneCode =
+    zoneCodeRaw != null && String(zoneCodeRaw).trim() !== ''
+      ? String(zoneCodeRaw).trim()
+      : null;
+
+  if (zoneId == null && zoneCode == null) {
+    return {
+      pincode_group_id: null,
+      zone_id: null,
+      zone_code: null,
+      zone_name: null,
+    };
+  }
+
+  let rows;
+  if (zoneId != null) {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE id = $1`,
+      [zoneId],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'zone_id not found' };
+    }
+  } else {
+    ({ rows } = await sql.query(
+      `SELECT id, group_code, name FROM pincode_groups WHERE group_code = $1`,
+      [zoneCode],
+    ));
+    if (!rows.length) {
+      throw { status: 404, message: 'zone_code not found' };
+    }
+  }
+
+  const row = rows[0];
+  return {
+    pincode_group_id: Number(row.id),
+    zone_id: Number(row.id),
+    zone_code: row.group_code || null,
+    zone_name: row.name || null,
+  };
 };
 
 const resolveFilters = (query = {}) => {
@@ -113,40 +170,39 @@ const normalizeMethod = (method) => {
   return String(method).trim().toLowerCase().replace(/\s+/g, '_');
 };
 
-const resolveAction = (paymentStatus) => {
-  if (paymentStatus === 'pending' || paymentStatus === 'partially_paid') {
-    return 'send_reminder';
-  }
-  if (paymentStatus === 'failed') return 'resend_link';
-  return 'view_details';
-};
-
-const formatShortPaymentDate = (paidAt) => {
+const formatPaymentDate = (paidAt) => {
   if (!paidAt) return null;
   const date = new Date(paidAt);
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 };
 
 const getOrderAmount = (order) =>
   Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
+
+const getAdvanceAmount = (order) =>
+  Math.round(Number(order.advance_amount || 0));
+
+const splitGrossNetGst = (grossAmount) => {
+  const gross = Math.round(Number(grossAmount || 0));
+  const gst = Math.round((gross * GST_RATE) / (1 + GST_RATE));
+  return {
+    gross_revenue: gross,
+    gst_18: gst,
+    net_revenue: gross - gst,
+  };
+};
 
 const matchesPaymentStatusFilter = (order, paymentStatus) => {
   if (!paymentStatus) return true;
   return String(order.payment_status || 'pending').toLowerCase() === paymentStatus;
 };
 
-const getAdvanceAmount = (order) =>
-  Math.round(Number(order.advance_amount || 0));
-
-const buildStatusLabel = (paymentStatus, advanceAmount) => {
-  if (paymentStatus === 'partially_paid') {
-    return `Advance paid (${advanceAmount})`;
-  }
-  return null;
-};
-
-const fetchOrders = async (start, end, pickupShiftSlotIds, method) => {
-  const params = [start, end, pickupShiftSlotIds];
+const fetchOrders = async (start, end, pickupShiftSlotIds, method, pincodeGroupId) => {
+  const params = [start, end, pickupShiftSlotIds, pincodeGroupId];
   let methodClause = '';
 
   if (method) {
@@ -177,9 +233,15 @@ const fetchOrders = async (start, end, pickupShiftSlotIds, method) => {
       st.name AS service_type_name,
       lp.payment_method AS latest_payment_method,
       lp.paid_at AS latest_paid_at,
-      COALESCE(ap.advance_amount, 0) AS advance_amount
+      COALESCE(ap.advance_amount, 0) AS advance_amount,
+      pg.id AS zone_id,
+      pg.group_code AS zone_code,
+      pg.name AS zone_name
     FROM orders o
     LEFT JOIN service_types st ON st.id = o.service_type_id
+    LEFT JOIN user_address_details uad ON uad.id = o.address_id
+    LEFT JOIN pincodes p ON p.pincode = uad.pincode
+    LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
     LEFT JOIN LATERAL (
       SELECT payment_method, paid_at
       FROM payments
@@ -198,6 +260,7 @@ const fetchOrders = async (start, end, pickupShiftSlotIds, method) => {
     WHERE o.pickup_date BETWEEN $1::date AND $2::date
       AND o.pickup_slot_id = ANY($3::int[])
       AND o.status NOT IN ('draft', 'cancelled')
+      AND ($4::int IS NULL OR p.pincode_group_id = $4::int)
       ${methodClause}
     ORDER BY o.id DESC
     `,
@@ -207,7 +270,7 @@ const fetchOrders = async (start, end, pickupShiftSlotIds, method) => {
   return rows;
 };
 
-const fetchTopStats = async (start, end) => {
+const fetchTopStats = async (start, end, pincodeGroupId) => {
   const { rows } = await sql.query(
     `
     WITH period_orders AS (
@@ -217,25 +280,31 @@ const fetchTopStats = async (start, end) => {
         o.estimated_total,
         o.status,
         o.payment_status,
-        o.vendor_id,
         COALESCE(ps.advance_sum, 0) AS advance_sum,
-        COALESCE(ps.paid_sum, 0) AS paid_sum
+        COALESCE(ps.refunded_sum, 0) AS refunded_sum
       FROM orders o
+      LEFT JOIN user_address_details uad ON uad.id = o.address_id
+      LEFT JOIN pincodes p ON p.pincode = uad.pincode
       LEFT JOIN (
         SELECT
           order_id,
-          SUM(amount) FILTER (WHERE status = 'success') AS paid_sum,
           SUM(amount) FILTER (
             WHERE status = 'success' AND payment_type = 'advance'
-          ) AS advance_sum
+          ) AS advance_sum,
+          SUM(amount) FILTER (
+            WHERE status = 'refunded' OR payment_type = 'refund'
+          ) AS refunded_sum
         FROM payments
         GROUP BY order_id
       ) ps ON ps.order_id = o.id
       WHERE o.pickup_date BETWEEN $1::date AND $2::date
         AND o.status NOT IN ('draft', 'cancelled')
+        AND ($3::int IS NULL OR p.pincode_group_id = $3::int)
     )
     SELECT
-      COALESCE(SUM(COALESCE(final_total, estimated_total, 0)), 0) AS total_revenue,
+      COUNT(*)::int AS total_orders,
+
+      COALESCE(SUM(COALESCE(final_total, estimated_total, 0)), 0) AS gross_revenue,
 
       COALESCE(SUM(
         CASE
@@ -256,34 +325,37 @@ const fetchTopStats = async (start, end) => {
         END
       ), 0) AS pending_payments,
 
-      COALESCE(SUM(COALESCE(final_total, estimated_total, 0)) FILTER (
-        WHERE payment_status = 'failed'
-      ), 0) AS failed_payments,
-
-      COALESCE(SUM(COALESCE(final_total, estimated_total, 0)) FILTER (
-        WHERE status IN ('ready_for_delivery', 'out_for_delivery', 'delivered')
-          AND payment_status = 'paid'
-          AND vendor_id IS NOT NULL
-      ), 0) AS merchant_payouts_due,
-
-      COUNT(*) FILTER (WHERE payment_status = 'refunded')::int AS refunds_adjustments
+      COALESCE(SUM(
+        CASE
+          WHEN payment_status = 'refunded' THEN COALESCE(final_total, estimated_total, 0)
+          ELSE refunded_sum
+        END
+      ), 0) AS refunds_adjustments
     FROM period_orders
     `,
-    [start, end],
+    [start, end, pincodeGroupId],
   );
 
-  const row = rows[0];
+  const row = rows[0] || {};
+  const { gross_revenue, gst_18, net_revenue } = splitGrossNetGst(row.gross_revenue);
 
   return [
-    { key: 'total_revenue', value: String(Math.round(Number(row.total_revenue))) },
-    { key: 'payments_received', value: String(Math.round(Number(row.payments_received))) },
-    { key: 'pending_payments', value: String(Math.round(Number(row.pending_payments))) },
-    { key: 'failed_payments', value: String(Math.round(Number(row.failed_payments))) },
+    { key: 'total_orders', value: String(row.total_orders || 0) },
+    { key: 'net_revenue', value: String(net_revenue) },
+    { key: 'gross_revenue', value: String(gross_revenue) },
+    { key: 'gst_18', value: String(gst_18) },
     {
-      key: 'merchant_payouts_due',
-      value: String(Math.round(Number(row.merchant_payouts_due))),
+      key: 'payments_received',
+      value: String(Math.round(Number(row.payments_received || 0))),
     },
-    { key: 'refunds_adjustments', value: String(row.refunds_adjustments) },
+    {
+      key: 'pending_payments',
+      value: String(Math.round(Number(row.pending_payments || 0))),
+    },
+    {
+      key: 'refunds_adjustments',
+      value: String(Math.round(Number(row.refunds_adjustments || 0))),
+    },
   ];
 };
 
@@ -292,58 +364,25 @@ const mapTransaction = (order) => {
   const finalAmount = getOrderAmount(order);
   const advanceAmount = getAdvanceAmount(order);
   const remainingAmount = Math.max(0, finalAmount - advanceAmount);
+  
 
-  const transaction = {
-    id: order.id,
+  return {
+    id: Number(order.id),
     order_id: formatOrderId(order),
     customer_id: formatCustomerId(order.user_id),
     service_type: getServiceKey(order.service_id),
-    service_category: isExpressOrder(order.service_type_name) ? 'express' : 'regular',
+    service_category: isExpressOrder(order.service_type_name) ? 'Express' : 'Standard',
     amount: String(finalAmount),
+    remaining:
+      paymentStatus === 'partially_paid' ? String(remainingAmount) : null,
     payment_status: paymentStatus,
     method: normalizeMethod(order.latest_payment_method),
-    date:
-      paymentStatus === 'paid'
-        ? formatShortPaymentDate(
-            order.payment_completed_at || order.latest_paid_at,
-          )
-        : null,
-    action: resolveAction(paymentStatus),
-  };
-
-  if (paymentStatus === 'partially_paid') {
-    transaction.status_label = buildStatusLabel(paymentStatus, advanceAmount);
-    transaction.remaining = String(remainingAmount);
-  }
-
-  return transaction;
-};
-
-const resolveShiftStatus = (transactions) => {
-  if (!transactions.length) return 'completed';
-  const hasOpen = transactions.some((transaction) =>
-    ['pending', 'partially_paid', 'failed'].includes(transaction.payment_status),
-  );
-  return hasOpen ? 'in_progress' : 'completed';
-};
-
-const buildShiftPayload = (slotId, orders, lotCode, shiftKey, filters) => {
-  const shiftOrders = orders.filter(
-    (row) => Number(row.pickup_slot_id) === Number(slotId),
-  );
-
-  const filteredOrders = shiftOrders.filter((row) =>
-    matchesPaymentStatusFilter(row, filters.paymentStatus),
-  );
-
-  const transactions = filteredOrders.map(mapTransaction);
-
-  return {
-    key: shiftKey,
-    lot: lotCode,
-    status: resolveShiftStatus(transactions),
-    total_orders: transactions.length,
-    transactions,
+    date: formatPaymentDate(
+      order.payment_completed_at || order.latest_paid_at || order.pickup_date,
+    ),
+    zone_id: order.zone_id != null ? Number(order.zone_id) : null,
+    zone_code: order.zone_code || null,
+    zone_name: order.zone_name || null,
   };
 };
 
@@ -357,49 +396,49 @@ export const getAdminPaymentsService = async (query = {}) => {
     throw { status: 400, message: 'Invalid payment_status filter' };
   }
 
-  const { pickupShiftSlotIds, shiftByPickupSlot } = await getPickupShiftConfig();
+  const zoneFilter = await resolveZoneFilter(query);
+  const { pickupShiftSlotIds } = await getPickupShiftConfig();
+
   const orders = await fetchOrders(
     filters.start,
     filters.end,
     pickupShiftSlotIds,
     filters.method,
+    zoneFilter.pincode_group_id,
   );
-  const topStats = await fetchTopStats(filters.start, filters.end);
 
-  const shifts = pickupShiftSlotIds.map((slotId, index) => {
-    const config = shiftByPickupSlot[slotId];
-    const lotCode = `LOT-${String(index + 1).padStart(3, '0')}`;
-    const shiftKey = config?.shift_type || `shift_${index + 1}`;
-
-    return buildShiftPayload(slotId, orders, lotCode, shiftKey, filters);
-  });
-
-  const allTransactions = shifts.flatMap((shift) =>
-    (shift.transactions || []).map((tx) => ({
-      ...tx,
-      shift: shift.key,
-      lot: shift.lot,
-    })),
+  const filteredOrders = orders.filter((row) =>
+    matchesPaymentStatusFilter(row, filters.paymentStatus),
   );
+
+  const topStats = await fetchTopStats(
+    filters.start,
+    filters.end,
+    zoneFilter.pincode_group_id,
+  );
+
+  const transactions = filteredOrders.map(mapTransaction);
   const { items: pageTransactions, pagination } = paginateArray(
-    allTransactions,
+    transactions,
     query,
   );
-
-  // Keep shift shells; attach only this page's transactions
-  const pageIds = new Set(pageTransactions.map((tx) => String(tx.id ?? tx.order_id)));
-  const pagedShifts = shifts.map((shift) => ({
-    ...shift,
-    transactions: (shift.transactions || []).filter((tx) =>
-      pageIds.has(String(tx.id ?? tx.order_id)),
-    ),
-  }));
 
   return {
     period: filters.period === 'custom' ? 'today' : filters.period,
     date_label: formatDateLabel(filters.start, filters.end),
+    filters: {
+      period: filters.period === 'custom' ? 'today' : filters.period,
+      date_from: filters.start,
+      date_to: filters.end,
+      payment_status: filters.paymentStatus,
+      method: filters.method,
+      pincode_group_id: zoneFilter.pincode_group_id,
+      zone_id: zoneFilter.zone_id,
+      zone_code: zoneFilter.zone_code,
+      zone_name: zoneFilter.zone_name,
+    },
     top_stats: topStats,
-    shifts: pagedShifts,
+    transactions: pageTransactions,
     pagination,
   };
 };
