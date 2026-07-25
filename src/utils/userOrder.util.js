@@ -6,6 +6,32 @@ export const formatUserOrder = (order) => ({
   service_name: order.service_name,
   service_image: order.service_image,
   is_stained: order.is_stained,
+  is_damaged: order.is_damaged != null ? Number(order.is_damaged) : 0,
+  damage_count:
+    order.damage_count != null ? Number(order.damage_count) : null,
+  damage_images: (() => {
+    let list = order.damage_images;
+    if (typeof list === 'string' && list.trim()) {
+      try {
+        const parsed = JSON.parse(list);
+        list = Array.isArray(parsed) ? parsed : [list];
+      } catch {
+        list = [list];
+      }
+    }
+    if (!Array.isArray(list)) return null;
+    const images = list
+      .map((item) => {
+        if (typeof item === 'string' && item.trim()) return item.trim();
+        if (item && typeof item === 'object') {
+          const path = String(item.path || item.url || item.image || '').trim();
+          return path || null;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    return images.length ? images : null;
+  })(),
   pickup_slot: {
     date: order.pickup_date,
     time: `${order.pickup_start} - ${order.pickup_end}`,

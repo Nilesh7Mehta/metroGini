@@ -106,8 +106,14 @@ export const confirmWeight = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
     const { order_id } = req.params;
-    const { actual_weight, is_stained, vendor_request_amount, stain_sizes } =
-      req.body;
+    const {
+      actual_weight,
+      is_stained,
+      vendor_request_amount,
+      stain_sizes,
+      is_damaged,
+      damage_count,
+    } = req.body;
 
     if (!actual_weight || actual_weight <= 0) {
       return res.status(400).json({ success: false, message: 'actual_weight must be a positive number' });
@@ -117,9 +123,24 @@ export const confirmWeight = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'is_stained is required (0 or 1)' });
     }
 
+    if (is_damaged === undefined || is_damaged === null || is_damaged === '') {
+      return res.status(400).json({ success: false, message: 'is_damaged is required (0 or 1)' });
+    }
+
     const stained = parseInt(is_stained, 10);
-    const files = Array.isArray(req.files) ? req.files : [];
-    const stain_images = files.map((file) => `uploads/order-stains/${file.filename}`);
+    const damaged = parseInt(is_damaged, 10);
+    const filesByField = req.files || {};
+    const stainFiles = Array.isArray(filesByField.image) ? filesByField.image : [];
+    const damageFiles = Array.isArray(filesByField.damage_image)
+      ? filesByField.damage_image
+      : [];
+
+    const stain_images = stainFiles.map(
+      (file) => `uploads/order-stains/${file.filename}`,
+    );
+    const damage_images = damageFiles.map(
+      (file) => `uploads/order-damages/${file.filename}`,
+    );
 
     const data = await confirmWeightService(vendor_id, order_id, {
       actual_weight,
@@ -127,6 +148,9 @@ export const confirmWeight = async (req, res, next) => {
       stain_images,
       stain_sizes,
       vendor_request_amount,
+      is_damaged: damaged,
+      damage_count,
+      damage_images,
     });
     return res.status(200).json({ success: true, data });
   } catch (error) {

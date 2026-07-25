@@ -88,6 +88,34 @@ const normalizeStainImages = (value) => {
 const normalizeStainSizes = (value) =>
   parseStainEntries(value).map((entry) => entry.strain_size);
 
+const normalizeDamageImages = (value) => {
+  let list = value;
+
+  if (typeof list === 'string' && list.trim()) {
+    try {
+      const parsed = JSON.parse(list);
+      list = Array.isArray(parsed) ? parsed : [list];
+    } catch {
+      list = [list];
+    }
+  }
+
+  if (!Array.isArray(list)) return null;
+
+  const images = list
+    .map((item) => {
+      if (typeof item === 'string' && item.trim()) return item.trim();
+      if (item && typeof item === 'object') {
+        const path = String(item.path || item.url || item.image || '').trim();
+        return path || null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  return images.length ? images : null;
+};
+
 /** Vendor has received the order but has not confirmed weight/piece count yet */
 const isClassificationPending = (order) => {
   if (order.status !== 'in_process') return false;
@@ -594,7 +622,12 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
     JOIN services s ON o.service_id = s.id
     LEFT JOIN service_types st ON o.service_type_id = st.id
     WHERE o.vendor_id = $1
-      AND o.vendor_received_at::date BETWEEN $2::date AND $3::date
+      AND COALESCE(
+            o.delivery_completed_at::date,
+            o.delivery_date,
+            o.ready_for_delivery_at::date,
+            o.vendor_received_at::date
+          ) BETWEEN $2::date AND $3::date
       AND o.pickup_slot_id = ANY($4::int[])
       AND o.status NOT IN ('draft', 'cancelled')
     ORDER BY o.id DESC
@@ -1079,6 +1112,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       o.actual_weight,
       o.is_stained,
       o.stain_images,
+      o.is_damaged,
+      o.damage_count,
+      o.damage_images,
       o.vendor_request_amount,
       o.vendor_request_markup,
       o.vendor_revenue,
@@ -1153,6 +1189,9 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
     is_stained: order.is_stained ? parseInt(order.is_stained, 10) : 0,
     stain_images: normalizeStainImages(order.stain_images),
     stain_sizes: normalizeStainSizes(order.stain_images),
+    is_damaged: order.is_damaged ? parseInt(order.is_damaged, 10) : 0,
+    damage_count: order.damage_count != null ? parseInt(order.damage_count, 10) : null,
+    damage_images: normalizeDamageImages(order.damage_images),
     vendor_request_amount: order.vendor_request_amount
       ? parseFloat(order.vendor_request_amount)
       : null,
@@ -1255,6 +1294,9 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     stain_images,
     stain_sizes,
     vendor_request_amount,
+    is_damaged,
+    damage_count,
+    damage_images,
   } = payload;
 
   const orderCheck = await sql.query(
@@ -1284,8 +1326,17 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     throw { status: 400, message: 'is_stained must be 0 or 1' };
   }
 
+  const damaged = parseInt(is_damaged, 10);
+  if (damaged !== 0 && damaged !== 1) {
+    throw { status: 400, message: 'is_damaged must be 0 or 1' };
+  }
+
   const imagePaths = Array.isArray(stain_images)
     ? stain_images.filter((path) => typeof path === 'string' && path.trim())
+    : [];
+
+  const damageImagePaths = Array.isArray(damage_images)
+    ? damage_images.filter((path) => typeof path === 'string' && path.trim())
     : [];
 
   let sizeList = [];
@@ -1308,6 +1359,20 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     if (!vendor_request_amount || Number.isNaN(amount) || amount <= 0) {
       throw { status: 400, message: 'vendor_request_amount must be a positive number when is_stained is 1' };
     }
+  }
+
+  let resolvedDamageCount = null;
+  let resolvedDamageImages = null;
+  if (damaged === 1) {
+    const count = parseInt(damage_count, 10);
+    if (!Number.isInteger(count) || count <= 0) {
+      throw { status: 400, message: 'damage_count must be a positive integer when is_damaged is 1' };
+    }
+    if (damageImagePaths.length === 0) {
+      throw { status: 400, message: 'At least one damage_image is required when is_damaged is 1' };
+    }
+    resolvedDamageCount = count;
+    resolvedDamageImages = damageImagePaths;
   }
 
   const order = orderCheck.rows[0];
@@ -1374,9 +1439,12 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          vendor_revenue = $8,
          vendor_request_markup = $9,
          vendor_amount_per_kg = $10,
+         is_damaged = $11,
+         damage_count = $12,
+         damage_images = $13,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $11`,
+     WHERE id = $14`,
     [
       weight,
       final_total,
@@ -1388,6 +1456,9 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
       vendor_revenue,
       vendor_request_markup,
       ratePerKg,
+      damaged,
+      resolvedDamageCount,
+      resolvedDamageImages ? JSON.stringify(resolvedDamageImages) : null,
       order_id,
     ]
   );
@@ -1416,6 +1487,9 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     stain_sizes: resolvedImages
       ? resolvedImages.map((entry) => entry.strain_size ?? null)
       : null,
+    is_damaged: damaged,
+    damage_count: resolvedDamageCount,
+    damage_images: resolvedDamageImages,
   };
 };
 

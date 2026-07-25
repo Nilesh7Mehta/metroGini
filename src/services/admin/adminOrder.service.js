@@ -116,6 +116,8 @@ const normalizeStainImages = (value) => {
   return images.length ? images : null;
 };
 
+const normalizeDamageImages = normalizeStainImages;
+
 const getEstimatedKg = (min, max) => {
   const weightMin = Number(min || 0);
   const weightMax = Number(max || 0);
@@ -516,6 +518,9 @@ const fetchAdminOrderById = async (orderId) => {
       o.final_total,
       o.is_stained,
       o.stain_images,
+      o.is_damaged,
+      o.damage_count,
+      o.damage_images,
       o.vendor_request_amount,
       o.vendor_request_markup,
       o.vendor_revenue,
@@ -765,6 +770,10 @@ export const getAdminOrderOperationsService = async (orderId) => {
       ),
       is_stained: Number(order.is_stained) || 0,
       stain_images: normalizeStainImages(order.stain_images),
+      is_damaged: Number(order.is_damaged) || 0,
+      damage_count:
+        order.damage_count != null ? Number(order.damage_count) : null,
+      damage_images: normalizeDamageImages(order.damage_images),
       vendor_request_amount:
         order.vendor_request_amount != null
           ? parseFloat(order.vendor_request_amount)
