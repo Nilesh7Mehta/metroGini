@@ -498,7 +498,14 @@ const parsePhoneDigits = (phone) => {
 const pickString = (value, fallback = null) => {
   if (value === undefined || value === null) return fallback;
   const trimmed = String(value).trim();
-  return trimmed !== '' ? trimmed : fallback;
+  if (trimmed === '' || /^n\/?a$/i.test(trimmed)) return fallback;
+  return trimmed;
+};
+
+/** Optional field: use provided value (incl. empty → null); omit keeps existing on update. */
+const pickOptionalString = (raw, existing, { isUpdate }) => {
+  if (raw === undefined) return isUpdate ? (existing ?? null) : null;
+  return pickString(raw);
 };
 
 const parseDateField = (value, fieldName) => {
@@ -559,7 +566,9 @@ const resolveRiderActiveStatus = (body, existingIsActive) => {
 
 const buildDetailKeyValue = (key, value) => ({
   key,
-  value: value != null && String(value).trim() !== '' ? String(value) : 'N/A',
+  value: (value != null && String(value).trim() !== '' && !/^n\/?a$/i.test(String(value).trim()))
+    ? String(value)
+    : null,
 });
 
 const formatDisplayDate = (value) => {
@@ -788,10 +797,23 @@ const mapRiderPayload = (body = {}, { isUpdate = false, existing = null } = {}) 
       : (isUpdate ? existing?.licence_validity_date : null);
 
   const alternateRaw = details.alternate_number;
-  const alternate_contact_number =
-    alternateRaw !== undefined
-      ? parsePhoneDigits(alternateRaw)
-      : (isUpdate ? existing?.alternate_contact_number : null);
+  let alternate_contact_number;
+  if (alternateRaw === undefined) {
+    alternate_contact_number = isUpdate ? existing?.alternate_contact_number : null;
+  } else {
+    const alternateText = pickString(alternateRaw);
+    if (!alternateText) {
+      alternate_contact_number = null;
+    } else {
+      alternate_contact_number = parsePhoneDigits(alternateText);
+      if (!alternate_contact_number) {
+        throw {
+          status: 400,
+          message: 'alternate_number must be a valid 10-digit phone number when provided',
+        };
+      }
+    }
+  }
 
   return {
     full_name,
@@ -839,10 +861,7 @@ const mapRiderPayload = (body = {}, { isUpdate = false, existing = null } = {}) 
         : (isUpdate ? existing?.bank_name : null),
     account_number,
     ifsc_code,
-    upi_id:
-      banking.upi_id !== undefined
-        ? pickString(banking.upi_id)
-        : (isUpdate ? existing?.upi_id : null),
+    upi_id: pickOptionalString(banking.upi_id, existing?.upi_id, { isUpdate }),
     is_active: isUpdate
       ? resolveRiderActiveStatus(body, existing?.is_active)
       : true,
@@ -886,36 +905,36 @@ const buildRiderDetailResponse = (rider, riderSchedule = [], stats = null) => ({
   id: rider.id,
   rider_id: formatRiderId(rider.id),
   profile: {
-    name: rider.full_name || 'N/A',
-    zone: rider.zone || 'N/A',
+    name: rider.full_name || null,
+    zone: rider.zone || null,
     phone: formatPhone(rider.mobile_number),
   },
   rider_details: {
-    full_name: rider.full_name || 'N/A',
+    full_name: rider.full_name || null,
     phone: formatPhone(rider.mobile_number),
     alternate_number: rider.alternate_contact_number
       ? formatPhone(rider.alternate_contact_number)
-      : 'N/A',
-    address: rider.residential_address || 'N/A',
+      : null,
+    address: rider.residential_address || null,
     joining_date: rider.joining_date || null,
-    aadhar_number: rider.aadhaar_number || 'N/A',
-    pan_number: rider.pan_card_number || 'N/A',
-    driving_license: rider.driving_license || 'N/A',
+    aadhar_number: rider.aadhaar_number || null,
+    pan_number: rider.pan_card_number || null,
+    driving_license: rider.driving_license || null,
     valid_till: rider.licence_validity_date || null,
   },
   rider_schedule: riderSchedule,
   vehicle_details: {
-    vehicle_type: rider.vehicle_type || 'N/A',
-    vehicle_number: rider.vehicle_registration_number || 'N/A',
-    fuel_type: rider.fuel_type || 'N/A',
-    insurance_status: rider.insurance_status || 'N/A',
+    vehicle_type: rider.vehicle_type || null,
+    vehicle_number: rider.vehicle_registration_number || null,
+    fuel_type: rider.fuel_type || null,
+    insurance_status: rider.insurance_status || null,
   },
   banking_details: {
-    account_holder: rider.account_holder_name || 'N/A',
-    bank: rider.bank_name || 'N/A',
+    account_holder: rider.account_holder_name || null,
+    bank: rider.bank_name || null,
     account_number: maskAccountNumber(rider.account_number),
-    ifsc_code: rider.ifsc_code || 'N/A',
-    upi_id: rider.upi_id || 'N/A',
+    ifsc_code: rider.ifsc_code || null,
+    upi_id: rider.upi_id || null,
   },
   stats: stats || {
     pickups: { assigned: 0, completed: 0 },

@@ -3001,7 +3001,7 @@
                     "merchants"
                   ]
                 },
-                "description": "Create a merchant (vendor) with profile, business, equipment, banking, capacity, and shift schedule.\n\n**Required:** `business_details.email`, `business_details.password` (min 6 chars), `business_details.owner_name`, `business_details.business_name` (or `profile.name`), and a valid 10-digit phone.\n\n**Optional:** `vendor_per_kg_amount` (number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n\n**Shift schedule:** use top-level `shift_schedule` array instead of vendor `pincode`, `working_days`, and `working_hours`. Each entry needs `pincode_group_id`, `day_of_week` (1=Mon ... 7=Sun), and `shift_id`. Rows are stored in `laundry_group_shift_schedule` with `laundry_id` = vendor id.\n\n`account_number` must be the full number (not masked). Returns the created merchant profile (same shape as Get Merchant Details)."
+                "description": "Create a merchant (vendor) with profile, business, equipment, banking, capacity, and shift schedule.\n\n**Required:** `business_details.email`, `business_details.password` (min 6 chars), `business_details.owner_name`, `business_details.business_name` (or `profile.name`), and a valid 10-digit phone.\n\n**Optional:** `business_details.aadhar_number`, `business_details.gstin` / `gst_number`, `banking_details.upi_id` — omit or send empty/`N/A` to leave unset. Also `vendor_per_kg_amount` (number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n\n**Shift schedule:** use top-level `shift_schedule` array instead of vendor `pincode`, `working_days`, and `working_hours`. Each entry needs `pincode_group_id`, `day_of_week` (1=Mon ... 7=Sun), and `shift_id`. Rows are stored in `laundry_group_shift_schedule` with `laundry_id` = vendor id.\n\n`account_number` must be the full number (not masked). Returns the created merchant profile (same shape as Get Merchant Details)."
               },
               "response": []
             },
@@ -3045,7 +3045,7 @@
                     "MER-001"
                   ]
                 },
-                "description": "Update a merchant — same body shape as Create Merchant.\n\n- `password` is optional; omit to keep the current password.\n- Masked `account_number` (`XXXX XXXX 4582`) keeps the existing stored value.\n- `status`: `active` | `inactive` toggles `is_active`.\n- `vendor_per_kg_amount` (optional number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n- Send `shift_schedule` to replace the merchant's laundry group shift rows; omit to keep the current schedule.\n- Accepts `MER-001` or numeric id `1`."
+                "description": "Update a merchant — same body shape as Create Merchant.\n\n- `password` is optional; omit to keep the current password.\n- Optional: `aadhar_number`, `gstin`/`gst_number`, `upi_id` — omit to keep existing; send empty/`N/A` to clear.\n- Masked `account_number` (`XXXX XXXX 4582`) keeps the existing stored value.\n- `status`: `active` | `inactive` toggles `is_active`.\n- `vendor_per_kg_amount` (optional number, default `90`) — vendor payout rate per kg; also accepted under `business_details` or `capacity`.\n- Send `shift_schedule` to replace the merchant's laundry group shift rows; omit to keep the current schedule.\n- Accepts `MER-001` or numeric id `1`."
               },
               "response": []
             },
@@ -3649,7 +3649,7 @@
                     "riders"
                   ]
                 },
-                "description": "Create a rider from admin with profile, rider details, vehicle, banking, and `rider_schedule`.\n\n`rider_schedule` rows are stored in `rider_group_shift_schedule` with `rider_id` = created rider id.\n\n**Required:** valid 10-digit phone and full_name in `profile` or `rider_details`.\n\n`stats` in the request body is ignored on create; response returns computed stats (zeros for a new rider)."
+                "description": "Create a rider from admin with profile, rider details, vehicle, banking, and `rider_schedule`.\n\n`rider_schedule` rows are stored in `rider_group_shift_schedule` with `rider_id` = created rider id.\n\n**Required:** valid 10-digit phone and full_name in `profile` or `rider_details`.\n\n**Optional:** `rider_details.alternate_number`, `banking_details.upi_id` — omit or send empty/`N/A` to leave unset.\n\n`stats` in the request body is ignored on create; response returns computed stats (zeros for a new rider)."
               },
               "response": []
             },
@@ -3693,7 +3693,7 @@
                     "RID-001"
                   ]
                 },
-                "description": "Update a rider — same body shape as Create Rider.\n\n- `status`: `active` | `inactive` toggles `is_active`.\n- Masked `aadhar_number` / `account_number` (`XXXX XXXX 4582`) keeps existing stored values.\n- Send `rider_schedule` to replace schedule rows; send `[]` to clear; omit to keep current schedule.\n- Returns the same profile shape as Get Rider Details.\n- Accepts `RID-001` or numeric id `5`."
+                "description": "Update a rider — same body shape as Create Rider.\n\n- `status`: `active` | `inactive` toggles `is_active`.\n- Optional: `alternate_number`, `upi_id` — omit to keep existing; send empty/`N/A` to clear.\n- Masked `aadhar_number` / `account_number` (`XXXX XXXX 4582`) keeps existing stored values.\n- Send `rider_schedule` to replace schedule rows; send `[]` to clear; omit to keep current schedule.\n- Returns the same profile shape as Get Rider Details.\n- Accepts `RID-001` or numeric id `5`."
               },
               "response": []
             },

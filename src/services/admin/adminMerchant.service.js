@@ -788,7 +788,9 @@ const buildMerchantBatches = (orders, pickupShiftSlotIds) => {
 
 const buildDetailKeyValue = (key, value) => ({
   key,
-  value: value != null && String(value).trim() !== '' ? String(value) : 'N/A',
+  value: (value != null && String(value).trim() !== '' && !/^n\/?a$/i.test(String(value).trim()))
+    ? String(value)
+    : null,
 });
 
 const summarizeShiftScheduleLocation = (shiftSchedule = []) => {
@@ -826,7 +828,14 @@ const normalizeAccountNumber = (value, { allowMasked = false, existing = null } 
 const pickString = (value, fallback = null) => {
   if (value === undefined || value === null) return fallback;
   const trimmed = String(value).trim();
-  return trimmed !== '' ? trimmed : fallback;
+  if (trimmed === '' || /^n\/?a$/i.test(trimmed)) return fallback;
+  return trimmed;
+};
+
+/** Optional field: use provided value (incl. empty → null); omit keeps existing on update. */
+const pickOptionalString = (raw, existing, { isUpdate }) => {
+  if (raw === undefined) return isUpdate ? (existing ?? null) : null;
+  return pickString(raw);
 };
 
 const resolveMerchantStatus = (body, existingIsActive) => {
@@ -909,21 +918,24 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
         })
       : (isUpdate ? existing?.account_number : null);
 
+  const aadharRaw =
+    business.aadhar_number !== undefined || business.aadhaar_number !== undefined
+      ? (business.aadhar_number ?? business.aadhaar_number)
+      : undefined;
+  const gstRaw =
+    business.gstin !== undefined || business.gst_number !== undefined
+      ? (business.gstin ?? business.gst_number)
+      : undefined;
+
   const dbFields = {
     owner_contact_name,
     mobile_number,
     email,
-    aadhar_number:
-      pickString(business.aadhar_number)
-      || pickString(business.aadhaar_number)
-      || (isUpdate ? existing?.aadhar_number : null),
+    aadhar_number: pickOptionalString(aadharRaw, existing?.aadhar_number, { isUpdate }),
     pan_card_number:
       pickString(business.pan_number)
       || (isUpdate ? existing?.pan_card_number : null),
-    gst_number:
-      pickString(business.gstin)
-      || pickString(business.gst_number)
-      || (isUpdate ? existing?.gst_number : null),
+    gst_number: pickOptionalString(gstRaw, existing?.gst_number, { isUpdate }),
     laundry_shop_name,
     shop_address,
     account_holder_name:
@@ -938,7 +950,7 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       || (isUpdate ? existing?.ifsc_code : null),
   };
 
-  validateVendorFields(dbFields, { partial: false });
+  validateVendorFields(dbFields, { partial: isUpdate });
 
   const password =
     pickString(business.password)
@@ -1015,9 +1027,7 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     power_backup:
       pickString(equipment.power_backup)
       || (isUpdate ? existing?.power_backup : null),
-    upi_id:
-      pickString(banking.upi_id)
-      || (isUpdate ? existing?.upi_id : null),
+    upi_id: pickOptionalString(banking.upi_id, existing?.upi_id, { isUpdate }),
     max_wash_kg:
       capacity.max_wash_kg != null
         ? Number(capacity.max_wash_kg)
@@ -1047,11 +1057,11 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
   return {
     id: vendor.id,
     merchant_id: formatMerchantId(vendor.id),
-    name: vendor.laundry_shop_name || 'N/A',
+    name: vendor.laundry_shop_name || null,
     contact: formatPhone(vendor.mobile_number),
     status: formatMerchantStatus(vendor.is_active),
     avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-    address: vendor.shop_address || 'N/A',
+    address: vendor.shop_address || null,
     zone_id: zoneMeta.zone_id,
     zone_code: zoneMeta.zone_code,
     zone_name: zoneMeta.zone_name,

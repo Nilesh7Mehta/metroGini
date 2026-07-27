@@ -15,13 +15,20 @@ const ACCOUNT_NUMBER_REGEX = /^\d{9,18}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const PINCODE_REGEX = /^\d{6}$/;
 
+const emptyToNull = (value) => {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  if (trimmed === "" || /^n\/?a$/i.test(trimmed)) return null;
+  return trimmed;
+};
+
 export const normalizeVendorFields = (data = {}) => ({
   owner_contact_name: data.owner_contact_name,
   mobile_number: data.mobile_number,
   email: typeof data.email === "string" ? data.email.trim() : data.email,
-  aadhar_number: data.aadhar_number,
+  aadhar_number: emptyToNull(data.aadhar_number),
   pan_card_number: data.pan_card_number?.toUpperCase?.(),
-  gst_number: data.gst_number?.toUpperCase?.(),
+  gst_number: emptyToNull(data.gst_number)?.toUpperCase?.() ?? null,
   laundry_shop_name: data.laundry_shop_name,
   shop_address: data.shop_address,
   pincode: data.pincode,
@@ -62,6 +69,10 @@ export const validateVendorFields = (data = {}, { partial = false } = {}) => {
     requireField("mobile_number", "mobile_number");
     requireField("email", "email");
     requireField("laundry_shop_name", "laundry_shop_name");
+    requireField("account_holder_name", "account_holder_name");
+    requireField("bank_name", "bank_name");
+    requireField("account_number", "account_number");
+    requireField("ifsc_code", "ifsc_code");
   }
 
   validatePresent(
