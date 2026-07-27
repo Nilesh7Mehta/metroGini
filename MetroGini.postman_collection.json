@@ -5731,7 +5731,7 @@
                     }
                   ]
                 },
-                "description": "Vendor order dashboard.\n\n**filter:** `today` | `this_week` | `this_month` | `task`\n\nUse `filter=task` for the next task deadline view."
+                "description": "Vendor order dashboard.\n\n**filter:** `today` | `this_week` | `this_month` | `task`\n\nUse `filter=task` for current + overdue task deadline cards."
               },
               "response": []
             },
@@ -5770,7 +5770,7 @@
                     }
                   ]
                 },
-                "description": "Task-mode dashboard: task_deadline, task_progress, performance_overview, todays_batch_overview, operational_distribution (pending_classification / awaiting_mark_ready / ready_for_dispatch)."
+                "description": "Task-mode dashboard with current + overdue deadlines.\n\nReturns:\n- `task_deadline` / `task_progress` — upcoming/current batch\n- `overdue_task_deadline` / `overdue_task_progress` — earliest past pending batch (`in_process` / `order_finalized`)\n- `performance_overview` and `operational_distribution` are empty objects in task mode\n\nUse deadline fields to call `orderList?mode=task&scope=current|overdue` with matching `date`, `shift_id`, `pincode_group_id`."
               },
               "response": []
             },
@@ -5839,7 +5839,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=task",
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=task&scope=current&date=2026-07-28&shift_id=1&pincode_group_id=5&page=1&limit=20",
                   "host": [
                     "{{baseUrl}}api"
                   ],
@@ -5852,10 +5852,36 @@
                     {
                       "key": "mode",
                       "value": "task"
+                    },
+                    {
+                      "key": "scope",
+                      "value": "current",
+                      "description": "current | overdue"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2026-07-28",
+                      "description": "From dashboard task_deadline.date or overdue_task_deadline.date"
+                    },
+                    {
+                      "key": "shift_id",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pincode_group_id",
+                      "value": "5"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
                     }
                   ]
                 },
-                "description": "Task-mode order list: task_deadline, task_progress, and shifts with orders due for the next deadline."
+                "description": "Task-mode order list.\n\n**Query:**\n- `mode=task` (required)\n- `scope=current` | `overdue` (default `current`)\n- `date`, `shift_id`, `pincode_group_id` — pass from dashboard deadline object; if omitted, server resolves the matching deadline\n- `page`, `limit`\n\nReturns `task_deadline`, `task_progress`, and `shifts` for that scope."
               },
               "response": []
             },

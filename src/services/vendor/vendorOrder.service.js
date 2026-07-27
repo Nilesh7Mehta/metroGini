@@ -1,4 +1,4 @@
-import sql, { APP_TIMEZONE } from '../../config/db.js';
+import sql from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
@@ -187,23 +187,6 @@ const formatPgDate = (value) => {
   return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : formatDate(new Date(raw));
 };
 
-/** ISO-8601 wall-clock in APP_TIMEZONE, e.g. 2026-07-10T10:00:00+05:30 */
-const formatGeneratedAtIso = (date = new Date()) => {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: APP_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(date);
-
-  const get = (type) => parts.find((part) => part.type === type)?.value;
-  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}+05:30`;
-};
-
 const isAwaitingMarkReady = (order) => {
   if (order.status === 'order_finalized') return true;
   return order.status === 'in_process' && !isClassificationPending(order);
@@ -246,66 +229,35 @@ const mapTaskOrderToListItem = (order) => {
   };
 };
 
-const buildTaskPerformanceOverview = (orders) => {
-  const ordersReceived = orders.filter((o) =>
-    [
-      'in_process',
-      'order_finalized',
-      'ready_for_delivery',
-      'out_for_delivery',
-      'delivered',
-    ].includes(o.status),
-  ).length;
-
-  const ordersDelivered = orders.filter((o) => o.status === 'delivered').length;
-
-  const loadProcessed = orders.reduce((sum, o) => {
-    const classified =
-      Number(o.service_id) === 2
-        ? hasConfirmedClothes(o)
-        : hasConfirmedWeight(o) && hasConfirmedClothes(o);
-
-    if (
-      !classified &&
-      !['order_finalized', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(
-        o.status,
-      )
-    ) {
-      return sum;
-    }
-
-    if (Number(o.service_id) === 2) {
-      return sum + Number(o.actual_clothes_count || 0);
-    }
-    return sum + Number(o.actual_weight || 0);
-  }, 0);
-
-  const revenue = orders.reduce((sum, o) => {
-    if (!['ready_for_delivery', 'out_for_delivery', 'delivered'].includes(o.status)) {
-      return sum;
-    }
-    return sum + Number(o.vendor_revenue || 0);
-  }, 0);
-
-  return {
-    orders_received: ordersReceived,
-    orders_delivered: ordersDelivered,
-    load_processed: {
-      value: parseFloat(Number(loadProcessed).toFixed(2)),
-      unit: 'kg/pieces',
-    },
-    revenue: parseFloat(Number(revenue).toFixed(2)),
-  };
-};
-
 /**
- * Next upcoming laundry schedule slot for this vendor (laundry_id).
- * Prefers the earliest delivery_date among orders still awaiting mark-ready
- * (in_process / order_finalized) when that date is on or before the next
- * scheduled occurrence. Orders already ready_for_delivery do not pin a past day.
+ * Current / overdue task deadline helpers.
  */
-const resolveVendorTaskDeadline = async (vendor_id) => {
-  const scheduleResult = await sql.query(
+const buildEmptyTaskDeadline = () => ({
+  date: null,
+  day_of_week: null,
+  day_label: null,
+  shift_id: null,
+  shift_name: null,
+  pincode_group_id: null,
+});
+
+const buildTaskDeadlinePayload = ({
+  date = null,
+  day_of_week = null,
+  shift_id = null,
+  shift_name = null,
+  pincode_group_id = null,
+} = {}) => ({
+  date: date || null,
+  day_of_week: day_of_week != null ? Number(day_of_week) : null,
+  day_label: day_of_week != null ? (DAY_LABELS[Number(day_of_week)] || null) : null,
+  shift_id: shift_id != null ? Number(shift_id) : null,
+  shift_name: shift_name || null,
+  pincode_group_id: pincode_group_id != null ? Number(pincode_group_id) : null,
+});
+
+const fetchNextScheduleRow = async (vendor_id) => {
+  const { rows } = await sql.query(
     `
     SELECT
       lgss.pincode_group_id,
@@ -335,83 +287,133 @@ const resolveVendorTaskDeadline = async (vendor_id) => {
     [vendor_id],
   );
 
-  const orderDeadlineResult = await sql.query(
+  return rows[0] || null;
+};
+
+const fetchScheduleForDate = async (vendor_id, deadlineDate) => {
+  if (!deadlineDate) return null;
+
+  const { rows } = await sql.query(
+    `
+    SELECT
+      lgss.pincode_group_id,
+      lgss.day_of_week,
+      lgss.shift_id,
+      s.shift_name,
+      EXTRACT(ISODOW FROM $2::date)::int AS date_day_of_week
+    FROM laundry_group_shift_schedule lgss
+    JOIN shifts s ON s.id = lgss.shift_id
+    WHERE lgss.laundry_id = $1
+      AND lgss.day_of_week = EXTRACT(ISODOW FROM $2::date)::int
+      AND COALESCE(s.status, TRUE) IS TRUE
+    ORDER BY s.start_time ASC, lgss.id ASC
+    LIMIT 1
+    `,
+    [vendor_id, deadlineDate],
+  );
+
+  if (rows[0]) return rows[0];
+
+  const dowResult = await sql.query(
+    `SELECT EXTRACT(ISODOW FROM $1::date)::int AS day_of_week`,
+    [deadlineDate],
+  );
+
+  return {
+    pincode_group_id: null,
+    day_of_week: Number(dowResult.rows[0]?.day_of_week) || null,
+    shift_id: null,
+    shift_name: null,
+    date_day_of_week: Number(dowResult.rows[0]?.day_of_week) || null,
+  };
+};
+
+const fetchEarliestPendingDeliveryDate = async (
+  vendor_id,
+  { beforeDate = null, onOrAfterDate = null } = {},
+) => {
+  const params = [vendor_id, TASK_VENDOR_PENDING_STATUSES];
+  let dateClause = '';
+
+  if (beforeDate) {
+    params.push(beforeDate);
+    dateClause += ` AND delivery_date < $${params.length}::date`;
+  }
+  if (onOrAfterDate) {
+    params.push(onOrAfterDate);
+    dateClause += ` AND delivery_date >= $${params.length}::date`;
+  }
+
+  const { rows } = await sql.query(
     `
     SELECT MIN(delivery_date)::date AS earliest_delivery_date
     FROM orders
     WHERE vendor_id = $1
       AND delivery_date IS NOT NULL
       AND status = ANY($2::text[])
+      ${dateClause}
     `,
-    [vendor_id, TASK_VENDOR_PENDING_STATUSES],
+    params,
   );
 
-  const scheduleRow = scheduleResult.rows[0] || null;
-  const earliestDelivery = formatPgDate(
-    orderDeadlineResult.rows[0]?.earliest_delivery_date,
-  );
+  return formatPgDate(rows[0]?.earliest_delivery_date);
+};
+
+/**
+ * Current task deadline = next laundry schedule slot, or the earliest
+ * pending delivery date from today onward when that is sooner.
+ */
+const resolveCurrentTaskDeadline = async (vendor_id) => {
+  const scheduleRow = await fetchNextScheduleRow(vendor_id);
+  const today = formatDate(new Date());
+  const earliestUpcomingPending = await fetchEarliestPendingDeliveryDate(vendor_id, {
+    onOrAfterDate: today,
+  });
 
   let deadlineDate = null;
-  let dayOfWeek = null;
-  let shiftId = null;
-  let shiftName = null;
-  let pincodeGroupId = null;
-
-  if (earliestDelivery && scheduleRow) {
+  if (earliestUpcomingPending && scheduleRow) {
     const scheduleDate = formatPgDate(scheduleRow.next_date);
-    if (earliestDelivery <= scheduleDate) {
-      deadlineDate = earliestDelivery;
-    } else {
-      deadlineDate = scheduleDate;
-    }
-  } else if (earliestDelivery) {
-    deadlineDate = earliestDelivery;
+    deadlineDate =
+      earliestUpcomingPending <= scheduleDate
+        ? earliestUpcomingPending
+        : scheduleDate;
+  } else if (earliestUpcomingPending) {
+    deadlineDate = earliestUpcomingPending;
   } else if (scheduleRow) {
     deadlineDate = formatPgDate(scheduleRow.next_date);
   }
 
   if (!deadlineDate) return null;
 
-  const deadlineDowResult = await sql.query(
-    `SELECT EXTRACT(ISODOW FROM $1::date)::int AS day_of_week`,
-    [deadlineDate],
-  );
-  dayOfWeek = Number(deadlineDowResult.rows[0].day_of_week);
-
-  const dayScheduleResult = await sql.query(
-    `
-    SELECT
-      lgss.pincode_group_id,
-      lgss.day_of_week,
-      lgss.shift_id,
-      s.shift_name
-    FROM laundry_group_shift_schedule lgss
-    JOIN shifts s ON s.id = lgss.shift_id
-    WHERE lgss.laundry_id = $1
-      AND lgss.day_of_week = $2
-      AND COALESCE(s.status, TRUE) IS TRUE
-    ORDER BY s.start_time ASC, lgss.id ASC
-    LIMIT 1
-    `,
-    [vendor_id, dayOfWeek],
-  );
-
-  const daySchedule = dayScheduleResult.rows[0] || scheduleRow;
-  if (daySchedule) {
-    shiftId = Number(daySchedule.shift_id);
-    shiftName = daySchedule.shift_name;
-    pincodeGroupId = Number(daySchedule.pincode_group_id);
-    dayOfWeek = Number(daySchedule.day_of_week);
-  }
-
-  return {
+  const daySchedule = (await fetchScheduleForDate(vendor_id, deadlineDate)) || scheduleRow;
+  return buildTaskDeadlinePayload({
     date: deadlineDate,
-    day_of_week: dayOfWeek,
-    day_label: DAY_LABELS[dayOfWeek] || null,
-    shift_id: shiftId,
-    shift_name: shiftName,
-    pincode_group_id: pincodeGroupId,
-  };
+    day_of_week: daySchedule?.day_of_week ?? daySchedule?.date_day_of_week,
+    shift_id: daySchedule?.shift_id,
+    shift_name: daySchedule?.shift_name,
+    pincode_group_id: daySchedule?.pincode_group_id,
+  });
+};
+
+/**
+ * Overdue task deadline = earliest past delivery_date still awaiting
+ * vendor mark-ready (in_process / order_finalized).
+ */
+const resolveOverdueTaskDeadline = async (vendor_id) => {
+  const today = formatDate(new Date());
+  const overdueDate = await fetchEarliestPendingDeliveryDate(vendor_id, {
+    beforeDate: today,
+  });
+  if (!overdueDate) return null;
+
+  const daySchedule = await fetchScheduleForDate(vendor_id, overdueDate);
+  return buildTaskDeadlinePayload({
+    date: overdueDate,
+    day_of_week: daySchedule?.day_of_week ?? daySchedule?.date_day_of_week,
+    shift_id: daySchedule?.shift_id,
+    shift_name: daySchedule?.shift_name,
+    pincode_group_id: daySchedule?.pincode_group_id,
+  });
 };
 
 const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
@@ -454,44 +456,53 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
   return rows;
 };
 
-const buildEmptyTaskDeadline = () => ({
-  date: null,
-  day_of_week: null,
-  day_label: null,
-  shift_id: null,
-  shift_name: null,
-  pincode_group_id: null,
-});
+const resolveTaskDeadlineFromQuery = async (vendor_id, query = {}, scope = 'current') => {
+  const date =
+    query.date && /^\d{4}-\d{2}-\d{2}$/.test(String(query.date))
+      ? String(query.date)
+      : null;
 
-export const orderTaskDashboardService = async (vendor_id) => {
-  const taskDeadline = (await resolveVendorTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
-  const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
+  if (!date) {
+    return scope === 'overdue'
+      ? resolveOverdueTaskDeadline(vendor_id)
+      : resolveCurrentTaskDeadline(vendor_id);
+  }
 
-  return {
-    filter: 'task',
-    generated_at: formatGeneratedAtIso(),
-    task_deadline: taskDeadline,
-    task_progress: buildTaskProgress(orders),
-    performance_overview: buildTaskPerformanceOverview(orders),
-    todays_batch_overview: {
-      total_orders: orders.length,
-      services: buildDashboardBatchServices(orders),
-    },
-    operational_distribution: buildTaskOperationalDistribution(orders),
-  };
+  const daySchedule = await fetchScheduleForDate(vendor_id, date);
+  const shiftId =
+    query.shift_id != null && String(query.shift_id).trim() !== ''
+      ? Number(query.shift_id)
+      : daySchedule?.shift_id;
+  const pincodeGroupId =
+    query.pincode_group_id != null && String(query.pincode_group_id).trim() !== ''
+      ? Number(query.pincode_group_id)
+      : daySchedule?.pincode_group_id;
+
+  let shiftName = daySchedule?.shift_name || null;
+  if (shiftId != null && Number.isInteger(shiftId) && shiftId > 0) {
+    const { rows } = await sql.query(
+      `SELECT shift_name FROM shifts WHERE id = $1`,
+      [shiftId],
+    );
+    if (rows[0]?.shift_name) shiftName = rows[0].shift_name;
+  }
+
+  return buildTaskDeadlinePayload({
+    date,
+    day_of_week: daySchedule?.day_of_week ?? daySchedule?.date_day_of_week,
+    shift_id: Number.isInteger(shiftId) && shiftId > 0 ? shiftId : null,
+    shift_name: shiftName,
+    pincode_group_id:
+      Number.isInteger(pincodeGroupId) && pincodeGroupId > 0 ? pincodeGroupId : null,
+  });
 };
 
-export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
-  const taskDeadline = (await resolveVendorTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
-  const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
+const buildTaskShiftListPayload = (taskDeadline, orders, pageOrders) => {
   const shiftType = taskDeadline.shift_name
     ? String(taskDeadline.shift_name).trim().toLowerCase()
     : null;
 
-  const mappedOrders = orders.map(mapTaskOrderToListItem);
-  const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
-
-  const shiftPayload = {
+  return {
     id: taskDeadline.shift_id,
     shift_title: taskDeadline.shift_name,
     total_orders: orders.length,
@@ -503,9 +514,45 @@ export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
     },
     orders: pageOrders,
   };
+};
+
+export const orderTaskDashboardService = async (vendor_id) => {
+  const taskDeadline =
+    (await resolveCurrentTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
+  const overdueTaskDeadline =
+    (await resolveOverdueTaskDeadline(vendor_id)) || buildEmptyTaskDeadline();
+
+  const [currentOrders, overdueOrders] = await Promise.all([
+    fetchVendorTaskOrders(vendor_id, taskDeadline),
+    fetchVendorTaskOrders(vendor_id, overdueTaskDeadline),
+  ]);
+
+  return {
+    filter: 'task',
+    task_deadline: taskDeadline,
+    task_progress: buildTaskProgress(currentOrders),
+    overdue_task_deadline: overdueTaskDeadline,
+    overdue_task_progress: buildTaskProgress(overdueOrders),
+    performance_overview: {},
+    operational_distribution: {},
+  };
+};
+
+export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
+  const scopeRaw = String(query.scope || 'current').toLowerCase();
+  const scope = scopeRaw === 'overdue' ? 'overdue' : 'current';
+
+  const taskDeadline =
+    (await resolveTaskDeadlineFromQuery(vendor_id, query, scope))
+    || buildEmptyTaskDeadline();
+  const orders = await fetchVendorTaskOrders(vendor_id, taskDeadline);
+  const mappedOrders = orders.map(mapTaskOrderToListItem);
+  const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
+  const shiftPayload = buildTaskShiftListPayload(taskDeadline, orders, pageOrders);
 
   return {
     mode: 'task',
+    scope,
     task_deadline: taskDeadline,
     task_progress: buildTaskProgress(orders),
     shifts: taskDeadline.shift_id || orders.length ? [shiftPayload] : [],

@@ -950,7 +950,8 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       || (isUpdate ? existing?.ifsc_code : null),
   };
 
-  validateVendorFields(dbFields, { partial: isUpdate });
+  // Always full validation — banking fields stay required on create and edit
+  validateVendorFields(dbFields, { partial: false });
 
   const password =
     pickString(business.password)

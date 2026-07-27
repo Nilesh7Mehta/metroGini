@@ -508,6 +508,30 @@ const pickOptionalString = (raw, existing, { isUpdate }) => {
   return pickString(raw);
 };
 
+const validateRequiredRiderFields = (payload = {}) => {
+  if (!payload.full_name) {
+    throw { status: 400, message: 'full_name is required in profile or rider_details' };
+  }
+  if (!payload.mobile_number) {
+    throw {
+      status: 400,
+      message: 'A valid 10-digit phone number is required in profile or rider_details',
+    };
+  }
+  if (!payload.account_holder_name) {
+    throw { status: 400, message: 'banking_details.account_holder is required' };
+  }
+  if (!payload.bank_name) {
+    throw { status: 400, message: 'banking_details.bank is required' };
+  }
+  if (!payload.account_number) {
+    throw { status: 400, message: 'banking_details.account_number is required' };
+  }
+  if (!payload.ifsc_code) {
+    throw { status: 400, message: 'banking_details.ifsc_code is required' };
+  }
+};
+
 const parseDateField = (value, fieldName) => {
   if (!value) return null;
   const date = new Date(value);
@@ -1466,7 +1490,15 @@ export const updateAdminRiderService = async (rawId, body) => {
   }
 
   const payload = mapRiderPayload(body, { isUpdate: true, existing });
+  validateRequiredRiderFields(payload);
   const scheduleUpdate = resolveRiderScheduleUpdate(body);
+  if (!scheduleUpdate || scheduleUpdate.mode !== 'replace') {
+    throw {
+      status: 400,
+      message:
+        'rider_schedule is required and must contain at least one entry on update',
+    };
+  }
 
   if (payload.mobile_number !== existing.mobile_number) {
     const { rows: mobileCheck } = await sql.query(
@@ -1562,7 +1594,14 @@ export const updateAdminRiderService = async (rawId, body) => {
 
 export const createAdminRiderService = async (body) => {
   const payload = mapRiderPayload(body, { isUpdate: false });
+  validateRequiredRiderFields(payload);
   const riderSchedule = parseRiderScheduleFromBody(body);
+  if (!riderSchedule?.length) {
+    throw {
+      status: 400,
+      message: 'rider_schedule is required and must contain at least one entry',
+    };
+  }
 
   const client = await sql.connect();
 
@@ -1624,9 +1663,7 @@ export const createAdminRiderService = async (body) => {
 
     const riderId = rows[0].id;
 
-    if (riderSchedule?.length) {
-      await saveShiftScheduleForRider(riderId, riderSchedule, { client });
-    }
+    await saveShiftScheduleForRider(riderId, riderSchedule, { client });
 
     await client.query('COMMIT');
 
