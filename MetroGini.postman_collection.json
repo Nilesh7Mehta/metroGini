@@ -5770,7 +5770,7 @@
                     }
                   ]
                 },
-                "description": "Task-mode dashboard with current + overdue deadlines.\n\nReturns:\n- `task_deadline` / `task_progress` — upcoming/current batch\n- `overdue_task_deadline` / `overdue_task_progress` — earliest past pending batch (`in_process` / `order_finalized`)\n- `performance_overview` and `operational_distribution` are empty objects in task mode\n\nUse deadline fields to call `orderList?mode=task&scope=current|overdue` with matching `date`, `shift_id`, `pincode_group_id`."
+                "description": "Task-mode dashboard with current + overdue deadlines.\n\nReturns:\n- `task_deadline` / `task_progress` — upcoming/current batch\n- `overdue_task_deadline` / `overdue_task_progress` — earliest past pending batch (`in_process` / `order_finalized`)\n- `performance_overview` — orders_received, orders_delivered, load_processed, revenue across current + overdue task orders\n- `operational_distribution` — pending_classification, awaiting_mark_ready, ready_for_dispatch, out_for_delivery across current + overdue\n\nUse deadline fields to call `orderList?mode=task&scope=current|overdue` with matching `date`, `shift_id`, `pincode_group_id`."
               },
               "response": []
             },
@@ -5881,7 +5881,7 @@
                     }
                   ]
                 },
-                "description": "Task-mode order list.\n\n**Query:**\n- `mode=task` (required)\n- `scope=current` | `overdue` (default `current`)\n- `date`, `shift_id`, `pincode_group_id` — pass from dashboard deadline object; if omitted, server resolves the matching deadline\n- `page`, `limit`\n\nReturns `task_deadline`, `task_progress`, and `shifts` for that scope."
+                "description": "Task-mode order list.\n\n**Query:**\n- `mode=task` (required)\n- `scope=current` | `overdue` (default `current`)\n- `date`, `shift_id`, `pincode_group_id` — pass from dashboard deadline object; if omitted, server resolves the matching deadline\n- `page`, `limit`\n\nReturns `task_deadline`, `task_progress`, `performance_overview`, and `shifts` for that scope."
               },
               "response": []
             },
