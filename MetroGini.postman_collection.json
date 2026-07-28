@@ -798,6 +798,54 @@
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
               }
+            },
+            {
+              "name": "Update Instructions",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pickup_special_instruction\": \"Leave at gate\",\n  \"delivery_special_instruction\": \"Call on arrival\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/instructions",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "instructions"
+                  ]
+                },
+                "description": "Save pickup/delivery special instructions.\n\nBody (at least one required):\n- pickup_special_instruction\n- delivery_special_instruction"
+              },
+              "response": []
             }
           ]
         },
@@ -4235,15 +4283,16 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}api/common/faq",
+              "raw": "{{baseUrl}}api/common/userfaq",
               "host": [
                 "{{baseUrl}}api"
               ],
               "path": [
                 "common",
-                "faq"
+                "userfaq"
               ]
-            }
+            },
+            "description": "Public user FAQ list (GET /api/common/userfaq)."
           },
           "response": []
         },
@@ -5257,6 +5306,40 @@
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
               }
+            },
+            {
+              "name": "Create Payment Order",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/rider/order/1/create-payment-order",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "rider",
+                    "order",
+                    "1",
+                    "create-payment-order"
+                  ]
+                },
+                "description": "Create Razorpay payment order for COD/collection on a rider delivery order.\n\nPath: order id"
+              },
+              "response": []
             }
           ]
         },
@@ -5700,7 +5783,7 @@
                 "dashboard"
               ]
             },
-            "description": "Vendor home dashboard.\n\nReturns:\n- `overview` — total_orders, total_weight_kg, total_clothes (all-time, non-cancelled)\n- `work_days` — unique laundry schedule weekdays (e.g. Monday, Tuesday)\n- `deadlines.current` / `deadlines.overdue` — task deadline + progress (null when none)\n- `orders_by_workday` — latest occurrence of each work day with order counts\n- `roster` — shifts_per_week, morning/evening shift cards, coming_up events"
+            "description": "Vendor home dashboard.\n\nReturns:\n- `overview` — total_orders, total_weight_kg, total_clothes\n- `work_days` — unique laundry schedule weekdays\n- `deadlines.current` / `deadlines.overdue` — task deadline + progress (null when none)\n- `orders_by_workday` — current-month dates that have delivery_date orders\n- `roster` — next 3 work days (morning delivery + evening pickup) + coming_up"
           },
           "response": []
         },
@@ -6166,7 +6249,7 @@
                     }
                   ]
                 },
-                "description": "Custom history range with optional filters: status, type, shift, search. Returns summary + paginated shifts/orders."
+                "description": "Custom history range with optional filters: status, type, shift, search.\n\nReturns summary (total_orders, delivered, ready_for_dispatch, total_clothes, total_kg) + paginated shifts/orders.\nOrder `id` is numeric order.id."
               },
               "response": []
             },
@@ -6449,6 +6532,62 @@
                     }
                   ]
                 }
+              },
+              "response": []
+            },
+            {
+              "name": "orderList (Task - Overdue)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/vendor/order/orderList?mode=task&scope=overdue&date=2026-07-25&page=1&limit=10",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "vendor",
+                    "order",
+                    "orderList"
+                  ],
+                  "query": [
+                    {
+                      "key": "mode",
+                      "value": "task"
+                    },
+                    {
+                      "key": "scope",
+                      "value": "overdue"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2026-07-25",
+                      "description": "From dashboard overdue_task_deadline.date"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                },
+                "description": "Overdue task-mode order list. Pass date/shift_id/pincode_group_id from dashboard overdue_task_deadline."
               },
               "response": []
             }
@@ -6773,6 +6912,38 @@
               ]
             },
             "description": "Vendor shortcut (type fixed to vendor). Prefer POST /api/common/needHelp with type in body for all roles."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Payout",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/payout",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "payout"
+              ]
+            },
+            "description": "Vendor self payout view (pending + paid batches)."
           },
           "response": []
         }
