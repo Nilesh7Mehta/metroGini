@@ -80,14 +80,14 @@ export const fulfillAdvancePayment = async ({
   );
 // remaining_amount = COALESCE(remaining_amount, $6) - $5,
 
-  await insertPayment(client, {
-    orderId,
-    amount: paidAmount,
-    paymentType: PAYMENT_TYPE.ADVANCE,
-    paymentMethod,
-    transactionId: razorpayPaymentId,
-    status: "success",
-  });
+  // await insertPayment(client, {
+  //   orderId,
+  //   amount: paidAmount,
+  //   paymentType: PAYMENT_TYPE.ADVANCE,
+  //   paymentMethod,
+  //   transactionId: razorpayPaymentId,
+  //   status: "success",
+  // });
 
   return {
     alreadyProcessed: false,
@@ -219,14 +219,14 @@ export const recordFailedPayment = async ({
     return { handled: true, skipped: true };
   }
 
-  await insertPayment(client, {
-    orderId,
-    amount: amount > 0 ? amount : ADVANCE_AMOUNT,
-    paymentType: PAYMENT_TYPE.ADVANCE,
-    paymentMethod,
-    transactionId: razorpayPaymentId,
-    status: "failed",
-  });
+  // await insertPayment(client, {
+  //   orderId,
+  //   amount: amount > 0 ? amount : ADVANCE_AMOUNT,
+  //   paymentType: PAYMENT_TYPE.ADVANCE,
+  //   paymentMethod,
+  //   transactionId: razorpayPaymentId,
+  //   status: "failed",
+  // });
 
   if (order.status === "draft" && order.payment_status !== PAYMENT_STATUS.FAILED) {
     await client.query(

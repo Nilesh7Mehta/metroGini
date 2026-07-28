@@ -4,6 +4,7 @@ import {
   updateServiceTypeService,
   updatePickupService,
   updateDeliveryService,
+  updateOrderInstructionsService,
   finalizeOrderService,
   completeOrderService,
   reviewOrderService,
@@ -89,6 +90,23 @@ export const updateDelivery = async (req, res, next) => {
   } catch (error) {
     if (error.status) return res.status(error.status).json(error);
     next(error);
+  }
+};
+
+export const updateOrderInstructions = async (req, res, next) => {
+  try {
+    const data = await updateOrderInstructionsService({
+      order_id: req.params.id,
+      user_id: req.user.id,
+      ...req.body,
+    });
+    return res.status(200).json({
+      message: "Special instructions saved successfully",
+      order_id: req.params.id,
+      ...data,
+    });
+  } catch (error) {
+    handleError(error, res, next);
   }
 };
 

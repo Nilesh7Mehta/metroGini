@@ -23,6 +23,9 @@ router.put('/:id/pickup', userOrderController.updatePickup);
 //step 4: update dropoff
 router.put('/:id/delivery', userOrderController.updateDelivery);
 
+// save special instructions for pickup / drop
+router.put('/:id/instructions', userOrderController.updateOrderInstructions);
+
 //step 5 : finalize order
 router.post('/:id/finalize', userOrderController.finalizeOrder);
 

@@ -8,6 +8,7 @@ import {
   fetchOrderHistory,
   handoverToVendorService,
   collectPaymentService,
+  createRiderPaymentOrderService,
   pickupFromVendorService,
   verifyDeliveryOtpService,
 } from "../../services/rider/riderOrder.service.js";
@@ -150,6 +151,19 @@ export const collectPayment = async (req, res, next) => {
     }
 
     const data = await collectPaymentService(rider_id, order_id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+export const createPaymentOrder = async (req, res, next) => {
+  try {
+    const rider_id = req.user.rider_id;
+    const order_id = req.params.id;
+
+    const data = await createRiderPaymentOrderService(rider_id, order_id);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, message: error.message });

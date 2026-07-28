@@ -2,7 +2,9 @@ import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
+import { PAYMENT_TYPE } from "../../utils/status.js";
 import { sendUserEmailSafe, sendFullPaymentEmail, sendPickupOtpEmail } from "../common/email.service.js";
+import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
 import { generateOTP } from "../../utils/otp.js";
 
 const attachOrderTimestamps = (row) => ({
@@ -379,7 +381,7 @@ export const fetchOrderHistory = async (rider_id, query) => {
 export const collectPaymentService = async (rider_id, order_id) => {
   const { rows } = await sql.query(
     `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
-            o.final_total, o.payment_status
+            o.final_total, o.payment_status, o.amount_paid, o.remaining_amount
      FROM orders o
      WHERE o.id = $1`,
     [order_id]
@@ -401,25 +403,91 @@ export const collectPaymentService = async (rider_id, order_id) => {
     return {
       order_id: parseInt(order_id, 10),
       payment_status: 'paid',
+      amount_paid: true,
       message: 'Payment has already been completed for this order',
     };
   }
 
   const final_total = parseFloat(order.final_total);
 
-  // If partially_paid, advance of ₹500 already collected — only collect the remaining
-  const amount_to_collect = order.payment_status === 'partially_paid'
-    ? parseFloat((final_total - 500).toFixed(2))
-    : final_total;
+  const amount_to_collect =
+    order.payment_status === 'partially_paid'
+      ? parseFloat(order.remaining_amount ?? final_total - parseFloat(order.amount_paid || 0)).toFixed(2)
+      : final_total;
 
   if (amount_to_collect <= 0) {
     return {
       order_id: parseInt(order_id, 10),
       payment_status: 'paid',
       message: 'Payment has already been completed for this order',
-    }
+    };
   }
 
+  return {
+    order_id: parseInt(order_id, 10),
+    amount_to_collect,
+    payment_status: 'partially_paid',
+  };
+};
+
+export const createRiderPaymentOrderService = async (rider_id, order_id) => {
+  const { rows } = await sql.query(
+    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
+            o.final_total, o.payment_status, o.amount_paid, o.remaining_amount
+     FROM orders o
+     WHERE o.id = $1`,
+    [order_id],
+  );
+
+  if (rows.length === 0) throw { status: 404, message: 'Order not found' };
+
+  const order = rows[0];
+
+  if (order.assigned_rider_id !== rider_id) {
+    throw { status: 403, message: 'You are not assigned to this order' };
+  }
+
+  if (order.status !== 'out_for_delivery') {
+    throw { status: 400, message: 'Payment can only be collected when order is out_for_delivery' };
+  }
+
+  if (order.payment_status === 'paid') {
+    throw { status: 400, message: 'Payment has already been completed for this order' };
+  }
+
+  if (order.payment_status !== 'partially_paid') {
+    throw { status: 400, message: 'Remaining payment requires advance to be paid first' };
+  }
+
+  if (order.final_total == null) {
+    throw { status: 400, message: 'Final amount has not been calculated yet' };
+  }
+
+  const final_total = parseFloat(order.final_total);
+  const amount_to_collect = parseFloat(order.remaining_amount ?? final_total - parseFloat(order.amount_paid || 0)).toFixed(2);
+
+  if (amount_to_collect <= 0) {
+    throw { status: 400, message: 'No remaining amount to collect' };
+  }
+
+  const checkout = await createRazorpayOrder({
+    orderId: order_id,
+    userId: order.user_id,
+    body: {
+      payment_type: PAYMENT_TYPE.REMAINING,
+      amount: amount_to_collect,
+    },
+  });
+
+  return {
+    order_id: parseInt(order_id, 10),
+    amount_to_collect,
+    key_id: checkout.key_id,
+    razorpay_order_id: checkout.order_id,
+    amount: checkout.amount,
+    currency: checkout.currency,
+    payment_type: checkout.payment_type,
+  };
 };
 
 export const pickupFromVendorService = async (rider_id, order_id) => {

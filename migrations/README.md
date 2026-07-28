@@ -31,3 +31,4 @@ Run in order. Each file depends on the ones before it.
 | 032_vendor_payout_batches.sql | vendor_payout_batches; orders (vendor_payout_batch_id) | 031, 015 |
 | 033_pincode_groups_city_id.sql | pincode_groups (city_id) | 004, 015 |
 | 034_order_damage_columns.sql | orders (is_damaged, damage_count, damage_images) | 027 |
+| 033_order_special_instructions.sql | orders (pickup_special_instruction, delivery_special_instruction) | 006 |

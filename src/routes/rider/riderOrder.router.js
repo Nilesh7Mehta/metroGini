@@ -13,6 +13,7 @@ router.post('/verifyPickupOtp', authenticate, verifyOtpLimiter, riderOrderContro
 router.post('/resendPickupOtp', authenticate, sendOtpLimiter, riderOrderController.resendPickupOtp);
 router.post('/handOverOrder', authenticate, riderOrderController.handoverToVendor);
 router.post('/collectPayment', authenticate, riderOrderController.collectPayment);
+router.post('/:id/create-payment-order', authenticate, riderOrderController.createPaymentOrder);
 router.post('/pickupFromVendor', authenticate, riderOrderController.pickupFromVendor);
 router.post('/completeDelivery', authenticate, verifyOtpLimiter, riderOrderController.completeDelivery);
 

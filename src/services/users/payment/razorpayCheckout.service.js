@@ -111,7 +111,7 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
       client,
       orderId,
       razorpayPaymentId: null,
-      amount: ADVANCE_AMOUNT,
+      amount: 0,
       paymentMethod: "UPI",
       assignmentMeta,
       requireDraft: false,

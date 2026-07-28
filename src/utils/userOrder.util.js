@@ -40,6 +40,10 @@ export const formatUserOrder = (order) => ({
     date: order.delivery_date,
     time: `${order.delivery_start} - ${order.delivery_end}`,
   },
+  special_instructions: {
+    pickup: order.pickup_special_instruction ?? null,
+    delivery: order.delivery_special_instruction ?? null,
+  },
   item_details: {
     clothes_count: order.clothes_count,
     estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,

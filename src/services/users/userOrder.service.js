@@ -208,6 +208,84 @@ export const updateDeliveryService = async ({
   );
 };
 
+const MAX_INSTRUCTION_LENGTH = 500;
+
+const normalizeInstruction = (value, fieldName) => {
+  if (typeof value !== "string") {
+    throw { status: 400, message: `${fieldName} must be a string` };
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_INSTRUCTION_LENGTH) {
+    throw {
+      status: 400,
+      message: `${fieldName} must be at most ${MAX_INSTRUCTION_LENGTH} characters`,
+    };
+  }
+  return trimmed.length === 0 ? null : trimmed;
+};
+
+export const updateOrderInstructionsService = async ({
+  order_id,
+  user_id,
+  pickup_special_instruction,
+  delivery_special_instruction,
+}) => {
+  const hasPickup = pickup_special_instruction !== undefined;
+  const hasDelivery = delivery_special_instruction !== undefined;
+
+  if (!hasPickup && !hasDelivery) {
+    throw { status: 400, message: "At least one instruction is required" };
+  }
+
+  const setClauses = [];
+  const values = [];
+  let paramIndex = 1;
+
+  if (hasPickup) {
+    setClauses.push(`pickup_special_instruction=$${paramIndex}`);
+    values.push(
+      normalizeInstruction(
+        pickup_special_instruction,
+        "pickup_special_instruction",
+      ),
+    );
+    paramIndex++;
+  }
+
+  if (hasDelivery) {
+    setClauses.push(`delivery_special_instruction=$${paramIndex}`);
+    values.push(
+      normalizeInstruction(
+        delivery_special_instruction,
+        "delivery_special_instruction",
+      ),
+    );
+    paramIndex++;
+  }
+
+  setClauses.push("updated_at=NOW()");
+
+  values.push(order_id, user_id);
+
+  const result = await sql.query(
+    `UPDATE orders
+     SET ${setClauses.join(", ")}
+     WHERE id=$${paramIndex} AND user_id=$${paramIndex + 1}
+       AND status IN ('draft', 'booked')
+     RETURNING pickup_special_instruction, delivery_special_instruction`,
+    values,
+  );
+
+  if (result.rows.length === 0) {
+    throw {
+      status: 404,
+      message: "Order not found or instructions can no longer be updated",
+    };
+  }
+
+  return result.rows[0];
+};
+
 export const finalizeOrderService = async ({ order_id, user_id }) => {
   const orderResult = await sql.query(
     `SELECT o.*, s.base_price_per_kg, st.extra_price_per_kg, st.flat_fee,
@@ -701,6 +779,7 @@ export const getUserOrdersService = async ({
   const result = await sql.query(
     `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
             o.amount_paid, o.remaining_amount, o.discount_price,o.estimated_total,
+            o.pickup_special_instruction, o.delivery_special_instruction,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -767,6 +846,7 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
   const result = await sql.query(
     `SELECT o.id, o.status,o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue, o.vendor_amount_per_kg, o.extra_price_per_kg,
             o.is_damaged, o.damage_count, o.damage_images,
+            o.pickup_special_instruction, o.delivery_special_instruction,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { PAYMENT_TYPE } from "../../../utils/status.js";
 
-export const ADVANCE_AMOUNT = 500;
+export const ADVANCE_AMOUNT = 0;// change to 500 for advance payment
 export const RELEVANT_WEBHOOK_EVENTS = new Set(["payment.captured", "payment.failed"]);
 
 const VALID_PAYMENT_TYPES = new Set([PAYMENT_TYPE.ADVANCE, PAYMENT_TYPE.REMAINING]);
