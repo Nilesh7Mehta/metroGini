@@ -22,6 +22,9 @@ router.post('/verifyOtp' , verifyOtpLimiter, vendorController.verifyOtp);
 router.post('/goActive' , authenticate , vendorController.goActive);
 router.post('/acceptTerms' , authenticate , vendorController.acceptTerms);
 
+// Home dashboard
+router.get('/dashboard', authenticate, vendorController.getDashboard);
+
 // Profile
 router.get('/profile', authenticate, vendorController.getProfile);
 router.put('/profile', authenticate, vendorController.updateProfile);

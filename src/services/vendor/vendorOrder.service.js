@@ -637,7 +637,7 @@ export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const HISTORY_PERIODS = ['today', 'month', 'custom'];
+const HISTORY_PERIODS = ['today', 'week', 'month', 'custom'];
 
 const resolveHistoryDateRange = ({ period, date, date_from, date_to } = {}) => {
   const today = formatDate(new Date());
@@ -650,79 +650,234 @@ const resolveHistoryDateRange = ({ period, date, date_from, date_to } = {}) => {
     return { period: 'today', date_from: day, date_to: day };
   }
 
-  if (normalizedPeriod === 'month') {
-    if (
-      date_from &&
-      date_to &&
-      DATE_RE.test(date_from) &&
-      DATE_RE.test(date_to)
-    ) {
-      if (date_from > date_to) {
-        throw { status: 400, message: 'date_from must be on or before date_to' };
-      }
-      return { period: 'month', date_from, date_to };
+  if (
+    date_from &&
+    date_to &&
+    DATE_RE.test(date_from) &&
+    DATE_RE.test(date_to)
+  ) {
+    if (date_from > date_to) {
+      throw { status: 400, message: 'date_from must be on or before date_to' };
     }
+    return { period: normalizedPeriod, date_from, date_to };
+  }
 
+  if (normalizedPeriod === 'week') {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return {
+      period: 'week',
+      date_from: formatDate(monday),
+      date_to: formatDate(sunday),
+    };
+  }
+
+  if (normalizedPeriod === 'month') {
     const now = new Date();
     const start = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
     const end = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     return { period: 'month', date_from: start, date_to: end };
   }
 
-  if (!date_from || !date_to || !DATE_RE.test(date_from) || !DATE_RE.test(date_to)) {
-    throw {
-      status: 400,
-      message: 'date_from and date_to (YYYY-MM-DD) are required for custom period',
-    };
-  }
-
-  if (date_from > date_to) {
-    throw { status: 400, message: 'date_from must be on or before date_to' };
-  }
-
-  return { period: 'custom', date_from, date_to };
+  throw {
+    status: 400,
+    message: 'date_from and date_to (YYYY-MM-DD) are required for custom period',
+  };
 };
 
+const resolveShiftTypeKey = (shiftName) => {
+  if (!shiftName) return null;
+  return String(shiftName).trim().toLowerCase().split(/\s+/)[0] || null;
+};
+
+const formatHistoryIso = (value) => {
+  if (value == null || value === '') return null;
+  const raw = value instanceof Date ? value.toISOString() : String(value).trim();
+  if (!raw) return null;
+
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+    return raw.replace(' ', 'T');
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(raw)) {
+    const normalized = raw.replace(' ', 'T').split('.')[0];
+    const withSeconds =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)
+        ? `${normalized}:00`
+        : normalized;
+    return `${withSeconds}+05:30`;
+  }
+
+  if (DATE_RE.test(raw)) return `${raw}T00:00:00+05:30`;
+  return null;
+};
+
+const buildHistoryOrderDetails = (order) => {
+  const items = Number(order.actual_clothes_count || order.clothes_count || 0);
+  const isWash = Number(order.service_id) === 1;
+  const weight = Number(order.actual_weight || 0);
+
+  if (isWash && weight > 0) {
+    return `Weight/Pieces: ${parseFloat(weight.toFixed(1))} kg / ${items} Items`;
+  }
+
+  return `Weight/Pieces: ${items} Items`;
+};
+
+const getHistoryOrderDate = (order) =>
+  formatPgDate(
+    order.history_date ||
+      order.delivery_completed_at ||
+      order.delivery_date ||
+      order.ready_for_delivery_at ||
+      order.vendor_received_at,
+  );
+
 const mapHistoryOrderToListItem = (order) => {
-  const serviceConfig = SERVICE_CONFIG[order.service_id] || {
-    image: order.service_image || null,
-  };
+  const serviceConfig = SERVICE_CONFIG[order.service_id] || {};
+  const shiftType = resolveShiftTypeKey(order.pickup_shift_name);
+  const shiftLabel = shiftType
+    ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1)
+    : null;
+  const status = getVendorOperationalStatus(order);
+  const weightKg = Number(order.actual_weight || 0);
+  const clothes = Number(order.actual_clothes_count || order.clothes_count || 0);
+  const amount =
+    order.vendor_revenue != null
+      ? Number(order.vendor_revenue)
+      : order.final_total != null
+        ? Number(order.final_total)
+        : 0;
 
   return {
     id: order.id,
-    customer: `CUST${String(order.user_id).padStart(3, '0')}`,
+    customer: `CUST-${String(order.user_id).padStart(4, '0')}`,
     type: isExpressOrder(order.service_type_name) ? 'Express' : 'Regular',
-    details: buildOrderDetails(order),
-    image: serviceConfig.image || order.service_image,
-    status: getVendorOperationalStatus(order),
+    service: serviceConfig.type || order.service_name || null,
+    details: buildHistoryOrderDetails(order),
+    image: serviceConfig.image || order.service_image || null,
+    status,
+    shift: shiftType,
+    shift_label: shiftLabel,
+    date: getHistoryOrderDate(order),
+    completed_at:
+      status === 'delivered' ? formatHistoryIso(order.delivery_completed_at) : null,
+    weight_kg: weightKg > 0 ? parseFloat(weightKg.toFixed(1)) : 0,
+    clothes,
+    amount: parseFloat(Number(amount).toFixed(2)),
   };
 };
 
-const buildHistoryShiftPayload = (slotId, orders, shiftByPickupSlot) => {
-  const config = shiftByPickupSlot[slotId];
-  if (!config) return null;
+const buildHistorySummary = (orders) => {
+  let delivered = 0;
+  let readyForDispatch = 0;
+  let totalClothes = 0;
+  let totalKg = 0;
 
-  const shiftOrders = orders.filter(
-    (o) => Number(o.pickup_slot_id) === Number(slotId),
-  );
-  if (!shiftOrders.length) return null;
-
-  const titleLabel =
-    config.shift_type.charAt(0).toUpperCase() + config.shift_type.slice(1);
+  for (const order of orders) {
+    const status = getVendorOperationalStatus(order);
+    if (status === 'delivered') delivered += 1;
+    if (status === 'ready_for_dispatch') readyForDispatch += 1;
+    totalClothes += Number(order.actual_clothes_count || order.clothes_count || 0);
+    totalKg += Number(order.actual_weight || 0);
+  }
 
   return {
-    id: Number(slotId),
-    shift_title: titleLabel,
-    total_orders: shiftOrders.length,
-    shift_type: config.shift_type,
-    orders: shiftOrders.map(mapHistoryOrderToListItem),
+    total_orders: orders.length,
+    delivered,
+    ready_for_dispatch: readyForDispatch,
+    total_clothes: totalClothes,
+    total_kg: parseFloat(totalKg.toFixed(1)),
   };
+};
+
+const buildHistoryShifts = (orders) => {
+  const groups = new Map();
+
+  for (const order of orders) {
+    const item = mapHistoryOrderToListItem(order);
+    const shiftType = item.shift || 'other';
+    if (!groups.has(shiftType)) {
+      groups.set(shiftType, {
+        id: shiftType === 'morning' ? 1 : shiftType === 'evening' ? 2 : groups.size + 1,
+        shift_title: item.shift_label || 'Other',
+        shift_type: shiftType,
+        total_orders: 0,
+        orders: [],
+      });
+    }
+    const group = groups.get(shiftType);
+    group.orders.push(item);
+    group.total_orders += 1;
+  }
+
+  const orderRank = { morning: 0, evening: 1 };
+  return [...groups.values()].sort(
+    (a, b) => (orderRank[a.shift_type] ?? 99) - (orderRank[b.shift_type] ?? 99),
+  );
+};
+
+const applyHistoryFilters = (orders, query = {}) => {
+  let filtered = orders;
+
+  const status = query.status != null && String(query.status).trim() !== ''
+    ? String(query.status).trim().toLowerCase()
+    : null;
+  if (status) {
+    filtered = filtered.filter((order) => {
+      const operational = getVendorOperationalStatus(order);
+      const raw = String(order.status || '').toLowerCase();
+      return operational === status || raw === status;
+    });
+  }
+
+  const type = query.type != null && String(query.type).trim() !== ''
+    ? String(query.type).trim().toLowerCase()
+    : null;
+  if (type) {
+    filtered = filtered.filter((order) => {
+      const orderType = isExpressOrder(order.service_type_name)
+        ? 'express'
+        : 'regular';
+      return orderType === type;
+    });
+  }
+
+  const shift = query.shift != null && String(query.shift).trim() !== ''
+    ? resolveShiftTypeKey(query.shift)
+    : null;
+  if (shift) {
+    filtered = filtered.filter(
+      (order) => resolveShiftTypeKey(order.pickup_shift_name) === shift,
+    );
+  }
+
+  const search = query.search != null && String(query.search).trim() !== ''
+    ? String(query.search).trim().toLowerCase()
+    : null;
+  if (search) {
+    filtered = filtered.filter((order) => {
+      const code = String(order.order_code || '').toLowerCase();
+      const id = String(order.id);
+      const display = formatDisplayOrderId(order).toLowerCase();
+      return (
+        code.includes(search) ||
+        id.includes(search) ||
+        display.includes(search)
+      );
+    });
+  }
+
+  return filtered;
 };
 
 export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
   const { period, date_from, date_to } = resolveHistoryDateRange(query);
-  const { pickupShiftSlotIds, shiftByPickupSlot } =
-    await getPickupShiftConfig();
 
   const { rows: orders } = await sql.query(
     `
@@ -738,12 +893,26 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
       o.actual_clothes_count,
       o.clothes_count,
       o.service_id,
+      o.final_total,
+      o.vendor_revenue,
+      o.delivery_date,
+      o.delivery_completed_at,
+      o.ready_for_delivery_at,
+      o.vendor_received_at,
+      COALESCE(
+        o.delivery_completed_at::date,
+        o.delivery_date,
+        o.ready_for_delivery_at::date,
+        o.vendor_received_at::date
+      ) AS history_date,
       s.name AS service_name,
       s.image AS service_image,
-      st.name AS service_type_name
+      st.name AS service_type_name,
+      pts.shift_name AS pickup_shift_name
     FROM orders o
     JOIN services s ON o.service_id = s.id
     LEFT JOIN service_types st ON o.service_type_id = st.id
+    LEFT JOIN time_slots pts ON pts.id = o.pickup_slot_id
     WHERE o.vendor_id = $1
       AND COALESCE(
             o.delivery_completed_at::date,
@@ -751,28 +920,32 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
             o.ready_for_delivery_at::date,
             o.vendor_received_at::date
           ) BETWEEN $2::date AND $3::date
-      AND o.pickup_slot_id = ANY($4::int[])
       AND o.status NOT IN ('draft', 'cancelled')
-    ORDER BY o.id DESC
+    ORDER BY
+      COALESCE(
+        o.delivery_completed_at,
+        o.ready_for_delivery_at,
+        o.vendor_received_at,
+        o.delivery_date::timestamp
+      ) DESC NULLS LAST,
+      o.id DESC
     `,
-    [vendor_id, date_from, date_to, pickupShiftSlotIds],
+    [vendor_id, date_from, date_to],
   );
 
-  const { items: pageOrders, pagination } = paginateArray(orders, query);
-
-  const shifts = pickupShiftSlotIds
-    .map((slotId) =>
-      buildHistoryShiftPayload(slotId, pageOrders, shiftByPickupSlot),
-    )
-    .filter(Boolean);
+  const filtered = applyHistoryFilters(orders, query);
+  const summary = buildHistorySummary(filtered);
+  const { items: pageOrders, pagination } = paginateArray(filtered, query);
+  const shifts = buildHistoryShifts(pageOrders);
 
   return {
     mode: 'history',
     period,
     date_from,
     date_to,
-    shifts,
+    summary,
     pagination,
+    shifts,
   };
 };
 

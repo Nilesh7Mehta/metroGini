@@ -1,5 +1,9 @@
 import sql from "../../config/db.js";
-import { getFirebaseMessaging, isFirebaseEnabled } from "../../config/firebase.js";
+import {
+  getFirebaseMessaging,
+  getFirebaseProjectId,
+  isFirebaseEnabled,
+} from "../../config/firebase.js";
 
 const STALE_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
@@ -196,8 +200,11 @@ export const sendTestPush = async (userId, { title, body } = {}) => {
     let message = firstError?.message || "Push failed for all registered devices";
 
     if (code === "messaging/mismatched-credential") {
+      const projectId =
+        getFirebaseProjectId() ||
+        "the backend Firebase project in firebase-service-account.json";
       message =
-        "SenderId mismatch: the FCM token was issued by a different Firebase project than the backend service account. Use the same Firebase project (todo-app-cp-104ac) in your mobile app, get a fresh token, and re-register it.";
+        `SenderId mismatch: the FCM token was issued by a different Firebase project than the backend service account. Use the same Firebase project (${projectId}) in your mobile app, get a fresh token, and re-register it via PUT /api/user/fcm-token.`;
     }
 
     throw {

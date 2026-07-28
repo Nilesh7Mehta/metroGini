@@ -5,6 +5,8 @@ import { getMessaging } from "firebase-admin/messaging";
 
 const isEnabledFlag = () => process.env.FIREBASE_ENABLED !== "false";
 
+let cachedProjectId = null;
+
 const resolveServiceAccountPath = () => {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim();
   if (!raw) return null;
@@ -24,6 +26,7 @@ const ensureInitialized = () => {
   try {
     const path = resolveServiceAccountPath();
     const serviceAccount = JSON.parse(readFileSync(path, "utf8"));
+    cachedProjectId = serviceAccount.project_id || null;
     initializeApp({
       credential: cert(serviceAccount),
     });
@@ -35,6 +38,19 @@ const ensureInitialized = () => {
 };
 
 export const isFirebaseEnabled = () => isConfigured();
+
+export const getFirebaseProjectId = () => {
+  if (cachedProjectId) return cachedProjectId;
+  try {
+    const path = resolveServiceAccountPath();
+    if (!path || !existsSync(path)) return null;
+    const serviceAccount = JSON.parse(readFileSync(path, "utf8"));
+    cachedProjectId = serviceAccount.project_id || null;
+    return cachedProjectId;
+  } catch {
+    return null;
+  }
+};
 
 export const getFirebaseMessaging = () => {
   if (!ensureInitialized()) return null;
