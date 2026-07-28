@@ -199,6 +199,78 @@ const buildTaskOperationalDistribution = (orders) => ({
   out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
 });
 
+const getOrderLoadProcessedValue = (order) => {
+  if (Number(order.service_id) === 2 && hasConfirmedClothes(order)) {
+    return Number(order.actual_clothes_count) || 0;
+  }
+
+  if (
+    Number(order.service_id) !== 2 &&
+    hasConfirmedWeight(order) &&
+    hasConfirmedClothes(order)
+  ) {
+    return Number(order.actual_weight) || 0;
+  }
+
+  return 0;
+};
+
+const isLoadProcessedOrder = (order) => {
+  const status = normalizeStatus(order.status);
+  if (
+    ['order_finalized', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(
+      status,
+    )
+  ) {
+    return getOrderLoadProcessedValue(order) > 0;
+  }
+
+  if (status === 'in_process') {
+    return getOrderLoadProcessedValue(order) > 0;
+  }
+
+  return false;
+};
+
+/** Same shape as date-filter performance_overview, computed from order rows */
+const buildPerformanceOverviewFromOrders = (orders) => {
+  const receivedStatuses = [
+    'in_process',
+    'order_finalized',
+    'ready_for_delivery',
+    'out_for_delivery',
+    'delivered',
+  ];
+  const revenueStatuses = ['ready_for_delivery', 'out_for_delivery', 'delivered'];
+
+  const ordersReceived = orders.filter((o) =>
+    receivedStatuses.includes(normalizeStatus(o.status)),
+  ).length;
+  const ordersDelivered = orders.filter(
+    (o) => normalizeStatus(o.status) === 'delivered',
+  ).length;
+  const loadProcessed = orders
+    .filter(isLoadProcessedOrder)
+    .reduce((sum, o) => sum + getOrderLoadProcessedValue(o), 0);
+  const revenue = orders
+    .filter(
+      (o) =>
+        revenueStatuses.includes(normalizeStatus(o.status)) &&
+        o.vendor_revenue != null,
+    )
+    .reduce((sum, o) => sum + (Number(o.vendor_revenue) || 0), 0);
+
+  return {
+    orders_received: ordersReceived,
+    orders_delivered: ordersDelivered,
+    load_processed: {
+      value: loadProcessed,
+      unit: 'kg/pieces',
+    },
+    revenue,
+  };
+};
+
 const buildTaskProgress = (orders) => {
   const total = orders.length;
   const left = orders.filter(isClassificationPending).length;
@@ -527,14 +599,17 @@ export const orderTaskDashboardService = async (vendor_id) => {
     fetchVendorTaskOrders(vendor_id, overdueTaskDeadline),
   ]);
 
+  // Combined open task-board work (current + overdue batches)
+  const openTaskOrders = [...currentOrders, ...overdueOrders];
+
   return {
     filter: 'task',
     task_deadline: taskDeadline,
     task_progress: buildTaskProgress(currentOrders),
     overdue_task_deadline: overdueTaskDeadline,
     overdue_task_progress: buildTaskProgress(overdueOrders),
-    performance_overview: {},
-    operational_distribution: {},
+    performance_overview: buildPerformanceOverviewFromOrders(openTaskOrders),
+    operational_distribution: buildTaskOperationalDistribution(openTaskOrders),
   };
 };
 
@@ -555,6 +630,7 @@ export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
     scope,
     task_deadline: taskDeadline,
     task_progress: buildTaskProgress(orders),
+    performance_overview: buildPerformanceOverviewFromOrders(orders),
     shifts: taskDeadline.shift_id || orders.length ? [shiftPayload] : [],
     pagination,
   };
