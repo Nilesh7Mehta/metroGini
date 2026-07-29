@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import path from 'path';
+import fs from 'fs';
 import newUserRouter from './routes/users/user.router.js';
 import newCommonRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
@@ -52,6 +54,20 @@ app.set('trust proxy', 1); // trust first proxy for rate limiting and secure coo
 app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
+
+/** Force file download when ?download=1 is present on upload URLs. */
+const forceUploadDownload = (req, res, next) => {
+  if (String(req.query.download || '') !== '1') return next();
+  const rel = String(req.path || '').replace(/^\/+/, '');
+  const abs = path.join(process.cwd(), 'uploads', rel);
+  if (!abs.startsWith(path.join(process.cwd(), 'uploads')) || !fs.existsSync(abs)) {
+    return res.status(404).json({ success: false, message: 'File not found' });
+  }
+  return res.download(abs, path.basename(abs));
+};
+
+app.use('/uploads', forceUploadDownload);
+app.use('/api/uploads', forceUploadDownload);
 app.use('/uploads', express.static('uploads'));
 // Frontend often prefixes API base → /api/uploads/...
 app.use('/api/uploads', express.static('uploads'));

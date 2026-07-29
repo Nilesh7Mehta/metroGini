@@ -1,6 +1,7 @@
 
 import sql from "../../config/db.js";
 import { getEmailFrom, getEmailTransporter, isEmailEnabled } from "../../config/email.js";
+import { ensureUserOrderInvoiceFile } from "../../utils/userOrderInvoice.util.js";
 
 const baseTemplate = (title, bodyHtml) => `
 <!DOCTYPE html>
@@ -32,7 +33,7 @@ const baseTemplate = (title, bodyHtml) => `
 </body>
 </html>`;
 
-const sendEmail = async ({ to, subject, html }) => {
+const sendEmail = async ({ to, subject, html, attachments }) => {
   if (!to?.trim()) return;
 
   const transport = getEmailTransporter();
@@ -48,6 +49,7 @@ const sendEmail = async ({ to, subject, html }) => {
     to: to.trim(),
     subject,
     html,
+    attachments: attachments?.length ? attachments : undefined,
   });
 };
 
@@ -190,12 +192,35 @@ export const sendFullPaymentEmail = async ({
   paymentMethod = "cash",
 }) => {
   const orderRef = orderCode || `#${orderId}`;
+
+  let attachments;
+  let invoiceNote = "";
+  try {
+    if (orderId) {
+      const invoice = await ensureUserOrderInvoiceFile(orderId, {
+        force: true,
+        paymentMethod,
+      });
+      attachments = [
+        {
+          filename: invoice.filename || `order-${orderId}-receipt.pdf`,
+          path: invoice.absPath,
+          contentType: "application/pdf",
+        },
+      ];
+      invoiceNote = `<p>Your payment receipt is attached as a PDF.</p>`;
+    }
+  } catch (error) {
+    console.error("[email] Order invoice PDF failed:", error.message);
+  }
+
   const html = baseTemplate(
     "Payment Complete",
     `
       <p>${greet(name)}</p>
       <p>Full payment for order <strong>${orderRef}</strong> has been received.</p>
       <p>Amount: <span class="amount">₹${amount}</span> (${paymentMethod})</p>
+      ${invoiceNote}
       <p>Thank you for using Metro Gini. We hope to serve you again soon!</p>
     `,
   );
@@ -204,6 +229,7 @@ export const sendFullPaymentEmail = async ({
     to: email,
     subject: `Payment complete for order ${orderRef} — Metro Gini`,
     html,
+    attachments,
   });
 };
 
