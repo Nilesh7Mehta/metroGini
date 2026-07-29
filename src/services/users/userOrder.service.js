@@ -18,8 +18,8 @@ export const createDraftOrderService = async ({
   try {
     await client.query("BEGIN");
 
-    if (!clothes_count || clothes_count < 12 || clothes_count > 25) {
-      throw { status: 400, message: "Clothes count must be between 12 and 25" };
+    if (!clothes_count || clothes_count < 10 || clothes_count > 25) {
+      throw { status: 400, message: "Clothes count must be between 10 and 25" };
     }
 
     const addressResult = await client.query(

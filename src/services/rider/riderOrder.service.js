@@ -23,6 +23,7 @@ export const fetchTodayOrders = async (rider_id) => {
   const { rows } = await sql.query(
     `SELECT
         o.id, TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
+        o.pickup_special_instruction, o.delivery_special_instruction,
         o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
         o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
         o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -34,7 +35,9 @@ export const fetchTodayOrders = async (rider_id) => {
      JOIN time_slots ts ON ts.id = o.pickup_slot_id
      JOIN users u ON u.id = o.user_id
      JOIN user_address_details a ON a.id = o.address_id
-     WHERE o.assigned_rider_id = $1 AND o.pickup_date = CURRENT_DATE
+     WHERE o.assigned_rider_id = $1
+       AND o.pickup_date = CURRENT_DATE
+       AND o.status IN ('out_for_pickup', 'booked', 'pickup_in_progress', 'in_process')
      ORDER BY o.id DESC`,
     [rider_id],
   );
@@ -55,6 +58,8 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
         o.status,
         o.vendor_id,
         o.payment_status,
+        o.pickup_special_instruction,
+        o.delivery_special_instruction,
         o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
         o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
         o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -102,8 +107,8 @@ export const fetchDashboardCount = async (rider_id) => {
 FROM orders
 WHERE assigned_rider_id = $1
   AND (
-    pickup_date >= CURRENT_DATE
-    OR delivery_date >= CURRENT_DATE
+    pickup_date = CURRENT_DATE
+    OR delivery_date = CURRENT_DATE
   )`,
     [rider_id],
   );
@@ -263,7 +268,6 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   }
 
   // ✅ Vendor validation
-  console.log(order.vendor_id, vendor_id);
   if (order.vendor_id !== vendor_id) {
     throw { status: 400, message: "Invalid vendor for this order" };
   }
