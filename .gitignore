@@ -72,3 +72,8 @@ Thumbs.db
 config/local.json
 config/firebase-service-account.json
 *-firebase-adminsdk-*.json
+
+# ------------------------------
+# Uploads
+# ------------------------------
+uploads/*

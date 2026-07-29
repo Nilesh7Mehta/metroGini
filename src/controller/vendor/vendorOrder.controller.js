@@ -41,12 +41,13 @@ export const getVendorOrders = async (req, res, next) => {
     if (mode === 'history') {
       const data = await getVendorHistoryOrdersService(vendor_id, req.query);
       const totalOrders = data.pagination?.total
+        ?? data.summary?.total_orders
         ?? data.shifts.reduce((sum, shift) => sum + shift.total_orders, 0);
       return res.status(200).json({
         success: true,
         message:
           totalOrders > 0
-            ? 'Order history fetched successfully'
+            ? 'Order history loaded'
             : 'No orders found for this period',
         data,
       });

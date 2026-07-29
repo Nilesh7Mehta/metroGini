@@ -10,6 +10,7 @@ import {
   getVendorProfileService,
   updateVendorProfileService,
 } from "../../services/vendor/vendorProfile.service.js";
+import { getVendorDashboardService } from "../../services/vendor/vendorDashboard.service.js";
 
 export const register = async (req, res, next) => {
   try {
@@ -111,6 +112,19 @@ export const updateProfile = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDashboard = async (req, res, next) => {
+  try {
+    const data = await getVendorDashboardService(req.user.vendor_id);
+    return res.status(200).json({
+      success: true,
+      message: "Dashboard loaded",
       data,
     });
   } catch (error) {

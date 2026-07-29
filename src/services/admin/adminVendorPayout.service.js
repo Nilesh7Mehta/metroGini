@@ -187,33 +187,42 @@ export const syncVendorPayoutBatches = async (client = pool) => {
         [batchId],
       );
       const row = meta.rows[0];
-      if (row && !row.invoice_image) {
-        const invoice = ensureAutoInvoiceFile({
-          batch_id: row.batch_code,
-          invoice_id: row.invoice_id || `INV-${String(row.batch_code).toUpperCase()}`,
-          vendor_name: row.vendor_name,
-          zone_group: row.zone_group,
-          pincode_group_name: row.zone_group,
-          date_label: formatDateLabel(
-            toDateStr(row.week_start),
-            toDateStr(row.week_end),
-          ),
-          week_start: toDateStr(row.week_start),
-          week_end: toDateStr(row.week_end),
-          total_orders: row.total_orders,
-          total_kg: num(row.total_kg),
-          gross_revenue: num(row.gross_revenue),
-          gst_amount: num(row.gst_amount),
-          payable_amount: num(row.payable_amount),
-        });
-        await client.query(
-          `
-          UPDATE vendor_payout_batches
-          SET invoice_id = $2, invoice_image = $3, updated_at = NOW()
-          WHERE id = $1
-          `,
-          [batchId, invoice.invoice_id, invoice.invoice_image],
+      if (row) {
+        const invoice = await ensureAutoInvoiceFile(
+          {
+            batch_id: row.batch_code,
+            invoice_id: row.invoice_id || `INV-${String(row.batch_code).toUpperCase()}`,
+            vendor_name: row.vendor_name,
+            zone_group: row.zone_group,
+            pincode_group_name: row.zone_group,
+            date_label: formatDateLabel(
+              toDateStr(row.week_start),
+              toDateStr(row.week_end),
+            ),
+            week_start: toDateStr(row.week_start),
+            week_end: toDateStr(row.week_end),
+            total_orders: row.total_orders,
+            total_kg: num(row.total_kg),
+            gross_revenue: num(row.gross_revenue),
+            gst_amount: num(row.gst_amount),
+            payable_amount: num(row.payable_amount),
+            payment_status: 'pending',
+          },
+          { force: true },
         );
+        if (
+          row.invoice_id !== invoice.invoice_id ||
+          row.invoice_image !== invoice.invoice_image
+        ) {
+          await client.query(
+            `
+            UPDATE vendor_payout_batches
+            SET invoice_id = $2, invoice_image = $3, updated_at = NOW()
+            WHERE id = $1
+            `,
+            [batchId, invoice.invoice_id, invoice.invoice_image],
+          );
+        }
       }
     }
   }
@@ -232,7 +241,7 @@ export const syncVendorPayoutBatches = async (client = pool) => {
   for (const b of openBatches) {
     const week_end = toDateStr(b.week_end);
     const payment_status = resolveOpenPaymentStatus(week_end);
-    if (payment_status === 'pending' && !b.invoice_image) {
+    if (payment_status === 'pending') {
       const meta = await client.query(
         `
         SELECT v.laundry_shop_name AS vendor_name, pg.name AS zone_group,
@@ -245,21 +254,25 @@ export const syncVendorPayoutBatches = async (client = pool) => {
         [b.id],
       );
       const m = meta.rows[0];
-      const invoice = ensureAutoInvoiceFile({
-        batch_id: b.batch_code,
-        invoice_id: b.invoice_id || `INV-${String(b.batch_code).toUpperCase()}`,
-        vendor_name: m?.vendor_name,
-        zone_group: m?.zone_group,
-        pincode_group_name: m?.zone_group,
-        date_label: formatDateLabel(toDateStr(m.week_start), toDateStr(m.week_end)),
-        week_start: toDateStr(m.week_start),
-        week_end: toDateStr(m.week_end),
-        total_orders: b.total_orders,
-        total_kg: num(b.total_kg),
-        gross_revenue: num(b.gross_revenue),
-        gst_amount: num(b.gst_amount),
-        payable_amount: num(b.payable_amount),
-      });
+      const invoice = await ensureAutoInvoiceFile(
+        {
+          batch_id: b.batch_code,
+          invoice_id: b.invoice_id || `INV-${String(b.batch_code).toUpperCase()}`,
+          vendor_name: m?.vendor_name,
+          zone_group: m?.zone_group,
+          pincode_group_name: m?.zone_group,
+          date_label: formatDateLabel(toDateStr(m.week_start), toDateStr(m.week_end)),
+          week_start: toDateStr(m.week_start),
+          week_end: toDateStr(m.week_end),
+          total_orders: b.total_orders,
+          total_kg: num(b.total_kg),
+          gross_revenue: num(b.gross_revenue),
+          gst_amount: num(b.gst_amount),
+          payable_amount: num(b.payable_amount),
+          payment_status,
+        },
+        { force: true },
+      );
       await client.query(
         `
         UPDATE vendor_payout_batches
@@ -374,10 +387,10 @@ const fetchBatches = async (query = {}) => {
     params,
   );
 
-  return rows.map(toPublicBatch);
+  return Promise.all(rows.map((row) => toPublicBatch(row)));
 };
 
-const toPublicBatch = (batch) => {
+const toPublicBatch = async (batch) => {
   const week_start = toDateStr(batch.week_start);
   const week_end = toDateStr(batch.week_end);
   const payment_status =
@@ -409,11 +422,28 @@ const toPublicBatch = (batch) => {
   };
 
   if (payment_status === 'pending' || payment_status === 'paid') {
-    base.invoice_id =
-      batch.invoice_id || `INV-${String(batch.batch_code).toUpperCase()}`;
-    base.invoice_image =
-      batch.invoice_image ||
-      `/uploads/vendor-payout-invoices/auto-${batch.batch_code}.pdf`;
+    const invoice = await ensureAutoInvoiceFile({
+      batch_id: batch.batch_code,
+      invoice_id:
+        batch.invoice_id || `INV-${String(batch.batch_code).toUpperCase()}`,
+      vendor_name: batch.vendor_name,
+      zone_group: batch.zone_group,
+      pincode_group_name: batch.pincode_group_name || batch.zone_group,
+      date_label: base.date_label,
+      week_start,
+      week_end,
+      total_orders: base.total_orders,
+      total_kg: base.total_kg,
+      gross_revenue: base.gross_revenue,
+      gst_amount: base.gst_amount,
+      payable_amount: base.payable_amount,
+      payment_status,
+      transaction_id: batch.transaction_id,
+      payment_date: toDateStr(batch.payment_date),
+      paid_at: batch.paid_at,
+    });
+    base.invoice_id = invoice.invoice_id;
+    base.invoice_image = invoice.invoice_image;
   }
 
   if (payment_status === 'paid') {
@@ -829,24 +859,30 @@ export const payVendorPayoutBatchService = async (batchId, payload, adminUser) =
     throw { status: 400, message: 'date is required (YYYY-MM-DD)' };
   }
 
-  const invoice = ensureAutoInvoiceFile({
-    batch_id: batch.batch_code,
-    invoice_id: batch.invoice_id || `INV-${String(batch.batch_code).toUpperCase()}`,
-    vendor_name: batch.vendor_name,
-    zone_group: batch.zone_group,
-    pincode_group_name: batch.pincode_group_name,
-    date_label: formatDateLabel(
-      toDateStr(batch.week_start_str || batch.week_start),
+  const invoice = await ensureAutoInvoiceFile(
+    {
+      batch_id: batch.batch_code,
+      invoice_id: batch.invoice_id || `INV-${String(batch.batch_code).toUpperCase()}`,
+      vendor_name: batch.vendor_name,
+      zone_group: batch.zone_group,
+      pincode_group_name: batch.pincode_group_name,
+      date_label: formatDateLabel(
+        toDateStr(batch.week_start_str || batch.week_start),
+        week_end,
+      ),
+      week_start: toDateStr(batch.week_start_str || batch.week_start),
       week_end,
-    ),
-    week_start: toDateStr(batch.week_start_str || batch.week_start),
-    week_end,
-    total_orders: batch.total_orders,
-    total_kg: num(batch.total_kg),
-    gross_revenue: num(batch.gross_revenue),
-    gst_amount: num(batch.gst_amount),
-    payable_amount: num(batch.payable_amount),
-  });
+      total_orders: batch.total_orders,
+      total_kg: num(batch.total_kg),
+      gross_revenue: num(batch.gross_revenue),
+      gst_amount: num(batch.gst_amount),
+      payable_amount: num(batch.payable_amount),
+      payment_status: 'paid',
+      transaction_id,
+      payment_date,
+    },
+    { force: true },
+  );
 
   const paid_at = `${payment_date}T12:00:00.000Z`;
 
@@ -878,7 +914,7 @@ export const payVendorPayoutBatchService = async (batchId, payload, adminUser) =
   const paidRow = refreshed.find((r) => r.batch_id === code);
   if (paidRow) return paidRow;
 
-  return toPublicBatch({
+  return await toPublicBatch({
     ...batch,
     payment_status: 'paid',
     transaction_id,
