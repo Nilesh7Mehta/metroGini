@@ -37,36 +37,7 @@ const getNowParts = () => {
   const get = (type) => parts.find((p) => p.type === type)?.value;
   return {
     date: `${get('year')}-${get('month')}-${get('day')}`,
-    time: `${get('hour')}:${get('minute')}:${get('second')}`,
   };
-};
-
-const parsePgTime = (value) => {
-  if (value == null) return null;
-  const raw = String(value);
-  const match = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) return null;
-  return {
-    hours: Number(match[1]),
-    minutes: Number(match[2]),
-    seconds: Number(match[3] || 0),
-  };
-};
-
-const formatTime24 = (value) => {
-  const parsed = parsePgTime(value);
-  if (!parsed) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(parsed.hours)}:${pad(parsed.minutes)}`;
-};
-
-const formatTime12 = (value) => {
-  const parsed = parsePgTime(value);
-  if (!parsed) return null;
-  const period = parsed.hours >= 12 ? 'PM' : 'AM';
-  const hour12 = parsed.hours % 12 || 12;
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(hour12)}:${pad(parsed.minutes)} ${period}`;
 };
 
 const formatDateLabel = (dateStr) => {
@@ -95,23 +66,6 @@ const isoDowFromDateStr = (dateStr) => {
   return jsDow === 0 ? 7 : jsDow;
 };
 
-const resolveShiftType = (shiftName) => {
-  if (!shiftName) return null;
-  return String(shiftName).trim().toLowerCase().split(/\s+/)[0];
-};
-
-const fetchActiveShifts = async () => {
-  const { rows } = await sql.query(
-    `
-    SELECT id, shift_name, start_time::text AS start_time, end_time::text AS end_time
-    FROM shifts
-    WHERE COALESCE(status, TRUE) IS TRUE
-    ORDER BY start_time ASC, id ASC
-    `,
-  );
-  return rows;
-};
-
 const fetchOverview = async (vendor_id) => {
   const { rows } = await sql.query(
     `
@@ -132,6 +86,7 @@ const fetchOverview = async (vendor_id) => {
       ), 0)::int AS total_clothes
     FROM orders
     WHERE vendor_id = $1
+      AND vendor_received_at IS NOT NULL
       AND status NOT IN ('draft', 'cancelled')
     `,
     [vendor_id],
@@ -240,60 +195,10 @@ const fetchOrdersByWorkday = async (vendor_id, _workDayDows, todayStr) => {
   });
 };
 
-const buildRosterEvent = ({
-  id,
-  date,
-  dayOfWeek,
-  type,
-  startTime,
-  nowDate,
-  nowTime,
-}) => {
-  const time_24 = formatTime24(startTime);
-  const time = formatTime12(startTime);
-  const day_label = (SHORT_DAY_LABELS[dayOfWeek] || '').toUpperCase();
-  const date_label = formatDateLabel(date);
-  const fullDay = DAY_LABELS[dayOfWeek] || '';
-  const kind = type === 'morning' ? 'delivery' : 'pickup';
-  const type_label =
-    type === 'morning' ? 'MORNING (Delivery)' : 'EVENING (Pickup)';
-  const title =
-    kind === 'delivery' ? 'Next Delivery to Rider' : 'Next Pickup by Rider';
-  const datetime = formatIsoWithOffset(date, time_24);
-  const completed =
-    date < nowDate || (date === nowDate && time_24 && `${time_24}:00` <= nowTime);
-
-  return {
-    id,
-    date,
-    day_label,
-    date_label,
-    type,
-    type_label,
-    time,
-    time_24,
-    completed,
-    kind,
-    title,
-    datetime,
-    when_label:
-      date_label && fullDay && time
-        ? `${date_label} (${fullDay}), ${time}`
-        : null,
-  };
-};
-
-const buildRoster = (workDayDows, shifts, todayStr, nowTime) => {
-  const morningShift =
-    shifts.find((s) => resolveShiftType(s.shift_name) === 'morning') || shifts[0] || null;
-  const eveningShift =
-    shifts.find((s) => resolveShiftType(s.shift_name) === 'evening') ||
-    shifts[shifts.length - 1] ||
-    null;
-
+const buildRoster = (workDayDows, todayStr) => {
   const shiftsPerWeek = workDayDows.length;
 
-  if (!workDayDows.length || (!morningShift && !eveningShift)) {
+  if (!workDayDows.length) {
     return {
       shifts_per_week: shiftsPerWeek,
       shifts: [],
@@ -311,63 +216,33 @@ const buildRoster = (workDayDows, shifts, todayStr, nowTime) => {
     }
   }
 
-  const rosterShifts = [];
-  let idx = 1;
-  for (const { date, day_of_week } of rosterDates) {
-    if (morningShift) {
-      rosterShifts.push(
-        buildRosterEvent({
-          id: `roster_${idx++}`,
-          date,
-          dayOfWeek: day_of_week,
-          type: 'morning',
-          startTime: morningShift.start_time,
-          nowDate: todayStr,
-          nowTime,
-        }),
-      );
-    }
-    if (eveningShift) {
-      rosterShifts.push(
-        buildRosterEvent({
-          id: `roster_${idx++}`,
-          date,
-          dayOfWeek: day_of_week,
-          type: 'evening',
-          startTime: eveningShift.start_time,
-          nowDate: todayStr,
-          nowTime,
-        }),
-      );
-    }
-  }
+  const shiftsPayload = rosterDates.map(({ date, day_of_week }, i) => {
+    const day_label = (SHORT_DAY_LABELS[day_of_week] || '').toUpperCase();
+    const date_label = formatDateLabel(date);
+    const day_name = DAY_LABELS[day_of_week] || '';
+    return {
+      id: `roster_${i + 1}`,
+      date,
+      day_label,
+      date_label,
+      day_name,
+      completed: date < todayStr,
+    };
+  });
 
-  const comingUp = rosterShifts
+  const comingUp = shiftsPayload
     .filter((s) => !s.completed)
     .slice(0, 3)
     .map((s, i) => ({
       id: `cu_${i + 1}`,
-      kind: s.kind,
-      title: s.title,
-      datetime: s.datetime,
-      when_label: s.when_label,
+      title: 'Next work day',
+      date: s.date,
+      datetime: formatIsoWithOffset(s.date, '00:00'),
+      when_label:
+        s.date_label && s.day_name
+          ? `${s.date_label} (${s.day_name})`
+          : s.date_label || null,
     }));
-
-  // Public roster.shifts payload (without internal kind/title helpers if preferred —
-  // keep fields from the design mock).
-  const shiftsPayload = rosterShifts.map(
-    ({ id, date, day_label, date_label, type, type_label, time, time_24, completed }) => ({
-      id,
-      date,
-      day_label,
-      date_label,
-      type,
-      type_label,
-      time,
-      time_24,
-      completed,
-    }),
-  );
 
   return {
     shifts_per_week: shiftsPerWeek,
@@ -377,13 +252,12 @@ const buildRoster = (workDayDows, shifts, todayStr, nowTime) => {
 };
 
 export const getVendorDashboardService = async (vendor_id) => {
-  const { date: todayStr, time: nowTime } = getNowParts();
+  const { date: todayStr } = getNowParts();
 
-  const [overview, schedule, taskDash, shifts] = await Promise.all([
+  const [overview, schedule, taskDash] = await Promise.all([
     fetchOverview(vendor_id),
     getShiftScheduleForLaundry(vendor_id),
     orderTaskDashboardService(vendor_id),
-    fetchActiveShifts(),
   ]);
 
   const workDayEntries = buildWorkDays(schedule);
@@ -392,7 +266,7 @@ export const getVendorDashboardService = async (vendor_id) => {
 
   const [orders_by_workday, roster] = await Promise.all([
     fetchOrdersByWorkday(vendor_id, workDayDows, todayStr),
-    Promise.resolve(buildRoster(workDayDows, shifts, todayStr, nowTime)),
+    Promise.resolve(buildRoster(workDayDows, todayStr)),
   ]);
 
   return {

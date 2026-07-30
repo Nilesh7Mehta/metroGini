@@ -5783,7 +5783,7 @@
                 "dashboard"
               ]
             },
-            "description": "Vendor home dashboard.\n\nReturns:\n- `overview` — total_orders, total_weight_kg, total_clothes\n- `work_days` — unique laundry schedule weekdays\n- `deadlines.current` / `deadlines.overdue` — task deadline + progress (null when none)\n- `orders_by_workday` — current-month dates that have delivery_date orders\n- `roster` — next 3 work days (morning delivery + evening pickup) + coming_up"
+            "description": "Vendor home dashboard.\n\nReturns:\n- `overview` — total_orders, total_weight_kg, total_clothes (only orders with `vendor_received_at` set — handed over by rider)\n- `work_days` — unique laundry schedule weekdays\n- `deadlines.current` / `deadlines.overdue` — task deadline + progress (null when none)\n- `orders_by_workday` — current-month dates that have delivery_date orders\n- `roster` — next 3 work days (morning delivery + evening pickup) + coming_up"
           },
           "response": []
         },
@@ -5996,7 +5996,7 @@
                     }
                   ]
                 },
-                "description": "Task-mode order list.\n\n**Query:**\n- `mode=task` (required)\n- `scope=current` | `overdue` (default `current`)\n- `date`, `shift_id`, `pincode_group_id` — pass from dashboard deadline object; if omitted, server resolves the matching deadline\n- `page`, `limit`\n\nReturns `task_deadline`, `task_progress`, `performance_overview`, and `shifts` for that scope."
+                "description": "Task-mode order list.\n\n**Query:**\n- `mode=task` (required)\n- `scope=current` | `overdue` (default `current`)\n- `date`, `shift_id`, `pincode_group_id` — pass from dashboard deadline object; if omitted, server resolves the matching deadline\n- `page`, `limit`\n\nReturns `task_deadline`, `task_progress`, `performance_overview`, and `shifts` for that scope.\n\nEach order in `shifts[].orders` includes: `id`, `customer`, `type`, `details`, `image`, `status`, `pickup_date`, `delivery_date`."
               },
               "response": []
             },

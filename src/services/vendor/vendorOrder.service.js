@@ -298,6 +298,8 @@ const mapTaskOrderToListItem = (order) => {
     details: buildOrderDetails(order),
     image: serviceConfig.image || order.service_image,
     status: getTaskListStatus(order),
+    pickup_date: formatPgDate(order.pickup_date),
+    delivery_date: formatPgDate(order.delivery_date),
   };
 };
 
@@ -511,6 +513,8 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
       o.vendor_amount_per_kg,
       o.pickup_completed_at,
       o.delivery_completed_at,
+      TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+      TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name

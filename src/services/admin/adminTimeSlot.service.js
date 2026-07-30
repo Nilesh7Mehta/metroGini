@@ -21,6 +21,12 @@ const normalizeTime = (value, fieldName) => {
   return normalized.length === 5 ? `${normalized}:00` : normalized;
 };
 
+const normalizeShiftName = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized || null;
+};
+
 const getTimeSlotById = async (id) => {
   const { rows } = await sql.query(`SELECT * FROM time_slots WHERE id = $1`, [id]);
 
@@ -40,16 +46,18 @@ export const getTimeSlots = async () => {
 };
 
 export const createTimeSlot = async (body) => {
-  const { start_time, end_time, is_peak, peak_extra_charge, is_active } = body;
+  const { shift_name, start_time, end_time, is_peak, peak_extra_charge, is_active } =
+    body;
 
   const { rows } = await sql.query(
     `
     INSERT INTO time_slots
-      (start_time, end_time, is_peak, peak_extra_charge, is_active)
-    VALUES ($1, $2, $3, $4, $5)
+      (shift_name, start_time, end_time, is_peak, peak_extra_charge, is_active)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
     `,
     [
+      normalizeShiftName(shift_name) ?? null,
       normalizeTime(start_time, 'start_time'),
       normalizeTime(end_time, 'end_time'),
       parseBoolean(is_peak, false),
@@ -63,21 +71,29 @@ export const createTimeSlot = async (body) => {
 
 export const updateTimeSlot = async (id, body) => {
   const existing = await getTimeSlotById(id);
-  const { start_time, end_time, is_peak, peak_extra_charge, is_active } = body;
+  const { shift_name, start_time, end_time, is_peak, peak_extra_charge, is_active } =
+    body;
+
+  const nextShiftName =
+    shift_name !== undefined
+      ? normalizeShiftName(shift_name)
+      : existing.shift_name;
 
   const { rows } = await sql.query(
     `
     UPDATE time_slots
-    SET start_time = $1,
-        end_time = $2,
-        is_peak = $3,
-        peak_extra_charge = $4,
-        is_active = $5,
+    SET shift_name = $1,
+        start_time = $2,
+        end_time = $3,
+        is_peak = $4,
+        peak_extra_charge = $5,
+        is_active = $6,
         updated_at = NOW()
-    WHERE id = $6
+    WHERE id = $7
     RETURNING *
     `,
     [
+      nextShiftName ?? null,
       start_time !== undefined
         ? normalizeTime(start_time, 'start_time')
         : existing.start_time,
