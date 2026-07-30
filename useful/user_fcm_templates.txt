@@ -1,0 +1,60 @@
+USER FCM NOTIFICATION TEMPLATES
+================================
+Source: product WhatsApp-style copy (adapted for FCM title + body)
+Module: src/utils/userNotificationTemplates.js
+
+Env (optional):
+  USER_APP_LINK / APP_LINK / BASE_URL  → deep link for CTAs
+  RATING_LINK                          → post-delivery rating URL
+  PAYMENT_LINK_TEMPLATE                → e.g. https://app/.../orders/{{order_id}}/pay
+
+---------------------------------------------------------------
+1) ACCOUNT CREATED
+   Trigger : First profile completion (profile_completed false → true)
+   File    : userProfile.service.js
+   Title   : Welcome to Metrogini!
+---------------------------------------------------------------
+2) ORDER CONFIRMED (no advance payment wording)
+   Trigger : Advance/booking payment fulfilled (dummy pay / Razorpay webhook)
+   Files   : razorpayCheckout.service.js, razorpayWebhook.service.js
+   Title   : Order Confirmed! ✅
+   Vars    : name, order code, pickup date, pickup slot
+---------------------------------------------------------------
+3) WEIGHT & INVOICE
+   Trigger : Vendor finalizeOrder (status → order_finalized)
+   File    : vendorOrder.service.js
+   Title   : Weight & Invoice Details ⚖️
+   Vars    : order, weight kg, total, remaining (advance line omitted)
+   Data    : payment_link
+---------------------------------------------------------------
+4) ACCOUNT OTP
+   Trigger : loginOrRegister
+   File    : userAuth.service.js (+ email.service.js)
+   Title   : Metrogini OTP
+   Expiry  : 10 minutes
+---------------------------------------------------------------
+5) ORDER RECEIVED (short)
+   Trigger : User finalize draft → booked
+   File    : userOrder.service.js (finalizeOrderService)
+   Title   : We've received your order!
+---------------------------------------------------------------
+6) PICKUP OTP
+   Trigger : Rider startDelivery (pickup_in_progress) + resendOtp
+   File    : riderOrder.service.js
+   Title   : Rider arrived for pickup
+---------------------------------------------------------------
+7) DELIVERY OTP
+   Trigger : Rider pickupFromVendor (out_for_delivery)
+   File    : riderOrder.service.js
+   Title   : Laundry at your doorstep!
+   Note    : OTP still generated at vendor markReady; FCM sent at doorstep
+---------------------------------------------------------------
+8) RATING REQUEST
+   Trigger : Delivery OTP verified (delivered)
+   File    : riderOrder.service.js
+   Title   : Thank you for choosing Metrogini! ✨
+   Data    : rating_link
+---------------------------------------------------------------
+
+FCM data payload always includes role, reference_type, reference_id
+plus template `data` (type, app_link, payment_link, rating_link, order_id).

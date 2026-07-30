@@ -5,6 +5,10 @@ import {
   sendUserEmailSafe,
 } from "../../common/email.service.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
+import {
+  fetchOrderNotifyContext,
+  orderConfirmedTemplate,
+} from "../../../utils/userNotificationTemplates.js";
 import { PAYMENT_TYPE } from "../../../utils/status.js";
 import {
   fulfillCapturedPayment,
@@ -29,14 +33,24 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
   const orderCode = orderMeta[0]?.order_code;
 
   if (result.payment_type === PAYMENT_TYPE.ADVANCE) {
+    const ctx = await fetchOrderNotifyContext(result.order_id);
+    const confirmed = orderConfirmedTemplate({
+      name: ctx?.name,
+      orderCode: ctx?.orderCode || orderCode,
+      orderId: result.order_id,
+      pickupDate: ctx?.pickupDate,
+      pickupSlot: ctx?.pickupSlot,
+    });
+
     await createNotificationsBatch([
       {
         identity_id: result.user_id,
         role: "user",
-        title: "Order Confirmed",
-        message: `Your order #${result.order_id} has been confirmed and advance payment of ₹${result.paidAmount} received. A rider has been assigned for pickup.`,
+        title: confirmed.title,
+        message: confirmed.message,
         reference_type: "order",
         reference_id: result.order_id,
+        data: confirmed.data,
       },
       {
         identity_id: result.vendor_id,
@@ -61,7 +75,7 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
       identity_id: result.user_id,
       role: "user",
       title: "Payment Complete",
-      message: `Remaining payment of ₹${result.paidAmount} received for order #${result.order_id}. Thank you!`,
+      message: `Payment of ₹${result.paidAmount} received for order #${result.order_id}. Thank you!`,
       reference_type: "order",
       reference_id: result.order_id,
     },

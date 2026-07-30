@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
 import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
+import { sendPushSafe } from "../common/push.service.js";
+import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
@@ -23,15 +25,25 @@ export const loginOrRegister = async ({ mobile }) => {
   // Fixed OTP for now (same as vendor/rider) — replace with generateOTP() in production
   const otp = "1234";
 
-  // Update OTP and expiry
+  // Update OTP and expiry (template: valid 10 minutes)
   await sql.query(
     `UPDATE users
      SET otp = $2,
-         otp_expires_at = NOW() + INTERVAL '2 minutes',
+         otp_expires_at = NOW() + INTERVAL '10 minutes',
          otp_attempts = 0
      WHERE id = $1`,
     [user.id, otp],
   );
+
+  // Push only (do not clutter in-app notification inbox with OTPs)
+  const otpPush = accountOtpTemplate({ otp });
+  sendPushSafe(user.id, {
+    title: otpPush.title,
+    body: otpPush.message,
+    reference_type: "auth",
+    reference_id: user.id,
+    data: otpPush.data,
+  });
 
   if (user.email) {
     sendEmailSafe(sendOtpEmail, {

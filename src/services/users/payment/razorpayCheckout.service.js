@@ -5,6 +5,10 @@ import {
   sendUserEmailSafe,
 } from "../../common/email.service.js";
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
+import {
+  fetchOrderNotifyContext,
+  orderConfirmedTemplate,
+} from "../../../utils/userNotificationTemplates.js";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "../../../utils/status.js";
 import { fulfillAdvancePayment } from "./paymentFulfillment.service.js";
 import {
@@ -120,14 +124,24 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
     await client.query("COMMIT");
 
     if (!result.alreadyProcessed) {
+      const ctx = await fetchOrderNotifyContext(orderId);
+      const confirmed = orderConfirmedTemplate({
+        name: ctx?.name,
+        orderCode: ctx?.orderCode,
+        orderId,
+        pickupDate: ctx?.pickupDate,
+        pickupSlot: ctx?.pickupSlot,
+      });
+
       await createNotificationsBatch([
         {
           identity_id: userId,
           role: "user",
-          title: "Order Confirmed",
-          message: `Your order #${orderId} has been confirmed and advance payment of ₹${result.paidAmount} received. A rider has been assigned for pickup.`,
+          title: confirmed.title,
+          message: confirmed.message,
           reference_type: "order",
           reference_id: orderId,
+          data: confirmed.data,
         },
         {
           identity_id: result.vendor_id,

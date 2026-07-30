@@ -1,6 +1,8 @@
 import sql from "../../config/db.js";
 import { deleteFile } from "../../utils/file.service.js";
 import { formatUserOrder } from "../../utils/userOrder.util.js";
+import { createNotificationsBatch } from "../../utils/notificationHelper.js";
+import { accountCreatedTemplate } from "../../utils/userNotificationTemplates.js";
 import { getCurrentUserOrdersService } from "./userOrder.service.js";
 
 const mapProfileRow = (row) => ({
@@ -93,9 +95,9 @@ export const updateProfile = async ({ userId, body, file }) => {
     };
   }
 
-  // 1️⃣ Get existing image
+  // 1️⃣ Get existing image + profile state
   const oldUser = await sql.query(
-    `SELECT profile_image FROM users WHERE id = $1`,
+    `SELECT profile_image, profile_completed FROM users WHERE id = $1`,
     [userId],
   );
 
@@ -116,6 +118,8 @@ export const updateProfile = async ({ userId, body, file }) => {
     await deleteFile(oldUser.rows[0].profile_image);
   }
 
+  const wasProfileIncomplete = !oldUser.rows[0].profile_completed;
+
   // 3️⃣ Update profile
   const result = await sql.query(
     `UPDATE users
@@ -132,6 +136,21 @@ export const updateProfile = async ({ userId, body, file }) => {
                terms_and_condition`,
     [full_name, email, normalizedGender, alternate_phone, imagePath, userId],
   );
+
+  if (wasProfileIncomplete) {
+    const welcome = accountCreatedTemplate({ name: full_name });
+    await createNotificationsBatch([
+      {
+        identity_id: userId,
+        role: "user",
+        title: welcome.title,
+        message: welcome.message,
+        reference_type: "auth",
+        reference_id: userId,
+        data: welcome.data,
+      },
+    ]);
+  }
 
   return {
     statusCode: 200,

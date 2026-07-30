@@ -8,6 +8,10 @@ import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 import { paginateArray } from '../../utils/pagination.util.js';
+import {
+  fetchOrderNotifyContext,
+  weightInvoiceTemplate,
+} from '../../utils/userNotificationTemplates.js';
 
 // Orders still on the vendor's task board for a given deadline day.
 // ready_for_delivery stays visible for that day (dispatch), but does not
@@ -1825,14 +1829,26 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     [order_id],
   );
 
-  // Notify user about final amount
+  const ctx = await fetchOrderNotifyContext(order_id);
+  const invoice = weightInvoiceTemplate({
+    orderCode: ctx?.orderCode,
+    orderId: order_id,
+    weightKg: ctx?.weightKg ?? order.actual_weight,
+    totalAmount: ctx?.totalAmount ?? order.final_total,
+    remainingAmount:
+      ctx?.remainingAmount != null
+        ? ctx.remainingAmount
+        : ctx?.totalAmount ?? order.final_total,
+  });
+
   await createNotificationsBatch([{
     identity_id: order.user_id,
     role: 'user',
-    title: 'Your laundry has been weighed',
-    message: 'The exact weight has been calculated. The final amount details are available in the app.',
+    title: invoice.title,
+    message: invoice.message,
     reference_type: 'order',
     reference_id: order_id,
+    data: invoice.data,
   }]);
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -1873,16 +1889,8 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     [delivery_otp, order_id],
   );
 
-  // Send delivery OTP to user
-  await createNotificationsBatch([{
-    identity_id: order.user_id,
-    role: 'user',
-    title: 'Your laundry is ready',
-    message: `Your order is packed and ready for delivery. Your delivery OTP is ${delivery_otp}. Please share it with the rider upon delivery.`,
-    reference_type: 'order',
-    reference_id: order_id,
-  }]);
-
+  // Delivery OTP is pushed when rider is out for delivery (doorstep template).
+  // Still email so user has the code ahead of time.
   sendUserEmailSafe(order.user_id, sendDeliveryOtpEmail, {
     orderId: order.id,
     orderCode: order.order_code,
