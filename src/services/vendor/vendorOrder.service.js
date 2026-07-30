@@ -187,6 +187,44 @@ const formatPgDate = (value) => {
   return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : formatDate(new Date(raw));
 };
 
+const MONTH_SHORT_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/** e.g. 2026-07-30 → "30 Jul 2026" */
+const formatDisplayDay = (dateStr) => {
+  const key = formatPgDate(dateStr);
+  if (!key) return null;
+  const [y, m, d] = key.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return `${String(d).padStart(2, '0')} ${MONTH_SHORT_LABELS[m - 1]} ${y}`;
+};
+
+/**
+ * Polished reschedule card copy for the app UI.
+ * Blank line between Delivery and Previous for spacing inside a box.
+ */
+const buildRescheduleBox = (deliveryDate, previousDeliveryDate, isRescheduled) => {
+  if (!isRescheduled) return null;
+
+  const deliveryLabel = formatDisplayDay(deliveryDate);
+  const previousLabel = formatDisplayDay(previousDeliveryDate);
+  if (!deliveryLabel && !previousLabel) return null;
+
+  const delivery_line = deliveryLabel ? `Delivery: ${deliveryLabel}` : null;
+  const previous_line = previousLabel ? `Previous: ${previousLabel}` : null;
+  const lines = [delivery_line, previous_line].filter(Boolean);
+
+  return {
+    title: 'Rescheduled',
+    delivery_line,
+    previous_line,
+    // Blank line between for spacing when rendered in a card/box
+    text: lines.join('\n\n'),
+  };
+};
+
 const isAwaitingMarkReady = (order) => {
   if (order.status === 'order_finalized') return true;
   return order.status === 'in_process' && !isClassificationPending(order);
@@ -274,10 +312,12 @@ const buildPerformanceOverviewFromOrders = (orders) => {
 const buildTaskProgress = (orders) => {
   const total = orders.length;
   const left = orders.filter(isClassificationPending).length;
+  const rescheduled_count = orders.filter((o) => Boolean(o.is_rescheduled)).length;
   return {
     total,
     done: total - left,
     left,
+    rescheduled_count,
   };
 };
 
@@ -290,6 +330,9 @@ const mapTaskOrderToListItem = (order) => {
   const serviceConfig = SERVICE_CONFIG[order.service_id] || {
     image: order.service_image || null,
   };
+  const is_rescheduled = Boolean(order.is_rescheduled);
+  const delivery_date = formatPgDate(order.delivery_date);
+  const previous_delivery_date = formatPgDate(order.previous_delivery_date);
 
   return {
     id: order.id,
@@ -299,7 +342,14 @@ const mapTaskOrderToListItem = (order) => {
     image: serviceConfig.image || order.service_image,
     status: getTaskListStatus(order),
     pickup_date: formatPgDate(order.pickup_date),
-    delivery_date: formatPgDate(order.delivery_date),
+    delivery_date,
+    is_rescheduled,
+    previous_delivery_date,
+    reschedule_box: buildRescheduleBox(
+      delivery_date,
+      previous_delivery_date,
+      is_rescheduled,
+    ),
   };
 };
 
@@ -515,6 +565,8 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
       o.delivery_completed_at,
       TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
       TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+      COALESCE(o.is_rescheduled, false) AS is_rescheduled,
+      TO_CHAR(o.previous_delivery_date, 'YYYY-MM-DD') AS previous_delivery_date,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name
@@ -577,11 +629,13 @@ const buildTaskShiftListPayload = (taskDeadline, orders, pageOrders) => {
   const shiftType = taskDeadline.shift_name
     ? String(taskDeadline.shift_name).trim().toLowerCase()
     : null;
+  const rescheduled_count = orders.filter((o) => Boolean(o.is_rescheduled)).length;
 
   return {
     id: taskDeadline.shift_id,
     shift_title: taskDeadline.shift_name,
     total_orders: orders.length,
+    rescheduled_count,
     shift_type: shiftType,
     operational_distribution: buildTaskOperationalDistribution(orders),
     todays_batch_overview: {
@@ -628,12 +682,14 @@ export const getVendorTaskOrdersService = async (vendor_id, query = {}) => {
   const mappedOrders = orders.map(mapTaskOrderToListItem);
   const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
   const shiftPayload = buildTaskShiftListPayload(taskDeadline, orders, pageOrders);
+  const task_progress = buildTaskProgress(orders);
 
   return {
     mode: 'task',
     scope,
     task_deadline: taskDeadline,
-    task_progress: buildTaskProgress(orders),
+    task_progress,
+    rescheduled_count: task_progress.rescheduled_count,
     performance_overview: buildPerformanceOverviewFromOrders(orders),
     shifts: taskDeadline.shift_id || orders.length ? [shiftPayload] : [],
     pagination,
@@ -758,6 +814,10 @@ const mapHistoryOrderToListItem = (order) => {
         ? Number(order.final_total)
         : 0;
 
+  const is_rescheduled = Boolean(order.is_rescheduled);
+  const delivery_date = formatPgDate(order.delivery_date);
+  const previous_delivery_date = formatPgDate(order.previous_delivery_date);
+
   return {
     id: order.id,
     customer: `CUST-${String(order.user_id).padStart(4, '0')}`,
@@ -769,7 +829,14 @@ const mapHistoryOrderToListItem = (order) => {
     shift: shiftType,
     shift_label: shiftLabel,
     date: getHistoryOrderDate(order),
-    delivery_date: formatPgDate(order.delivery_date),
+    delivery_date,
+    is_rescheduled,
+    previous_delivery_date,
+    reschedule_box: buildRescheduleBox(
+      delivery_date,
+      previous_delivery_date,
+      is_rescheduled,
+    ),
     completed_at:
       status === 'delivered' ? formatHistoryIso(order.delivery_completed_at) : null,
     weight_kg: weightKg > 0 ? parseFloat(weightKg.toFixed(1)) : 0,
@@ -798,6 +865,7 @@ const buildHistorySummary = (orders) => {
     ready_for_dispatch: readyForDispatch,
     total_clothes: totalClothes,
     total_kg: parseFloat(totalKg.toFixed(1)),
+    rescheduled_count: orders.filter((o) => Boolean(o.is_rescheduled)).length,
   };
 };
 
@@ -813,12 +881,14 @@ const buildHistoryShifts = (orders) => {
         shift_title: item.shift_label || 'Other',
         shift_type: shiftType,
         total_orders: 0,
+        rescheduled_count: 0,
         orders: [],
       });
     }
     const group = groups.get(shiftType);
     group.orders.push(item);
     group.total_orders += 1;
+    if (item.is_rescheduled) group.rescheduled_count += 1;
   }
 
   const orderRank = { morning: 0, evening: 1 };
@@ -905,6 +975,8 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
       o.ready_for_delivery_at,
       o.vendor_received_at,
       o.vendor_received_at::date AS history_date,
+      COALESCE(o.is_rescheduled, false) AS is_rescheduled,
+      TO_CHAR(o.previous_delivery_date, 'YYYY-MM-DD') AS previous_delivery_date,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name,
@@ -935,6 +1007,7 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
     date_from,
     date_to,
     summary,
+    rescheduled_count: summary.rescheduled_count,
     pagination,
     shifts,
   };

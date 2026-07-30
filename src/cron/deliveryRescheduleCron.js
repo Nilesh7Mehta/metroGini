@@ -6,6 +6,18 @@ import { createNotificationsBatch } from '../utils/notificationHelper.js';
 
 const PENDING_STATUSES = ['in_process', 'order_finalized'];
 
+const MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+const formatDisplayDay = (dateStr) => {
+  const key = String(dateStr || '').slice(0, 10);
+  const [y, m, d] = key.split('-').map(Number);
+  if (!y || !m || !d) return key || null;
+  return `${String(d).padStart(2, '0')} ${MONTH_SHORT[m - 1]} ${y}`;
+};
+
 /**
  * Daily: unfinished vendor orders past delivery_date → bump delivery_date
  * to that laundry's next work-shift day. Keeps delivery_date as the live field.
@@ -75,8 +87,9 @@ export const rescheduleOverdueDeliveries = async () => {
         role: 'vendor',
         title: 'Delivery date rescheduled',
         message:
-          `Order #${row.order_id} was still unfinished after ${row.delivery_date}. ` +
-          `Delivery date moved to ${next.next_date} (your next work day).`,
+          `Order #${row.order_id}\n\n` +
+          `Delivery: ${formatDisplayDay(next.next_date)}\n\n` +
+          `Previous: ${formatDisplayDay(row.delivery_date)}`,
         reference_type: 'order',
         reference_id: row.order_id,
       });

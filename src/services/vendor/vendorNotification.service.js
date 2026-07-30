@@ -51,13 +51,14 @@ export const markNotificationReadService = async (vendor_id, notification_id) =>
 };
 
 export const markAllNotificationsReadService = async (vendor_id) => {
+  // Mark-all clears the inbox: delete notifications for this vendor.
   const result = await sql.query(
-    `UPDATE notifications SET is_read = true
-     WHERE identity_id = $1 AND role = 'vendor' AND is_read = false`,
+    `DELETE FROM notifications
+     WHERE identity_id = $1 AND role = 'vendor'`,
     [vendor_id]
   );
 
-  return { updated: result.rowCount };
+  return { deleted: result.rowCount };
 };
 
 export const getUnreadCountService = async (vendor_id) => {
