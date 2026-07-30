@@ -209,3 +209,57 @@ export const mapShiftScheduleError = (err) => {
 
   return null;
 };
+
+/**
+ * Next calendar work day for a laundry strictly after `afterDate`.
+ * Uses laundry_group_shift_schedule DOWs (earliest matching shift).
+ * @returns {{ next_date, day_of_week, shift_id, shift_name, pincode_group_id } | null}
+ */
+export const getNextWorkDateAfter = async (laundryId, afterDate) => {
+  if (!laundryId || !afterDate) return null;
+
+  const { rows } = await sql.query(
+    `
+    SELECT
+      lgss.pincode_group_id,
+      lgss.day_of_week,
+      lgss.shift_id,
+      s.shift_name,
+      TO_CHAR(
+        CASE
+          WHEN lgss.day_of_week = EXTRACT(ISODOW FROM $2::date)::int
+            THEN ($2::date + 7)
+          ELSE (
+            $2::date
+            + ((lgss.day_of_week - EXTRACT(ISODOW FROM $2::date)::int + 7) % 7)
+          )
+        END::date,
+        'YYYY-MM-DD'
+      ) AS next_date
+    FROM laundry_group_shift_schedule lgss
+    JOIN shifts s ON s.id = lgss.shift_id
+    WHERE lgss.laundry_id = $1
+      AND COALESCE(s.status, TRUE) IS TRUE
+    ORDER BY next_date ASC, s.start_time ASC, lgss.id ASC
+    LIMIT 1
+    `,
+    [laundryId, afterDate],
+  );
+
+  const row = rows[0];
+  if (!row?.next_date) return null;
+
+  const nextDate = String(row.next_date).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate <= String(afterDate).slice(0, 10)) {
+    return null;
+  }
+
+  return {
+    next_date: nextDate,
+    day_of_week: Number(row.day_of_week) || null,
+    shift_id: row.shift_id != null ? Number(row.shift_id) : null,
+    shift_name: row.shift_name || null,
+    pincode_group_id:
+      row.pincode_group_id != null ? Number(row.pincode_group_id) : null,
+  };
+};

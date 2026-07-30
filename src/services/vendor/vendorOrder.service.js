@@ -8,10 +8,6 @@ import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 import { paginateArray } from '../../utils/pagination.util.js';
-import {
-  fetchOrderNotifyContext,
-  weightInvoiceTemplate,
-} from '../../utils/userNotificationTemplates.js';
 
 // Orders still on the vendor's task board for a given deadline day.
 // ready_for_delivery stays visible for that day (dispatch), but does not
@@ -773,6 +769,7 @@ const mapHistoryOrderToListItem = (order) => {
     shift: shiftType,
     shift_label: shiftLabel,
     date: getHistoryOrderDate(order),
+    delivery_date: formatPgDate(order.delivery_date),
     completed_at:
       status === 'delivered' ? formatHistoryIso(order.delivery_completed_at) : null,
     weight_kg: weightKg > 0 ? parseFloat(weightKg.toFixed(1)) : 0,
@@ -903,16 +900,11 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
       o.service_id,
       o.final_total,
       o.vendor_revenue,
-      o.delivery_date,
+      TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
       o.delivery_completed_at,
       o.ready_for_delivery_at,
       o.vendor_received_at,
-      COALESCE(
-        o.delivery_completed_at::date,
-        o.delivery_date,
-        o.ready_for_delivery_at::date,
-        o.vendor_received_at::date
-      ) AS history_date,
+      o.vendor_received_at::date AS history_date,
       s.name AS service_name,
       s.image AS service_image,
       st.name AS service_type_name,
@@ -922,20 +914,11 @@ export const getVendorHistoryOrdersService = async (vendor_id, query = {}) => {
     LEFT JOIN service_types st ON o.service_type_id = st.id
     LEFT JOIN time_slots pts ON pts.id = o.pickup_slot_id
     WHERE o.vendor_id = $1
-      AND COALESCE(
-            o.delivery_completed_at::date,
-            o.delivery_date,
-            o.ready_for_delivery_at::date,
-            o.vendor_received_at::date
-          ) BETWEEN $2::date AND $3::date
+      AND o.vendor_received_at IS NOT NULL
+      AND o.vendor_received_at::date BETWEEN $2::date AND $3::date
       AND o.status NOT IN ('draft', 'cancelled')
     ORDER BY
-      COALESCE(
-        o.delivery_completed_at,
-        o.ready_for_delivery_at,
-        o.vendor_received_at,
-        o.delivery_date::timestamp
-      ) DESC NULLS LAST,
+      o.vendor_received_at DESC,
       o.id DESC
     `,
     [vendor_id, date_from, date_to],
@@ -1829,26 +1812,14 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     [order_id],
   );
 
-  const ctx = await fetchOrderNotifyContext(order_id);
-  const invoice = weightInvoiceTemplate({
-    orderCode: ctx?.orderCode,
-    orderId: order_id,
-    weightKg: ctx?.weightKg ?? order.actual_weight,
-    totalAmount: ctx?.totalAmount ?? order.final_total,
-    remainingAmount:
-      ctx?.remainingAmount != null
-        ? ctx.remainingAmount
-        : ctx?.totalAmount ?? order.final_total,
-  });
-
+  // Notify user about final amount
   await createNotificationsBatch([{
     identity_id: order.user_id,
     role: 'user',
-    title: invoice.title,
-    message: invoice.message,
+    title: 'Your laundry has been weighed',
+    message: 'The exact weight has been calculated. The final amount details are available in the app.',
     reference_type: 'order',
     reference_id: order_id,
-    data: invoice.data,
   }]);
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -1889,8 +1860,16 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     [delivery_otp, order_id],
   );
 
-  // Delivery OTP is pushed when rider is out for delivery (doorstep template).
-  // Still email so user has the code ahead of time.
+  // Send delivery OTP to user
+  await createNotificationsBatch([{
+    identity_id: order.user_id,
+    role: 'user',
+    title: 'Your laundry is ready',
+    message: `Your order is packed and ready for delivery. Your delivery OTP is ${delivery_otp}. Please share it with the rider upon delivery.`,
+    reference_type: 'order',
+    reference_id: order_id,
+  }]);
+
   sendUserEmailSafe(order.user_id, sendDeliveryOtpEmail, {
     orderId: order.id,
     orderCode: order.order_code,
