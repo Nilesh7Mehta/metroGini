@@ -29,7 +29,9 @@ export const fetchTodayOrders = async (rider_id) => {
         o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
         o.created_at, o.updated_at, o.otp_generated_at,
         ts.start_time, ts.end_time,
-        u.full_name AS customer_name, u.id AS customer_id,
+        u.full_name AS customer_name,
+        u.id AS customer_id,
+        u.mobile AS customer_number,
         a.complete_address, a.pincode
      FROM orders o
      JOIN time_slots ts ON ts.id = o.pickup_slot_id
@@ -37,7 +39,7 @@ export const fetchTodayOrders = async (rider_id) => {
      JOIN user_address_details a ON a.id = o.address_id
      WHERE o.assigned_rider_id = $1
        AND o.pickup_date = CURRENT_DATE
-       AND o.status IN ('out_for_pickup', 'booked', 'pickup_in_progress', 'in_process')
+       AND o.status IN ('out_for_pickup', 'pickup_in_progress', 'in_process')
      ORDER BY o.id DESC`,
     [rider_id],
   );
@@ -68,6 +70,7 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
         ts.end_time,
         u.full_name AS customer_name,
         u.id AS customer_id,
+        u.mobile AS customer_number,
         a.complete_address,
         a.pincode,
         v.laundry_shop_name AS vendor_name,
@@ -89,27 +92,28 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
 export const fetchDashboardCount = async (rider_id) => {
   const { rows } = await sql.query(
     `SELECT
-  COUNT(*) FILTER (
-    WHERE status IN ('out_for_pickup', 'booked', 'pickup_in_progress')
-  ) AS pending_pickup,
+    COUNT(*) FILTER (
+        WHERE status IN ('out_for_pickup','pickup_in_progress')
+          AND pickup_date = CURRENT_DATE
+    ) AS pending_pickup,
 
-  COUNT(*) FILTER (
-    WHERE status = 'in_process'
-  ) AS completed_pickup,
+    COUNT(*) FILTER (
+        WHERE status = 'in_process'
+          AND pickup_date = CURRENT_DATE
+    ) AS completed_pickup,
 
-  COUNT(*) FILTER (
-    WHERE status IN ('ready_for_delivery', 'out_for_delivery')
-  ) AS pending_drop,
+    COUNT(*) FILTER (
+        WHERE status IN ('ready_for_delivery', 'out_for_delivery')
+          AND delivery_date = CURRENT_DATE
+    ) AS pending_drop,
 
-  COUNT(*) FILTER (
-    WHERE status = 'delivered'
-  ) AS completed_drop
-FROM orders
-WHERE assigned_rider_id = $1
-  AND (
-    pickup_date = CURRENT_DATE
-    OR delivery_date = CURRENT_DATE
-  )`,
+    COUNT(*) FILTER (
+        WHERE status = 'delivered'
+          AND delivery_date = CURRENT_DATE
+    ) AS completed_drop
+
+    FROM orders
+    WHERE assigned_rider_id = $1;`,
     [rider_id],
   );
   return rows[0];
