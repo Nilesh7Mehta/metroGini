@@ -17,7 +17,7 @@ export const createAdminMerchant = async (req, res, next) => {
       data,
     });
   } catch (err) {
-    const shiftErr = mapShiftScheduleError(err);
+    const shiftErr = await mapShiftScheduleError(err);
     if (shiftErr) {
       return res.status(shiftErr.status).json({ success: false, message: shiftErr.message });
     }
@@ -40,7 +40,7 @@ export const updateAdminMerchant = async (req, res, next) => {
       data,
     });
   } catch (err) {
-    const shiftErr = mapShiftScheduleError(err);
+    const shiftErr = await mapShiftScheduleError(err);
     if (shiftErr) {
       return res.status(shiftErr.status).json({ success: false, message: shiftErr.message });
     }

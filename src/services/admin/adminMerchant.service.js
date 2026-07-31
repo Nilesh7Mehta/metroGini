@@ -806,10 +806,37 @@ const summarizeShiftScheduleLocation = (shiftSchedule = []) => {
 };
 
 const parsePhoneDigits = (phone) => {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length >= 12 && digits.startsWith('91')) {
+    digits = digits.slice(-10);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
   if (digits.length === 10) return digits;
   return null;
+};
+
+const resolveMobileNumber = (
+  businessPhone,
+  profilePhone,
+  existingMobile,
+  { isUpdate },
+) => {
+  const fromBusiness = parsePhoneDigits(businessPhone);
+  const fromProfile = parsePhoneDigits(profilePhone);
+  const existing = isUpdate ? parsePhoneDigits(existingMobile) || existingMobile || null : null;
+
+  // Duplicate form fields can diverge; prefer the value that actually changed.
+  if (fromBusiness && fromProfile && fromBusiness !== fromProfile) {
+    if (existing && fromBusiness === existing && fromProfile !== existing) {
+      return fromProfile;
+    }
+    if (existing && fromProfile === existing && fromBusiness !== existing) {
+      return fromBusiness;
+    }
+  }
+
+  return fromBusiness || fromProfile || (isUpdate ? existing : null);
 };
 
 const normalizeAccountNumber = (value, { allowMasked = false, existing = null } = {}) => {
@@ -844,6 +871,28 @@ const resolveMerchantStatus = (body, existingIsActive) => {
   if (status === 'active') return true;
   if (status === 'inactive') return false;
   return existingIsActive;
+};
+
+/** True when the client only wants to toggle active/inactive (no full profile payload). */
+const isStatusOnlyUpdate = (body = {}) => {
+  if (!body || typeof body !== 'object') return false;
+
+  const hasStatus =
+    pickString(body.status) != null || pickString(body.profile?.status) != null;
+  if (!hasStatus) return false;
+
+  const topKeys = Object.keys(body).filter((key) => body[key] !== undefined);
+  const allowedTop = new Set(['status', 'profile']);
+  if (topKeys.some((key) => !allowedTop.has(key))) return false;
+
+  if (body.profile != null && typeof body.profile === 'object') {
+    const profileKeys = Object.keys(body.profile).filter(
+      (key) => body.profile[key] !== undefined,
+    );
+    if (profileKeys.some((key) => key !== 'status')) return false;
+  }
+
+  return true;
 };
 
 const parseRegistrationDate = (value) => {
@@ -893,9 +942,12 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     pickString(business.address)
     || pickString(profile.address)
     || (isUpdate ? existing?.shop_address : null);
-  const mobile_number =
-    parsePhoneDigits(business.phone || profile.phone)
-    || (isUpdate ? existing?.mobile_number : null);
+  const mobile_number = resolveMobileNumber(
+    business.phone,
+    profile.phone,
+    existing?.mobile_number,
+    { isUpdate },
+  );
 
   if (!mobile_number) {
     throw {
@@ -1323,6 +1375,31 @@ export const updateAdminMerchantService = async (rawId, body) => {
 
   if (!existing) {
     throw { status: 404, message: 'Merchant not found' };
+  }
+
+  if (isStatusOnlyUpdate(body)) {
+    const status =
+      pickString(body.status)?.toLowerCase() ||
+      pickString(body.profile?.status)?.toLowerCase();
+    if (status !== 'active' && status !== 'inactive') {
+      throw { status: 400, message: 'status must be active or inactive' };
+    }
+
+    const isActive = status === 'active';
+    await sql.query(
+      `
+      UPDATE vendors SET
+        is_active = $1,
+        status = CASE WHEN $1 THEN 'active' ELSE 'inactive' END,
+        updated_at = NOW()
+      WHERE id = $2
+      `,
+      [isActive, vendorId],
+    );
+
+    const vendor = await fetchVendorById(vendorId);
+    const savedSchedule = await getShiftScheduleForLaundry(vendorId);
+    return buildMerchantDetailResponse(vendor, savedSchedule);
   }
 
   const payload = mapMerchantPayload(body, { isUpdate: true, existing });
