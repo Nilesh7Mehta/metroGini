@@ -75,9 +75,18 @@ const deleteStaleTokens = async (tokens) => {
   );
 };
 
+const toFcmDataStrings = (extra = {}) => {
+  const out = {};
+  for (const [key, value] of Object.entries(extra || {})) {
+    if (value == null) continue;
+    out[String(key)] = String(value);
+  }
+  return out;
+};
+
 export const sendPushToUser = async (
   userId,
-  { title, body, reference_type, reference_id },
+  { title, body, reference_type, reference_id, data: extraData },
 ) => {
   if (!isFirebaseEnabled()) return;
 
@@ -94,6 +103,7 @@ export const sendPushToUser = async (
     role: "user",
     reference_type: reference_type ? String(reference_type) : "",
     reference_id: reference_id != null ? String(reference_id) : "",
+    ...toFcmDataStrings(extraData),
   };
 
   const response = await messaging.sendEachForMulticast({

@@ -85,7 +85,7 @@ export const updateAdminRider = async (req, res, next) => {
       data,
     });
   } catch (err) {
-    const scheduleErr = mapRiderScheduleError(err);
+    const scheduleErr = await mapRiderScheduleError(err);
     if (scheduleErr) {
       return res.status(scheduleErr.status).json({
         success: false,
@@ -117,7 +117,7 @@ export const createAdminRider = async (req, res, next) => {
       data,
     });
   } catch (err) {
-    const scheduleErr = mapRiderScheduleError(err);
+    const scheduleErr = await mapRiderScheduleError(err);
     if (scheduleErr) {
       return res.status(scheduleErr.status).json({
         success: false,

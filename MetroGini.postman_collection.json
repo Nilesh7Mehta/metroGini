@@ -6170,7 +6170,7 @@
                     }
                   ]
                 },
-                "description": "Order history for a month range. If date_from/date_to omitted, uses current calendar month."
+                "description": "Order history for a month range. If date_from/date_to omitted, uses current calendar month.\n\nOnly orders with `vendor_received_at` set; period filtered on `vendor_received_at` date."
               },
               "response": []
             },
@@ -6249,7 +6249,7 @@
                     }
                   ]
                 },
-                "description": "Custom history range with optional filters: status, type, shift, search.\n\nReturns summary (total_orders, delivered, ready_for_dispatch, total_clothes, total_kg) + paginated shifts/orders.\nOrder `id` is numeric order.id."
+                "description": "Custom history range with optional filters: status, type, shift, search.\n\nOnly orders with `vendor_received_at` set (handed over to vendor). Date range filters on `vendor_received_at`.\n\nReturns summary (total_orders, delivered, ready_for_dispatch, total_clothes, total_kg) + paginated shifts/orders.\nOrder `id` is numeric order.id."
               },
               "response": []
             },

@@ -10,6 +10,7 @@ import { sendPushSafe } from "../services/common/push.service.js";
  *   message      — string
  *   reference_type (optional) — 'order' | 'rider' | etc.
  *   reference_id   (optional) — related record id
+ *   data           (optional) — extra FCM data payload (user role only)
  */
 export const createNotificationsBatch = async (notifications) => {
   try {
@@ -34,6 +35,7 @@ export const createNotificationsBatch = async (notifications) => {
           body: n.message,
           reference_type: n.reference_type,
           reference_id: n.reference_id,
+          data: n.data,
         });
       }
     }

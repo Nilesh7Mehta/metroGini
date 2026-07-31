@@ -68,7 +68,7 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
     "Your Login OTP",
     `
       <p>${greet(name)}</p>
-      <p>Use the OTP below to log in to your Metro Gini account. It expires in 2 minutes.</p>
+      <p>Your OTP for creating your Metrogini account is below. Valid for 10 minutes. Do not share this code with anyone.</p>
       <div class="otp-box">${otp}</div>
       <p>If you did not request this OTP, you can safely ignore this email.</p>
     `,
@@ -76,7 +76,7 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
 
   await sendEmail({
     to: email,
-    subject: "Your Metro Gini OTP",
+    subject: "Your Metrogini OTP",
     html,
   });
 };

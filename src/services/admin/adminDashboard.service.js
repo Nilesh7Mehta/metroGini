@@ -197,14 +197,17 @@ const fetchDashboardMetrics = async (
 
   const row = rows[0];
   const totalOrders = parseInt(row.total_orders, 10);
+  const totalUsersWhoOrdered = parseInt(row.total_users, 10);
   const totalRegistered = parseInt(row.total_registered, 10);
+  // Users who placed an order / (registered in period ∪ ordered in period)
+  // Always 0–100%; not orders÷users (that could exceed 100%).
   const conversionRate =
     totalRegistered > 0
-      ? Math.round((totalOrders / totalRegistered) * 1000) / 10
+      ? Math.round((totalUsersWhoOrdered / totalRegistered) * 1000) / 10
       : 0;
 
   return {
-    total_users: parseInt(row.total_users, 10),
+    total_users: totalUsersWhoOrdered,
     total_orders: totalOrders,
     total_revenue: Math.round(parseFloat(row.total_revenue) || 0),
     total_registered: totalRegistered,

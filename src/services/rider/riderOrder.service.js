@@ -6,6 +6,11 @@ import { PAYMENT_TYPE } from "../../utils/status.js";
 import { sendUserEmailSafe, sendFullPaymentEmail, sendPickupOtpEmail } from "../common/email.service.js";
 import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
 import { generateOTP } from "../../utils/otp.js";
+import {
+  deliveryOtpTemplate,
+  pickupOtpTemplate,
+  ratingRequestTemplate,
+} from "../../utils/userNotificationTemplates.js";
 
 const attachOrderTimestamps = (row) => ({
   ...row,
@@ -147,19 +152,38 @@ export const startDelivery = async (rider_id, order_id) => {
     [order_id],
   );
 
-  // Notify user rider is on the way
+  // Generate / refresh pickup OTP and notify user (template 6)
   const { rows: orderRows } = await sql.query(
-    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+    `SELECT user_id, order_code, pickup_otp FROM orders WHERE id = $1`,
+    [order_id],
   );
   if (orderRows.length > 0) {
-    await createNotificationsBatch([{
-      identity_id: orderRows[0].user_id,
-      role: 'user',
-      title: 'Rider On The Way',
-      message: `Your rider is on the way to pick up order #${order_id}. Please keep your clothes ready.`,
-      reference_type: 'order',
-      reference_id: order_id,
-    }]);
+    const otp = orderRows[0].pickup_otp || generateOTP();
+    if (!orderRows[0].pickup_otp) {
+      await sql.query(`UPDATE orders SET pickup_otp = $1 WHERE id = $2`, [
+        otp,
+        order_id,
+      ]);
+    }
+
+    const pickupOtp = pickupOtpTemplate({ otp });
+    await createNotificationsBatch([
+      {
+        identity_id: orderRows[0].user_id,
+        role: "user",
+        title: pickupOtp.title,
+        message: pickupOtp.message,
+        reference_type: "order",
+        reference_id: order_id,
+        data: pickupOtp.data,
+      },
+    ]);
+
+    sendUserEmailSafe(orderRows[0].user_id, sendPickupOtpEmail, {
+      orderId: order_id,
+      orderCode: orderRows[0].order_code,
+      otp,
+    });
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -231,14 +255,16 @@ export const resendOtp = async (rider_id, order_id) => {
     order_id,
   ]);
 
+  const pickupOtp = pickupOtpTemplate({ otp });
   await createNotificationsBatch([
     {
       identity_id: order.user_id,
       role: 'user',
-      title: "Pickup OTP Resent",
-      message: `Your pickup OTP is ${otp}`,
+      title: pickupOtp.title,
+      message: pickupOtp.message,
       reference_type: "order",
       reference_id: order_id,
+      data: pickupOtp.data,
     },
   ]);
 
@@ -521,19 +547,26 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
     [order_id],
   );
 
-  // Notify user their laundry is out for delivery
+  // Notify user with delivery OTP (template 7 — at doorstep)
   const { rows: deliveryRows } = await sql.query(
-    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+    `SELECT user_id, delivery_otp FROM orders WHERE id = $1`,
+    [order_id],
   );
-  if (deliveryRows.length > 0) {
-    await createNotificationsBatch([{
-      identity_id: deliveryRows[0].user_id,
-      role: 'user',
-      title: 'Out For Delivery',
-      message: `Your laundry for order #${order_id} is on its way. The rider will arrive at your delivery slot.`,
-      reference_type: 'order',
-      reference_id: order_id,
-    }]);
+  if (deliveryRows.length > 0 && deliveryRows[0].delivery_otp) {
+    const deliveryOtp = deliveryOtpTemplate({
+      otp: deliveryRows[0].delivery_otp,
+    });
+    await createNotificationsBatch([
+      {
+        identity_id: deliveryRows[0].user_id,
+        role: "user",
+        title: deliveryOtp.title,
+        message: deliveryOtp.message,
+        reference_type: "order",
+        reference_id: order_id,
+        data: deliveryOtp.data,
+      },
+    ]);
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -574,14 +607,16 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     [order_id],
   );
 
-  // Notify user
+  // Notify user with rating request (template 8)
+  const rating = ratingRequestTemplate({ orderId: order_id });
   await createNotificationsBatch([{
     identity_id: order.user_id,
     role: 'user',
-    title: 'Order Delivered',
-    message: 'Your laundry has been delivered successfully. Thank you for using our service.',
+    title: rating.title,
+    message: rating.message,
     reference_type: 'order',
     reference_id: order_id,
+    data: rating.data,
   }]);
 
   // Notify vendor that rider completed the delivery

@@ -49,7 +49,11 @@ export const markAllAsRead = async (req, res, next) => {
   try {
     const vendor_id = req.user.vendor_id;
     const data = await markAllNotificationsReadService(vendor_id);
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({
+      success: true,
+      message: 'All notifications cleared',
+      data,
+    });
   } catch (error) {
     next(error);
   }

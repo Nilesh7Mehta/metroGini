@@ -8,6 +8,7 @@ import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeig
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
+import { orderReceivedTemplate } from "../../utils/userNotificationTemplates.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -343,6 +344,19 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     orderCode: order.order_code,
     estimatedTotal: estimated_total,
   });
+
+  const received = orderReceivedTemplate({ orderId: order_id });
+  await createNotificationsBatch([
+    {
+      identity_id: user_id,
+      role: "user",
+      title: received.title,
+      message: received.message,
+      reference_type: "order",
+      reference_id: order_id,
+      data: received.data,
+    },
+  ]);
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {

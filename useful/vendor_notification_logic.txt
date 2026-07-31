@@ -52,7 +52,7 @@ category mapping:
 -------------------
 
 GET  /api/vendor/notifications/unread-count   → returns { unread_count: N }
-PATCH /api/vendor/notifications/read-all      → marks all as read
+PATCH /api/vendor/notifications/read-all      → deletes all vendor notifications (clears inbox)
 PATCH /api/vendor/notifications/:id/read      → marks one notification as read
 
 
