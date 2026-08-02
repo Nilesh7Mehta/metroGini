@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit';
 import sql from '../config/db.js';
+import { buildOrderBillingPayload } from './orderBilling.util.js';
+import { splitGstComponents } from './price.util.js';
 
 const INVOICE_DIR = path.join(process.cwd(), 'uploads', 'order-invoices');
 const LOGO_PATH = path.join(process.cwd(), 'uploads', 'logo.png');
@@ -18,7 +20,6 @@ const COLORS = {
   line: '#E8E8E8',
   headerBg: '#F3F3F3',
   white: '#FFFFFF',
-  buttonBg: '#EEEEEE',
   green: '#0F9D58',
 };
 
@@ -104,7 +105,7 @@ export const ensureOrderInvoiceDir = () => {
   }
 };
 
-const buildOrderReceiptPdf = (data, publicPath) =>
+const buildOrderReceiptPdf = (data) =>
   new Promise((resolve, reject) => {
     const name = String(data.user_name || 'Customer');
     const orderRef = String(data.order_code || `#${data.order_id}`);
@@ -113,7 +114,13 @@ const buildOrderReceiptPdf = (data, publicPath) =>
     const total = formatMoney(data.final_total);
     const advance = formatMoney(data.advance_paid);
     const remaining = formatMoney(data.remaining_paid);
-    const payMethod = String(data.payment_method || 'Online');
+    const subtotal = formatMoney(data.subtotal_before_gst);
+    const cgst = formatMoney(data.cgst);
+    const sgst = formatMoney(data.sgst);
+    const gstTotal = formatMoney(data.gst);
+    const hasGstBreakdown =
+      data.subtotal_before_gst != null && data.gst != null;
+    const isPaid = data.payment_status === 'paid' || data.is_paid === true;
     const payWhen = formatIssuedDate(
       data.paid_at ? new Date(data.paid_at) : new Date(),
     );
@@ -130,23 +137,6 @@ const buildOrderReceiptPdf = (data, publicPath) =>
         : data.clothes_count != null
           ? `${data.clothes_count} (est.)`
           : '-';
-
-    const fmtDate = (v) => {
-      if (!v) return '-';
-      const d = new Date(v);
-      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-      return d.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'Asia/Kolkata',
-      });
-    };
-
-    const pickupDate = fmtDate(data.pickup_date);
-    const deliveryDate = fmtDate(data.delivery_date);
-    const vendorName = String(data.vendor_name || '-');
-    const userMobile = String(data.user_mobile || '-');
 
     const doc = new PDFDocument({
       size: 'LETTER',
@@ -174,7 +164,9 @@ const buildOrderReceiptPdf = (data, publicPath) =>
       width: textMaxW,
       lineGap: 2,
     });
-    const subtitle = 'Here is your laundry order receipt.';
+    const subtitle = isPaid
+      ? 'Here is your laundry order receipt.'
+      : 'Here is your laundry billing summary.';
     doc.font(fonts.regular).fontSize(13);
     const subtitleH = doc.heightOfString(subtitle, { width: textMaxW });
 
@@ -233,11 +225,21 @@ const buildOrderReceiptPdf = (data, publicPath) =>
     hairline(doc, y);
     y += 20;
 
-    row(doc, fonts, 'Order total', total, y);
+    if (hasGstBreakdown) {
+      row(doc, fonts, 'Taxable value', subtotal, y);
+      y += 26;
+      row(doc, fonts, 'CGST (9%)', cgst, y);
+      y += 26;
+      row(doc, fonts, 'SGST (9%)', sgst, y);
+      y += 26;
+      row(doc, fonts, 'GST total (18%)', gstTotal, y);
+      y += 26;
+    }
+    row(doc, fonts, 'Grand total (incl. GST)', total, y);
     y += 26;
     row(doc, fonts, 'Advance paid', advance, y);
     y += 26;
-    row(doc, fonts, 'Final amount paid', remaining, y);
+    row(doc, fonts, isPaid ? 'Final amount paid' : 'Amount due', remaining, y);
     y += 28;
     hairline(doc, y);
     y += 26;
@@ -249,23 +251,25 @@ const buildOrderReceiptPdf = (data, publicPath) =>
       .text('Payments', MARGIN_X, y);
     y += 28;
 
-    doc.roundedRect(MARGIN_X, y, 28, 28, 6).fill(COLORS.green);
+    doc
+      .roundedRect(MARGIN_X, y, 28, 28, 6)
+      .fill(isPaid ? COLORS.green : COLORS.muted);
     doc
       .fillColor(COLORS.white)
       .font(fonts.bold)
       .fontSize(11)
-      .text('P', MARGIN_X, y + 7, { width: 28, align: 'center' });
+      .text(isPaid ? 'P' : '!', MARGIN_X, y + 7, { width: 28, align: 'center' });
 
     doc
       .fillColor(COLORS.ink)
       .font(fonts.regular)
       .fontSize(14)
-      .text('Payment received', MARGIN_X + 40, y + 1);
+      .text(isPaid ? 'Payment received' : 'Payment pending', MARGIN_X + 40, y + 1);
     doc
       .fillColor(COLORS.muted)
       .font(fonts.regular)
       .fontSize(12)
-      .text(payWhen, MARGIN_X + 40, y + 18);
+      .text(isPaid ? payWhen : 'No payment recorded yet', MARGIN_X + 40, y + 18);
     doc
       .fillColor(COLORS.ink)
       .font(fonts.regular)
@@ -279,98 +283,11 @@ const buildOrderReceiptPdf = (data, publicPath) =>
     hairline(doc, y);
     y += 18;
 
-    // ========== footer geometry (needed for clipping below) ==========
+    // ========== footer geometry ==========
     const FOOTER_H = 100;
     const footerY = PAGE_H - FOOTER_H;
-    // Reserve space: download row 50 + hairline + legal 3 lines ~50 + gaps ~36 = 140
-    const CONTENT_BOTTOM = footerY - 140;
 
-    // ========== Order details card ==========
-    doc
-      .fillColor(COLORS.ink)
-      .font(fonts.bold)
-      .fontSize(16)
-      .text('Order details', MARGIN_X, y);
-    y += 20;
-
-    const details = [
-      ['Order ID', orderRef],
-      ['Invoice', invoiceId],
-      ['Clothes count', clothesCount],
-      ['Weight', actualWeight],
-      ['Pickup date', pickupDate],
-      ['Delivery date', deliveryDate],
-    ];
-
-    const DET_ROW_H = 22;
-    // Calculate how many rows fit before CONTENT_BOTTOM
-    const availForCard = CONTENT_BOTTOM - y - 12; // 12 = top padding inside card
-    const maxRows = Math.max(1, Math.floor(availForCard / DET_ROW_H));
-    const visibleDetails = details.slice(0, maxRows);
-    const detailsH = visibleDetails.length * DET_ROW_H + 14;
-
-    doc.roundedRect(MARGIN_X, y, CONTENT_W, detailsH, 8).fill('#F5F5F5');
-
-    let dy = y + 10;
-    for (const [label, value] of visibleDetails) {
-      doc
-        .fillColor(COLORS.muted)
-        .font(fonts.regular)
-        .fontSize(10.5)
-        .text(label, MARGIN_X + 14, dy, { lineBreak: false });
-      doc
-        .fillColor(COLORS.ink)
-        .font(fonts.bold)
-        .fontSize(10.5)
-        .text(String(value), MARGIN_X, dy, {
-          width: CONTENT_W - 14,
-          align: 'right',
-          lineBreak: false,
-        });
-      dy += DET_ROW_H;
-    }
-
-    y = dy + 10;
-    // Hard-clamp so nothing overlaps the footer
-    if (y > CONTENT_BOTTOM) y = CONTENT_BOTTOM;
-
-    hairline(doc, y);
-    y += 16;
-
-    const baseUrl = String(
-      process.env.API_BASE_URL ||
-        process.env.SERVER_URL ||
-        `http://localhost:${process.env.PORT || 4001}`,
-    ).replace(/\/$/, '');
-    const downloadUrl = `${baseUrl}${publicPath}?download=1`;
-
-    doc
-      .fillColor(COLORS.ink)
-      .font(fonts.regular)
-      .fontSize(13)
-      .text('Download the receipt in a PDF format', MARGIN_X, y + 10, {
-        width: CONTENT_W * 0.55,
-      });
-
-    const btnW = 148;
-    const btnH = 36;
-    const btnX = PAGE_W - MARGIN_X - btnW;
-    doc.roundedRect(btnX, y, btnW, btnH, 18).fill(COLORS.buttonBg);
-    doc
-      .fillColor(COLORS.ink)
-      .font(fonts.regular)
-      .fontSize(12)
-      .text('Download PDF', btnX, y + 11, {
-        width: btnW,
-        align: 'center',
-      });
-    doc.link(btnX, y, btnW, btnH, downloadUrl);
-
-    y += 56;
-    // Clamp before legal text so it never reaches the footer
     if (y > footerY - 80) y = footerY - 80;
-    hairline(doc, y);
-    y += 14;
 
     const legalMaxH = Math.max(20, footerY - y - 16);
 
@@ -460,6 +377,15 @@ export const ensureUserOrderInvoiceFile = async (
       o.estimated_weight_min,
       o.estimated_weight_max,
       o.estimated_total,
+      o.base_price_per_kg,
+      o.extra_price_per_kg,
+      o.flat_fee,
+      o.peak_extra_charge,
+      o.is_stained,
+      o.vendor_request_amount,
+      o.vendor_request_markup,
+      o.applied_coupon_id,
+      o.payment_status,
       o.payment_completed_at,
       o.clothes_count,
       o.actual_clothes_count,
@@ -470,6 +396,11 @@ export const ensureUserOrderInvoiceFile = async (
       u.email AS user_email,
       u.mobile AS user_mobile,
       v.laundry_shop_name AS vendor_name,
+      c.coupon_code,
+      c.discount_type,
+      c.discount_value,
+      c.minimum_amount_value,
+      c.maximum_amount_value,
       (
         SELECT COALESCE(SUM(p.amount), 0)
         FROM payments p
@@ -487,6 +418,7 @@ export const ensureUserOrderInvoiceFile = async (
     FROM orders o
     JOIN users u ON u.id = o.user_id
     LEFT JOIN vendors v ON v.id = o.vendor_id
+    LEFT JOIN coupons c ON c.id = o.applied_coupon_id
     WHERE o.id = $1
     `,
     [orderId],
@@ -518,12 +450,60 @@ export const ensureUserOrderInvoiceFile = async (
     remainingPaid = finalTotal - advancePaid;
   }
 
+  const billing = buildOrderBillingPayload(order);
+  const subtotalBeforeGst = Number(billing.subtotal || 0);
+  const gstAmount = Number(billing.gst || 0);
+  const gstParts = splitGstComponents(gstAmount);
+  const additionalCharges = Array.isArray(billing.additional_charges)
+    ? billing.additional_charges
+    : [];
+
+  // Lines that add up to taxable value (estimated_total already includes service fee + peak)
+  const bakedInLabels = new Set(['Service Fee', 'Peak Hour Surcharge']);
+  const additiveCharges = additionalCharges.filter(
+    (charge) => !bakedInLabels.has(charge.name),
+  );
+  const laundryCharges = Math.round(Number(order.estimated_total || 0));
+  const invoiceLines = [
+    ...(laundryCharges > 0
+      ? [{ name: 'Laundry charges', amount: laundryCharges }]
+      : []),
+    ...additiveCharges.map((charge) => ({
+      name: charge.name,
+      amount: Number(charge.amount),
+    })),
+  ];
+
+  const isPaid = String(order.payment_status || '') === 'paid';
+
+  const orderForEmail = {
+    ...order,
+    final_total: finalTotal,
+    advance_paid: advancePaid,
+    remaining_paid: remainingPaid,
+    payment_status: order.payment_status,
+    is_paid: isPaid,
+    subtotal_before_gst: subtotalBeforeGst,
+    gst: gstAmount,
+    gst_rate: gstParts.gst_rate,
+    cgst: gstParts.cgst,
+    sgst: gstParts.sgst,
+    cgst_rate: gstParts.cgst_rate,
+    sgst_rate: gstParts.sgst_rate,
+    invoice_lines: invoiceLines,
+    additional_charges: additiveCharges,
+    vendor_name: order.vendor_name,
+    actual_weight: order.actual_weight,
+    clothes_count: order.actual_clothes_count ?? order.clothes_count,
+  };
+
   if (!force && fs.existsSync(absPath)) {
     return {
       invoice_id: invoiceId,
       invoice_image: publicPath,
       absPath,
-      order,
+      order: orderForEmail,
+      billing,
       filename,
     };
   }
@@ -538,6 +518,10 @@ export const ensureUserOrderInvoiceFile = async (
       final_total: finalTotal,
       advance_paid: advancePaid,
       remaining_paid: remainingPaid,
+      subtotal_before_gst: subtotalBeforeGst,
+      gst: gstAmount,
+      cgst: gstParts.cgst,
+      sgst: gstParts.sgst,
       actual_weight: order.actual_weight,
       estimated_weight_min: order.estimated_weight_min,
       estimated_weight_max: order.estimated_weight_max,
@@ -548,9 +532,10 @@ export const ensureUserOrderInvoiceFile = async (
       status: order.status,
       vendor_name: order.vendor_name,
       payment_method: paymentMethod,
+      payment_status: order.payment_status,
+      is_paid: isPaid,
       paid_at: order.payment_completed_at,
     },
-    publicPath,
   );
 
   fs.writeFileSync(absPath, pdf);
@@ -559,7 +544,8 @@ export const ensureUserOrderInvoiceFile = async (
     invoice_id: invoiceId,
     invoice_image: publicPath,
     absPath,
-    order,
+    order: orderForEmail,
+    billing,
     filename,
   };
 };

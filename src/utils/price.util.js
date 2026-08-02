@@ -42,6 +42,22 @@ export const applyGst = (subtotal) => {
   };
 };
 
+/** Split total GST into CGST + SGST (9% + 9%). */
+export const splitGstComponents = (gstAmount, rate = 18) => {
+  const gst = Math.round(Number(gstAmount) || 0);
+  const halfRate = rate / 2;
+  const cgst = Math.floor(gst / 2);
+  const sgst = gst - cgst;
+  return {
+    gst,
+    gst_rate: rate,
+    cgst,
+    sgst,
+    cgst_rate: halfRate,
+    sgst_rate: halfRate,
+  };
+};
+
 export const calculateOrderPricing = (order) => {
 
   // 🧮 Weight calculation

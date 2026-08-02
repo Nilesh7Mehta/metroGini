@@ -1,4 +1,4 @@
-import { applyCouponDiscount } from './price.util.js';
+import { applyCouponDiscount, splitGstComponents } from './price.util.js';
 
 const getEstimatedKg = (min, max) => {
   const weightMin = Number(min || 0);
@@ -15,8 +15,13 @@ export const buildOrderBillingPayload = (order) => {
       ? parseFloat(Number(order.actual_weight).toFixed(1))
       : getEstimatedKg(order.estimated_weight_min, order.estimated_weight_max);
 
-  const ratePerKg =
-    Number(order.base_price_per_kg || 0) + Number(order.extra_price_per_kg || 0);
+  const baseRate = Number(order.base_price_per_kg || 0);
+  const typeExtraRate = Number(order.extra_price_per_kg || 0);
+  const hasConfirmedWeight = order.actual_weight != null;
+
+  // confirmWeightService overwrites extra_price_per_kg with the flat extra-weight CHARGE
+  // (not the per-kg rate). Use that charge when weight is already confirmed.
+  const ratePerKg = hasConfirmedWeight ? baseRate : baseRate + typeExtraRate;
 
   const additionalCharges = [];
 
@@ -40,18 +45,19 @@ export const buildOrderBillingPayload = (order) => {
     });
   }
 
-  const weightMax = Number(order.estimated_weight_max || 0);
-  if (order.actual_weight != null && Number(order.actual_weight) > weightMax && weightMax > 0) {
-    const extraKg = parseFloat((Number(order.actual_weight) - weightMax).toFixed(1));
-    const extraAmount = Math.round(extraKg * ratePerKg);
-    if (extraAmount > 0) {
-      additionalCharges.push({
-        name: 'Extra Weight Charge',
-        qty: 1,
-        rate: String(extraAmount),
-        amount: String(extraAmount),
-      });
-    }
+  let extraWeightCharge = 0;
+  if (hasConfirmedWeight) {
+    // After weight confirm this column holds the extra-weight charge amount
+    extraWeightCharge = Math.round(typeExtraRate);
+  }
+
+  if (extraWeightCharge > 0) {
+    additionalCharges.push({
+      name: 'Extra Weight Charge',
+      qty: 1,
+      rate: String(extraWeightCharge),
+      amount: String(extraWeightCharge),
+    });
   }
 
   const vendorExtra = Number(order.vendor_request_amount || 0);
@@ -70,10 +76,6 @@ export const buildOrderBillingPayload = (order) => {
   const isStained = Number(order.is_stained) === 1;
   const vendorExtraRounded = isStained ? Math.round(vendorExtra) : 0;
   const vendorMarkupRounded = isStained ? Math.round(vendorMarkup) : 0;
-  const extraWeightLine = additionalCharges.find(
-    (item) => item.name === 'Extra Weight Charge',
-  );
-  const extraWeightCharge = extraWeightLine ? Number(extraWeightLine.amount) : 0;
 
   const grossBeforeCoupon = estimatedTotal + extraWeightCharge;
   const { discount: couponDiscount } = applyCouponDiscount(grossBeforeCoupon, order);
@@ -92,12 +94,23 @@ export const buildOrderBillingPayload = (order) => {
 
   const subtotalBeforeGst =
     netBaseAfterCoupon + vendorExtraRounded + vendorMarkupRounded;
-  const payableGst = Math.round(subtotalBeforeGst * 0.18);
-  const payableFinal = subtotalBeforeGst + payableGst;
+  let payableGst = Math.round(subtotalBeforeGst * 0.18);
+  let payableFinal = subtotalBeforeGst + payableGst;
+  let taxableValue = subtotalBeforeGst;
+
   const totalAmount =
     order.final_total != null
       ? Math.round(Number(order.final_total))
       : payableFinal;
+
+  // Keep GST lines consistent with the charged grand total
+  if (order.final_total != null && payableFinal !== totalAmount) {
+    payableGst = Math.round((totalAmount * 0.18) / 1.18);
+    taxableValue = totalAmount - payableGst;
+    payableFinal = totalAmount;
+  }
+
+  const gstParts = splitGstComponents(payableGst);
 
   return {
     weight_label: `Total Weight Charges - ${actualWeight}kg`,
@@ -114,9 +127,14 @@ export const buildOrderBillingPayload = (order) => {
           discounted_amount: String(couponDiscountRounded),
         }
       : null,
-    subtotal: String(subtotalBeforeGst),
+    subtotal: String(taxableValue),
     gst_label: 'GST (18%)',
     gst: String(payableGst),
+    cgst: String(gstParts.cgst),
+    sgst: String(gstParts.sgst),
+    cgst_label: `CGST (${gstParts.cgst_rate}%)`,
+    sgst_label: `SGST (${gstParts.sgst_rate}%)`,
+    gst_rate: gstParts.gst_rate,
     total_amount: String(totalAmount),
     pricing_summary: {
       estimated_total: String(estimatedTotal),
@@ -128,7 +146,10 @@ export const buildOrderBillingPayload = (order) => {
       coupon_discount: String(couponDiscountRounded),
       vendor_request_amount: String(vendorExtraRounded),
       vendor_request_markup: String(vendorMarkupRounded),
+      subtotal_before_gst: String(taxableValue),
       gst: String(payableGst),
+      cgst: String(gstParts.cgst),
+      sgst: String(gstParts.sgst),
       final_amount: String(totalAmount),
     },
   };

@@ -1,5 +1,6 @@
 import {
   sendTestEmail,
+  sendTestInvoiceEmail,
   verifySmtpConnection,
 } from "../../services/common/email.service.js";
 import { isEmailEnabled } from "../../config/email.js";
@@ -58,6 +59,35 @@ export const sendTestEmailHandler = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: "Test email sent successfully",
+      data: result,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    next(error);
+  }
+};
+
+export const sendTestInvoiceEmailHandler = async (req, res, next) => {
+  try {
+    const order_id = req.body?.order_id ?? req.query?.order_id;
+    const to = req.body?.to ?? req.query?.to;
+    const payment_method =
+      req.body?.payment_method ?? req.query?.payment_method;
+
+    const result = await sendTestInvoiceEmail({
+      orderId: order_id,
+      to,
+      paymentMethod: payment_method,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Invoice email sent successfully",
       data: result,
     });
   } catch (error) {

@@ -21,6 +21,8 @@ router.get('/config', configController.getConfig);
 // SMTP
 router.get('/email/status', emailController.getEmailStatus);
 router.post('/email/test', authenticate, isAdmin, emailController.sendTestEmailHandler);
+router.get('/email/test-invoice', emailController.sendTestInvoiceEmailHandler);
+router.post('/email/test-invoice', emailController.sendTestInvoiceEmailHandler);
 
 // Firebase push
 router.get('/push/status', pushController.getPushStatus);
