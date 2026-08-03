@@ -272,7 +272,6 @@ export const updateOrderInstructionsService = async ({
     `UPDATE orders
      SET ${setClauses.join(", ")}
      WHERE id=$${paramIndex} AND user_id=$${paramIndex + 1}
-       AND status IN ('draft', 'booked')
      RETURNING pickup_special_instruction, delivery_special_instruction`,
     values,
   );
