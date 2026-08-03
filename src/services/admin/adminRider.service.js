@@ -483,9 +483,12 @@ const formatPhone = (mobile) => {
   if (!mobile) return 'N/A';
   const digits = String(mobile).replace(/\D/g, '');
   if (digits.length === 10) {
-    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+    return digits;
   }
-  return mobile;
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits.slice(2);
+  }
+  return digits || mobile;
 };
 
 const parsePhoneDigits = (phone) => {
