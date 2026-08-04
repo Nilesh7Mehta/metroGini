@@ -284,6 +284,10 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     balance_collected: getBalanceCollected(order),
     balance_payable: getBalancePayable(order),
     scheduled_date: scheduledDate,
+    special_instructions: {
+      pickup: order.pickup_special_instruction ?? null,
+      delivery: order.delivery_special_instruction ?? null,
+    },
   };
 };
 
@@ -328,6 +332,8 @@ const fetchOrdersForRange = async ({
       o.out_for_pickup_at,
       o.pickup_started_at,
       o.out_for_delivery_at,
+      o.pickup_special_instruction,
+      o.delivery_special_instruction,
       pickup_ts.shift_name AS pickup_shift_name,
       COALESCE(ps.paid_sum, 0) AS paid_sum,
       ir.issue_type AS open_issue_type,
@@ -547,6 +553,8 @@ const fetchAdminOrderById = async (orderId) => {
       o.cancelled_at,
       o.payment_completed_at,
       o.delivered_at,
+      o.pickup_special_instruction,
+      o.delivery_special_instruction,
       o.vendor_id,
       o.assigned_rider_id,
       u.full_name AS customer_name,
@@ -714,7 +722,10 @@ export const getAdminOrderDetailsService = async (orderId) => {
       pickup_date: formatDisplayDate(order.pickup_date),
       pickup_shift: formatShiftLabel(order.pickup_shift_name),
       pickup_shift_type: formatShiftType(order.pickup_shift_name),
-      notes: 'N/A',
+      special_instructions: {
+        pickup: order.pickup_special_instruction ?? null,
+        delivery: order.delivery_special_instruction ?? null,
+      },
     },
     pickup: buildPickupSection(
       order.pickup_shift_name,

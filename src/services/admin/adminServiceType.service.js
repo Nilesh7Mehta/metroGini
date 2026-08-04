@@ -19,6 +19,14 @@ const getServiceTypeById = async (id) => {
   return rows[0];
 };
 
+export const getServiceTypes = async () => {
+  const { rows } = await sql.query(
+    `SELECT * FROM service_types ORDER BY id DESC`,
+  );
+
+  return rows;
+};
+
 export const createServiceType = async (body) => {
   const { service_id, name, extra_price_per_kg, flat_fee, delivery_hours, is_active } = body;
 

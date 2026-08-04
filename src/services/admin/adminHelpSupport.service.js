@@ -106,6 +106,7 @@ const fetchSupportRequests = async (start, end) => {
       sr.report_issue,
       sr.message,
       sr.status,
+      sr.resolution_note,
       sr.created_at,
       sr.updated_at,
       CASE sr.type
@@ -175,6 +176,7 @@ const mapSupportRequest = (row) => {
     report_issue: row.report_issue || null,
     report_message: row.message,
     status,
+    resolution_note: row.resolution_note ?? null,
     time_ago: formatTimeAgo(row.created_at),
     action: resolveAction(status),
   };
@@ -209,4 +211,93 @@ export const getAdminHelpSupportService = async (query = {}) => {
     requests: pageRequests,
     pagination,
   };
+};
+
+const toDbStatus = (status) => {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'resolved' || value === 'closed') return 'resolved';
+  if (value === 'pending' || value === 'open') return 'open';
+  return null;
+};
+
+const fetchSupportRequestById = async (id) => {
+  const { rows } = await sql.query(
+    `
+    SELECT
+      sr.id,
+      sr.type,
+      sr.identity_id,
+      sr.report_issue,
+      sr.message,
+      sr.status,
+      sr.resolution_note,
+      sr.created_at,
+      sr.updated_at,
+      CASE sr.type
+        WHEN 'user' THEN u.full_name
+        WHEN 'vendor' THEN COALESCE(v.laundry_shop_name, v.owner_contact_name)
+        WHEN 'rider' THEN r.full_name
+      END AS name,
+      CASE sr.type
+        WHEN 'user' THEN u.mobile
+        WHEN 'vendor' THEN v.mobile_number
+        WHEN 'rider' THEN r.mobile_number
+      END AS contact_phone
+    FROM support_requests sr
+    LEFT JOIN users u ON sr.type = 'user' AND u.id = sr.identity_id
+    LEFT JOIN vendors v ON sr.type = 'vendor' AND v.id = sr.identity_id
+    LEFT JOIN riders r ON sr.type = 'rider' AND r.id = sr.identity_id
+    WHERE sr.id = $1
+    `,
+    [id],
+  );
+
+  return rows[0] || null;
+};
+
+export const updateAdminHelpSupportService = async (rawId, body = {}) => {
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id < 1) {
+    throw { status: 400, message: 'Invalid help support id' };
+  }
+
+  if (body.status === undefined || body.status === null || body.status === '') {
+    throw { status: 400, message: 'status is required' };
+  }
+
+  const dbStatus = toDbStatus(body.status);
+  if (!dbStatus) {
+    throw { status: 400, message: 'status must be pending or resolved' };
+  }
+
+  const existing = await fetchSupportRequestById(id);
+  if (!existing) {
+    throw { status: 404, message: 'Help support request not found' };
+  }
+
+  const resolutionNote =
+    body.resolution_note !== undefined
+      ? body.resolution_note == null || String(body.resolution_note).trim() === ''
+        ? null
+        : String(body.resolution_note).trim()
+      : existing.resolution_note ?? null;
+
+  const { rows } = await sql.query(
+    `
+    UPDATE support_requests
+    SET status = $1,
+        resolution_note = $2,
+        updated_at = NOW()
+    WHERE id = $3
+    RETURNING id
+    `,
+    [dbStatus, resolutionNote, id],
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: 'Help support request not found' };
+  }
+
+  const updated = await fetchSupportRequestById(id);
+  return mapSupportRequest(updated);
 };

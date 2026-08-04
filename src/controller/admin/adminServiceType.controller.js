@@ -1,5 +1,6 @@
 import {
   createServiceType,
+  getServiceTypes,
   updateServiceType,
 } from '../../services/admin/adminServiceType.service.js';
 
@@ -8,6 +9,20 @@ const handleError = (res, err, next) => {
     return res.status(err.status).json({ success: false, message: err.message });
   }
   next(err);
+};
+
+export const getServiceTypesList = async (req, res, next) => {
+  try {
+    const data = await getServiceTypes();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service types retrieved successfully',
+      data,
+    });
+  } catch (err) {
+    handleError(res, err, next);
+  }
 };
 
 export const addServiceType = async (req, res, next) => {
