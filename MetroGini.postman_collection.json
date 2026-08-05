@@ -1876,6 +1876,35 @@
           "name": "Services",
           "item": [
             {
+              "name": "Get Service Types",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/service-types",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "service-types"
+                  ]
+                },
+                "description": "Admin list of all service types (including inactive), ordered by id DESC. Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
               "name": "Add Service Type",
               "request": {
                 "auth": {
@@ -3472,6 +3501,45 @@
                 "description": "Admin help and support requests from `support_requests` table.\n\nQuery: `period=today|week|month`, optional `status`, `type`."
               },
               "response": []
+            },
+            {
+              "name": "Update Help and Support",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"resolved\",\n  \"resolution_note\": \"Issue resolved after follow-up call\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/help-support/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "help-support",
+                    "1"
+                  ]
+                },
+                "description": "Update a support request by id.\n\nBody: `status` required (`pending` | `resolved`). Optional `resolution_note`."
+              },
+              "response": []
             }
           ]
         },
@@ -4810,6 +4878,70 @@
               ]
             },
             "description": "Send SMTP test email. Requires admin Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Test Invoice Email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": 1,\n  \"to\": \"user@example.com\",\n  \"payment_method\": \"online\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/email/test-invoice",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "email",
+                "test-invoice"
+              ]
+            },
+            "description": "Send a test invoice email for an order.\n\nBody/query: `order_id` (required), optional `to`, optional `payment_method`.\nAlso available as GET with the same query params."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Test Invoice Email (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/email/test-invoice?order_id=1&to=user@example.com&payment_method=online",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "email",
+                "test-invoice"
+              ],
+              "query": [
+                {
+                  "key": "order_id",
+                  "value": "1"
+                },
+                {
+                  "key": "to",
+                  "value": "user@example.com"
+                },
+                {
+                  "key": "payment_method",
+                  "value": "online",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "GET variant of test invoice email. Query: `order_id` (required), optional `to`, optional `payment_method`."
           },
           "response": []
         },
