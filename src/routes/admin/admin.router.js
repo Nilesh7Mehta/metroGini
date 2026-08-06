@@ -10,6 +10,7 @@ import * as adminPaymentController from '../../controller/admin/adminPayment.con
 import * as adminVendorPayoutController from '../../controller/admin/adminVendorPayout.controller.js';
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
+import * as adminPartnerLeadController from '../../controller/admin/adminPartnerLead.controller.js';
 import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
 import * as adminUserController from '../../controller/admin/adminUser.controller.js';
 import * as adminCityController from '../../controller/admin/adminCity.controller.js';
@@ -53,6 +54,7 @@ router.post(
 router.get('/issues', authenticate, adminIssueController.getAdminIssues);
 router.get('/help-support', authenticate, adminHelpSupportController.getAdminHelpSupport);
 router.put('/help-support/:id', authenticate, adminHelpSupportController.updateAdminHelpSupport);
+router.get('/partner-leads', authenticate, isAdmin, adminPartnerLeadController.getAdminPartnerLeads);
 router.get('/marketing', authenticate, adminMarketingController.getAdminMarketing);
 router.post('/addCity', authenticate, cityUpload.single('image'), adminCityController.addCity);
 router.post('/updateCity/:id', authenticate, cityUpload.single('image'), adminCityController.updateCityById);

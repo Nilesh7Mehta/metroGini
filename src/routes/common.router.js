@@ -3,6 +3,7 @@ import * as CommonController from '../controller/Common.controller.js';
 import * as helplineController from '../controller/helpline.controller.js';
 import * as pincodeGroupController from '../controller/common/pincodeGroup.controller.js';
 import * as pincodeController from '../controller/common/pincode.controller.js';
+import * as partnerLeadController from '../controller/common/partnerLead.controller.js';
 import slotsRouter from './common/slots.router.js';
 import * as configController from '../controller/common/config.controller.js';
 import * as emailController from '../controller/common/email.controller.js';
@@ -52,8 +53,7 @@ router.use('/slots', slotsRouter);
 // Unified need help — body: { type: "user"|"rider"|"vendor", message, report_issue? }
 router.post('/needHelp', authenticate, helplineController.needHelp);
 
-
-
-
+// Partner lead — body: { name, email, phone }
+router.post('/partnerLead', partnerLeadController.submitPartnerLead);
 
 export default router;
