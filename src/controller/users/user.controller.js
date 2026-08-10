@@ -29,6 +29,17 @@ export const verifyOTP = async (req, res, next) => {
   }
 };
 
+export const resendOtp = async (req, res, next) => {
+  try {
+    const { statusCode, body } = await userAuthService.resendOtp({
+      mobile: req.body.mobile,
+    });
+    return res.status(statusCode).json(body);
+  } catch (error) {
+    next(error);
+  }
+};
+
 //refresh token endpoint 
 export const refreshAccessToken = async (req, res, next) => {
   try {

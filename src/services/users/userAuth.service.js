@@ -68,6 +68,66 @@ export const loginOrRegister = async ({ mobile }) => {
   };
 };
 
+export const resendOtp = async ({ mobile }) => {
+  if (!mobile) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "Mobile is required" },
+    };
+  }
+
+  const user = await findUserByMobile(mobile);
+
+  if (!user) {
+    return {
+      statusCode: 404,
+      body: { success: false, message: "User not found. Please login or register first." },
+    };
+  }
+
+  // Fixed OTP for now (same as loginOrRegister) — replace with generateOTP() in production
+  const otp = "1234";
+
+  await sql.query(
+    `UPDATE users
+     SET otp = $2,
+         otp_expires_at = NOW() + INTERVAL '10 minutes',
+         otp_attempts = 0
+     WHERE id = $1`,
+    [user.id, otp],
+  );
+
+  const otpPush = accountOtpTemplate({ otp });
+  sendPushSafe(user.id, {
+    title: otpPush.title,
+    body: otpPush.message,
+    reference_type: "auth",
+    reference_id: user.id,
+    data: otpPush.data,
+  });
+
+  if (user.email) {
+    sendEmailSafe(sendOtpEmail, {
+      email: user.email,
+      name: user.full_name,
+      otp,
+    });
+  }
+
+  return {
+    statusCode: 200,
+    body: {
+      success: true,
+      message: "OTP resent successfully",
+      data: {
+        id: user.id,
+        mobile: user.mobile,
+        otp, // remove in production
+      },
+    },
+  };
+};
+
 export const verifyOTP = async ({ mobile, otp }) => {
   if (!mobile || !otp) {
     return {

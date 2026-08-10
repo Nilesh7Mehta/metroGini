@@ -11,6 +11,7 @@ const router = express.Router();
 
 router.post('/login-or-register', sendOtpLimiter , userController.loginOrRegister);
 router.post('/verify-otp', verifyOtpLimiter, userController.verifyOTP);
+router.post('/resend-otp', sendOtpLimiter, userController.resendOtp);
 
 router.post('/refresh-token', userController.refreshAccessToken);
 router.post('/logout', userController.logout);

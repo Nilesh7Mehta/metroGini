@@ -3,8 +3,7 @@ import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { PAYMENT_TYPE } from "../../utils/status.js";
-import { sendUserEmailSafe, sendFullPaymentEmail, sendPickupOtpEmail } from "../common/email.service.js";
-import { fulfillRemainingPayment } from "../users/payment/paymentFulfillment.service.js";
+import { sendUserEmailSafe, sendPickupOtpEmail } from "../common/email.service.js";
 import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
 import { generateOTP } from "../../utils/otp.js";
 import {
@@ -45,7 +44,7 @@ export const fetchTodayOrders = async (rider_id) => {
      JOIN user_address_details a ON a.id = o.address_id
      WHERE o.assigned_rider_id = $1
        AND o.pickup_date = CURRENT_DATE
-       AND o.status IN ('out_for_pickup', 'pickup_in_progress', 'in_process')
+       AND o.status IN ('out_for_pickup', 'pickup_in_progress','in_process' , 'picked_up')
      ORDER BY o.id DESC`,
     [rider_id],
   );
@@ -415,7 +414,7 @@ export const fetchOrderHistory = async (rider_id, query) => {
 
 export const collectPaymentService = async (rider_id, order_id) => {
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id, o.order_code,
+    `SELECT o.id, o.status, o.assigned_rider_id,
             o.final_total, o.payment_status, o.amount_paid, o.remaining_amount
      FROM orders o
      WHERE o.id = $1`,
@@ -438,7 +437,7 @@ export const collectPaymentService = async (rider_id, order_id) => {
     return {
       order_id: parseInt(order_id, 10),
       payment_status: 'paid',
-      amount_paid: true,
+      amount_to_collect: 0,
       message: 'Payment has already been completed for this order',
     };
   }
@@ -462,61 +461,16 @@ export const collectPaymentService = async (rider_id, order_id) => {
     return {
       order_id: parseInt(order_id, 10),
       payment_status: 'paid',
+      amount_to_collect: 0,
       message: 'Payment has already been completed for this order',
     };
   }
 
-  const client = await sql.connect();
-  let result;
-  try {
-    await client.query('BEGIN');
-    result = await fulfillRemainingPayment({
-      client,
-      orderId: order_id,
-      razorpayPaymentId: `cash-${order_id}-${Date.now()}`,
-      amount: amount_to_collect,
-      paymentMethod: 'cash',
-    });
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-
-  const paidAmount = Number(result.paidAmount ?? amount_to_collect);
-  const orderCode = order.order_code || `#${order_id}`;
-
-  if (!result.alreadyProcessed) {
-    await createNotificationsBatch([
-      {
-        identity_id: order.user_id,
-        role: 'user',
-        title: 'Payment Received',
-        message: `Payment of ₹${paidAmount} received for order ${orderCode}. Thank you!`,
-        reference_type: 'order',
-        reference_id: order_id,
-      },
-    ]);
-
-    sendUserEmailSafe(order.user_id, sendFullPaymentEmail, {
-      orderId: order_id,
-      orderCode,
-      amount: paidAmount,
-      paymentMethod: 'cash',
-    });
-  }
-
   return {
     order_id: parseInt(order_id, 10),
-    amount_collected: paidAmount,
-    payment_status: 'paid',
-    payment_method: 'cash',
-    invoice_emailed: !result.alreadyProcessed,
-    message: result.alreadyProcessed
-      ? 'Payment has already been completed for this order'
-      : 'Cash payment collected. Invoice emailed to customer.',
+    payment_status: order.payment_status,
+    amount_to_collect,
+    message: 'Please pay the remaining amount',
   };
 };
 
