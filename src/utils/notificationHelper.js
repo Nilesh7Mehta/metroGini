@@ -30,7 +30,8 @@ export const createNotificationsBatch = async (notifications) => {
       );
 
       if (n.role === "user") {
-        sendPushSafe(n.identity_id, {
+        // Await so finalize/payment flows finish the FCM attempt before returning
+        await sendPushSafe(n.identity_id, {
           title: n.title,
           body: n.message,
           reference_type: n.reference_type,

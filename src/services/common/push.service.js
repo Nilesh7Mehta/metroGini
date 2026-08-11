@@ -88,16 +88,30 @@ export const sendPushToUser = async (
   userId,
   { title, body, reference_type, reference_id, data: extraData },
 ) => {
-  if (!isFirebaseEnabled()) return;
+  if (!isFirebaseEnabled()) {
+    console.warn("[push] Skipped: Firebase not configured");
+    return;
+  }
 
   const messaging = getFirebaseMessaging();
-  if (!messaging) return;
+  if (!messaging) {
+    console.warn("[push] Skipped: Firebase messaging init failed");
+    return;
+  }
 
   const pushAllowed = await getUserPushPreference(userId);
-  if (!pushAllowed) return;
+  if (!pushAllowed) {
+    console.warn(`[push] Skipped: push_notification disabled for user ${userId}`);
+    return;
+  }
 
   const tokens = await getUserFcmTokens(userId);
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) {
+    console.warn(
+      `[push] Skipped: no FCM token for user ${userId}. App must call PUT /api/user/fcm-token first.`,
+    );
+    return;
+  }
 
   const data = {
     role: "user",
@@ -110,12 +124,30 @@ export const sendPushToUser = async (
     tokens,
     notification: { title, body },
     data,
+    android: {
+      priority: "high",
+      notification: {
+        sound: "default",
+        channelId: "metro_gini_orders",
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: "default",
+          badge: 1,
+        },
+      },
+    },
   });
 
   const staleTokens = [];
   response.responses.forEach((res, index) => {
     if (res.success) return;
     const code = res.error?.code;
+    console.error(
+      `[push] Token failed user=${userId} code=${code || "unknown"}: ${res.error?.message}`,
+    );
     if (code && STALE_TOKEN_CODES.has(code)) {
       staleTokens.push(tokens[index]);
     }
@@ -124,6 +156,10 @@ export const sendPushToUser = async (
   if (staleTokens.length > 0) {
     await deleteStaleTokens(staleTokens);
   }
+
+  console.log(
+    `[push] user=${userId} success=${response.successCount} fail=${response.failureCount} title="${title}"`,
+  );
 };
 
 /** Send push without failing the caller (fire-and-forget safe wrapper). */
@@ -188,6 +224,21 @@ export const sendTestPush = async (userId, { title, body } = {}) => {
       role: "user",
       reference_type: "test",
       reference_id: "",
+    },
+    android: {
+      priority: "high",
+      notification: {
+        sound: "default",
+        channelId: "metro_gini_orders",
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: "default",
+          badge: 1,
+        },
+      },
     },
   });
 
