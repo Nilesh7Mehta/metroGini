@@ -7,7 +7,9 @@ import {
 import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeight.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.service.js";
+import { sendSmsToUserSafe } from "../common/sms.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
+import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { orderReceivedTemplate } from "../../utils/userNotificationTemplates.js";
 
 export const createDraftOrderService = async ({
@@ -356,6 +358,11 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
       data: received.data,
     },
   ]);
+
+  sendSmsToUserSafe(user_id, SMS_TEMPLATE_KEYS.ORDER_RECEIVED, {}, {
+    reference_type: "order",
+    reference_id: order_id,
+  });
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {

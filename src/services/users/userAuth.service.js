@@ -4,7 +4,10 @@ import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
 import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
 import { sendPushSafe } from "../common/push.service.js";
+import { sendSmsSafe } from "../common/sms.service.js";
+import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
+// import { generateOTP } from "../../utils/otp.js";
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
@@ -23,7 +26,7 @@ export const loginOrRegister = async ({ mobile }) => {
   }
 
   // Fixed OTP for now (same as vendor/rider) — replace with generateOTP() in production
-  const otp = "1234";
+  const otp = 1234;
 
   // Update OTP and expiry (template: valid 10 minutes)
   await sql.query(
@@ -52,6 +55,13 @@ export const loginOrRegister = async ({ mobile }) => {
       otp,
     });
   }
+
+  sendSmsSafe(
+    SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+    user.mobile,
+    { otp },
+    { reference_type: "auth", reference_id: user.id },
+  );
 
   return {
     statusCode: 200,
@@ -86,7 +96,7 @@ export const resendOtp = async ({ mobile }) => {
   }
 
   // Fixed OTP for now (same as loginOrRegister) — replace with generateOTP() in production
-  const otp = "1234";
+  const otp = 1234;
 
   await sql.query(
     `UPDATE users
@@ -113,6 +123,13 @@ export const resendOtp = async ({ mobile }) => {
       otp,
     });
   }
+
+  sendSmsSafe(
+    SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+    user.mobile,
+    { otp },
+    { reference_type: "auth", reference_id: user.id },
+  );
 
   return {
     statusCode: 200,

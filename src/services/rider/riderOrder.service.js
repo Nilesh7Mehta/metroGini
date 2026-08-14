@@ -4,8 +4,10 @@ import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { PAYMENT_TYPE } from "../../utils/status.js";
 import { sendUserEmailSafe, sendPickupOtpEmail } from "../common/email.service.js";
+import { sendSmsSafe, sendSmsToUserSafe } from "../common/sms.service.js";
 import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
 import { generateOTP } from "../../utils/otp.js";
+import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import {
   deliveryOtpTemplate,
   pickupOtpTemplate,
@@ -184,6 +186,13 @@ export const startDelivery = async (rider_id, order_id) => {
       orderCode: orderRows[0].order_code,
       otp,
     });
+
+    sendSmsToUserSafe(
+      orderRows[0].user_id,
+      SMS_TEMPLATE_KEYS.OTP_PICKUP,
+      { otp },
+      { reference_type: "order", reference_id: order_id },
+    );
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -273,6 +282,13 @@ export const resendOtp = async (rider_id, order_id) => {
     orderCode: order.order_code,
     otp,
   });
+
+  sendSmsSafe(
+    SMS_TEMPLATE_KEYS.OTP_PICKUP,
+    order.mobile,
+    { otp },
+    { reference_type: "order", reference_id: order_id },
+  );
 
   return otp;
 };
@@ -577,6 +593,13 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
         data: deliveryOtp.data,
       },
     ]);
+
+    sendSmsToUserSafe(
+      deliveryRows[0].user_id,
+      SMS_TEMPLATE_KEYS.OTP_DELIVERY,
+      { otp: deliveryRows[0].delivery_otp },
+      { reference_type: "order", reference_id: order_id },
+    );
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -628,6 +651,11 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     reference_id: order_id,
     data: rating.data,
   }]);
+
+  sendSmsToUserSafe(order.user_id, SMS_TEMPLATE_KEYS.DELIVERY_SUCCESS, {}, {
+    reference_type: "order",
+    reference_id: order_id,
+  });
 
   // Notify vendor that rider completed the delivery
   const vendorRow = await sql.query(
