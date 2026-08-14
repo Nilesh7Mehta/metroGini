@@ -84,24 +84,94 @@ const toFcmDataStrings = (extra = {}) => {
   return out;
 };
 
+const insertPushLog = async ({
+  userId,
+  title,
+  body,
+  status,
+  tokensCount = 0,
+  successCount = 0,
+  failureCount = 0,
+  skipReason,
+  errorCode,
+  errorMessage,
+  providerResponse,
+  referenceType,
+  referenceId,
+}) => {
+  try {
+    await sql.query(
+      `INSERT INTO push_logs
+         (user_id, title, body, status, tokens_count, success_count, failure_count,
+          skip_reason, error_code, error_message, provider_response,
+          reference_type, reference_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
+      [
+        userId,
+        title || null,
+        body || null,
+        status,
+        tokensCount,
+        successCount,
+        failureCount,
+        skipReason || null,
+        errorCode || null,
+        errorMessage || null,
+        providerResponse != null ? JSON.stringify(providerResponse) : null,
+        referenceType || null,
+        referenceId != null ? referenceId : null,
+      ],
+    );
+  } catch (error) {
+    console.error("[push] Failed to write push_logs:", error.message);
+  }
+};
+
 export const sendPushToUser = async (
   userId,
   { title, body, reference_type, reference_id, data: extraData },
 ) => {
   if (!isFirebaseEnabled()) {
     console.warn("[push] Skipped: Firebase not configured");
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status: "skipped",
+      skipReason: "firebase_not_configured",
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
     return;
   }
 
   const messaging = getFirebaseMessaging();
   if (!messaging) {
     console.warn("[push] Skipped: Firebase messaging init failed");
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status: "skipped",
+      skipReason: "firebase_init_failed",
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
     return;
   }
 
   const pushAllowed = await getUserPushPreference(userId);
   if (!pushAllowed) {
     console.warn(`[push] Skipped: push_notification disabled for user ${userId}`);
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status: "skipped",
+      skipReason: "push_disabled",
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
     return;
   }
 
@@ -110,6 +180,15 @@ export const sendPushToUser = async (
     console.warn(
       `[push] Skipped: no FCM token for user ${userId}. App must call PUT /api/user/fcm-token first.`,
     );
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status: "skipped",
+      skipReason: "no_fcm_token",
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
     return;
   }
 
@@ -120,46 +199,89 @@ export const sendPushToUser = async (
     ...toFcmDataStrings(extraData),
   };
 
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: { title, body },
-    data,
-    android: {
-      priority: "high",
-      notification: {
-        sound: "default",
-        channelId: "metro_gini_orders",
-      },
-    },
-    apns: {
-      payload: {
-        aps: {
+  try {
+    const response = await messaging.sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      data,
+      android: {
+        priority: "high",
+        notification: {
           sound: "default",
-          badge: 1,
+          channelId: "metro_gini_orders",
         },
       },
-    },
-  });
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+          },
+        },
+      },
+    });
 
-  const staleTokens = [];
-  response.responses.forEach((res, index) => {
-    if (res.success) return;
-    const code = res.error?.code;
-    console.error(
-      `[push] Token failed user=${userId} code=${code || "unknown"}: ${res.error?.message}`,
-    );
-    if (code && STALE_TOKEN_CODES.has(code)) {
-      staleTokens.push(tokens[index]);
+    const staleTokens = [];
+    const tokenErrors = [];
+    response.responses.forEach((res, index) => {
+      if (res.success) return;
+      const code = res.error?.code;
+      tokenErrors.push({
+        token_suffix: String(tokens[index] || "").slice(-8),
+        code: code || null,
+        message: res.error?.message || null,
+      });
+      console.error(
+        `[push] Token failed user=${userId} code=${code || "unknown"}: ${res.error?.message}`,
+      );
+      if (code && STALE_TOKEN_CODES.has(code)) {
+        staleTokens.push(tokens[index]);
+      }
+    });
+
+    if (staleTokens.length > 0) {
+      await deleteStaleTokens(staleTokens);
     }
-  });
 
-  if (staleTokens.length > 0) {
-    await deleteStaleTokens(staleTokens);
+    const status =
+      response.successCount === 0
+        ? "failed"
+        : response.failureCount > 0
+          ? "partial"
+          : "success";
+
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status,
+      tokensCount: tokens.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      errorCode: tokenErrors[0]?.code || null,
+      errorMessage: tokenErrors[0]?.message || null,
+      providerResponse: { token_errors: tokenErrors },
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
+
+    console.log(
+      `[push] user=${userId} success=${response.successCount} fail=${response.failureCount} title="${title}"`,
+    );
+  } catch (error) {
+    await insertPushLog({
+      userId,
+      title,
+      body,
+      status: "failed",
+      tokensCount: tokens.length,
+      errorCode: error.code || "fcm_error",
+      errorMessage: error.message,
+      referenceType: reference_type,
+      referenceId: reference_id,
+    });
+    throw error;
   }
-
-  console.log(
-    `[push] user=${userId} success=${response.successCount} fail=${response.failureCount} title="${title}"`,
-  );
 };
 
 /** Send push without failing the caller (fire-and-forget safe wrapper). */
@@ -254,6 +376,24 @@ export const sendTestPush = async (userId, { title, body } = {}) => {
   if (staleTokens.length > 0) {
     await deleteStaleTokens(staleTokens);
   }
+
+  const status =
+    response.successCount === 0
+      ? "failed"
+      : response.failureCount > 0
+        ? "partial"
+        : "success";
+
+  await insertPushLog({
+    userId,
+    title: testTitle,
+    body: testBody,
+    status,
+    tokensCount: tokens.length,
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+    referenceType: "test",
+  });
 
   if (response.successCount === 0) {
     const firstError = response.responses.find((r) => !r.success)?.error;

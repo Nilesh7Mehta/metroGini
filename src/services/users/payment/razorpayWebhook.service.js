@@ -23,6 +23,38 @@ import {
   verifyWebhookSignature,
 } from "./razorpay.util.js";
 
+const insertWebhookEvent = async ({
+  event,
+  eventKey,
+  razorpayPaymentId,
+  orderId,
+  signatureValid,
+  status,
+  errorMessage,
+  payload,
+}) => {
+  try {
+    await sql.query(
+      `INSERT INTO payment_webhook_events
+         (provider, event, event_key, razorpay_payment_id, order_id,
+          signature_valid, status, error_message, payload)
+       VALUES ('razorpay',$1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+      [
+        event || null,
+        eventKey || null,
+        razorpayPaymentId || null,
+        orderId != null ? orderId : null,
+        signatureValid,
+        status,
+        errorMessage || null,
+        payload != null ? JSON.stringify(payload) : null,
+      ],
+    );
+  } catch (error) {
+    console.error("[razorpay-webhook] Failed to write payment_webhook_events:", error.message);
+  }
+};
+
 const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
   if (result.alreadyProcessed) return;
 
@@ -91,25 +123,65 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
 
 export const handleRazorpayWebhook = async (body, signature) => {
   const { rawBody, payload } = parseWebhookBody(body);
+  const event = payload?.event || null;
+  const paymentEntity = payload?.payload?.payment?.entity;
+  const orderEntity = payload?.payload?.order?.entity;
+  const razorpayPaymentId = paymentEntity?.id || null;
+  const eventKey = `${event || "unknown"}:${razorpayPaymentId || payload?.id || Date.now()}`;
 
   if (!verifyWebhookSignature(rawBody, signature)) {
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId,
+      orderId: null,
+      signatureValid: false,
+      status: "invalid_signature",
+      errorMessage: "Invalid webhook signature",
+      payload,
+    });
     return { status: 400, body: { success: false, message: "Invalid webhook signature" } };
   }
 
-  const event = payload?.event;
   if (!RELEVANT_WEBHOOK_EVENTS.has(event)) {
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId,
+      orderId: null,
+      signatureValid: true,
+      status: "ignored",
+      payload,
+    });
     return { status: 200, body: "OK" };
   }
 
-  const paymentEntity = payload?.payload?.payment?.entity;
-  const orderEntity = payload?.payload?.order?.entity;
-
   if (!paymentEntity?.id) {
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId: null,
+      orderId: null,
+      signatureValid: true,
+      status: "ignored",
+      errorMessage: "Missing payment entity id",
+      payload,
+    });
     return { status: 200, body: "OK" };
   }
 
   const orderId = extractInternalOrderId(paymentEntity, orderEntity);
   if (!orderId) {
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId,
+      orderId: null,
+      signatureValid: true,
+      status: "failed",
+      errorMessage: "internal_order_id not found in payment notes or receipt",
+      payload,
+    });
     return {
       status: 400,
       body: { success: false, message: "internal_order_id not found in payment notes or receipt" },
@@ -137,21 +209,58 @@ export const handleRazorpayWebhook = async (body, signature) => {
 
     if (await isPaymentAlreadyProcessed(client, paymentPayload.razorpayPaymentId)) {
       await client.query("COMMIT");
+      await insertWebhookEvent({
+        event,
+        eventKey,
+        razorpayPaymentId,
+        orderId,
+        signatureValid: true,
+        status: "duplicate",
+        payload,
+      });
       return { status: 200, body: "OK" };
     }
 
     if (event === "payment.captured") {
       const result = await fulfillCapturedPayment({ client, ...paymentPayload });
       await client.query("COMMIT");
+      await insertWebhookEvent({
+        event,
+        eventKey,
+        razorpayPaymentId,
+        orderId,
+        signatureValid: true,
+        status: "processed",
+        payload,
+      });
       await sendPaymentNotifications(result, paymentPayload.paymentMethod);
       return { status: 200, body: "OK" };
     }
 
     await recordFailedPayment({ client, ...paymentPayload });
     await client.query("COMMIT");
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId,
+      orderId,
+      signatureValid: true,
+      status: "processed",
+      payload,
+    });
     return { status: 200, body: "OK" };
   } catch (error) {
     await client.query("ROLLBACK");
+    await insertWebhookEvent({
+      event,
+      eventKey,
+      razorpayPaymentId,
+      orderId,
+      signatureValid: true,
+      status: "failed",
+      errorMessage: error.message,
+      payload,
+    });
     throw error;
   } finally {
     client.release();

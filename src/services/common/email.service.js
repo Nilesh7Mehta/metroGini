@@ -263,24 +263,107 @@ const buildInvoiceReceiptEmailHtml = ({
 </html>`;
 };
 
-const sendEmail = async ({ to, subject, html, attachments }) => {
+const insertEmailLog = async ({
+  emailType,
+  recipient,
+  subject,
+  providerMessageId,
+  status,
+  errorCode,
+  errorMessage,
+  referenceType,
+  referenceId,
+  userId,
+}) => {
+  try {
+    await sql.query(
+      `INSERT INTO email_logs
+         (email_type, recipient, subject, provider_message_id, status,
+          error_code, error_message, reference_type, reference_id, user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        emailType || "generic",
+        recipient || "",
+        subject || null,
+        providerMessageId || null,
+        status,
+        errorCode || null,
+        errorMessage || null,
+        referenceType || null,
+        referenceId != null ? referenceId : null,
+        userId != null ? userId : null,
+      ],
+    );
+  } catch (error) {
+    console.error("[email] Failed to write email_logs:", error.message);
+  }
+};
+
+const sendEmail = async ({
+  to,
+  subject,
+  html,
+  attachments,
+  emailType = "generic",
+  referenceType = null,
+  referenceId = null,
+  userId = null,
+}) => {
   if (!to?.trim()) return;
 
+  const recipient = to.trim();
   const transport = getEmailTransporter();
   if (!transport) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[email] SMTP not configured — skipping:", subject, "→", to);
+      console.warn("[email] SMTP not configured — skipping:", subject, "→", recipient);
     }
+    await insertEmailLog({
+      emailType,
+      recipient,
+      subject,
+      status: "skipped",
+      errorCode: "smtp_not_configured",
+      errorMessage: "SMTP is not configured",
+      referenceType,
+      referenceId,
+      userId,
+    });
     return;
   }
 
-  await transport.sendMail({
-    from: getEmailFrom(),
-    to: to.trim(),
-    subject,
-    html,
-    attachments: attachments?.length ? attachments : undefined,
-  });
+  try {
+    const info = await transport.sendMail({
+      from: getEmailFrom(),
+      to: recipient,
+      subject,
+      html,
+      attachments: attachments?.length ? attachments : undefined,
+    });
+
+    await insertEmailLog({
+      emailType,
+      recipient,
+      subject,
+      providerMessageId: info?.messageId || null,
+      status: "success",
+      referenceType,
+      referenceId,
+      userId,
+    });
+  } catch (error) {
+    await insertEmailLog({
+      emailType,
+      recipient,
+      subject,
+      status: "failed",
+      errorCode: error.code || "smtp_error",
+      errorMessage: error.message,
+      referenceType,
+      referenceId,
+      userId,
+    });
+    throw error;
+  }
 };
 
 export const getUserEmailInfo = async (userId) => {
@@ -308,6 +391,8 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
     to: email,
     subject: "Your Metrogini OTP",
     html,
+    emailType: "otp_login",
+    referenceType: "auth",
   });
 };
 
@@ -334,6 +419,9 @@ export const sendPickupOtpEmail = async ({
     to: email,
     subject: `Pickup OTP for order ${orderRef} — Metro Gini`,
     html,
+    emailType: "otp_pickup",
+    referenceType: "order",
+    referenceId: orderId,
   });
 };
 
@@ -360,6 +448,9 @@ export const sendDeliveryOtpEmail = async ({
     to: email,
     subject: `Delivery OTP for order ${orderRef} — Metro Gini`,
     html,
+    emailType: "otp_delivery",
+    referenceType: "order",
+    referenceId: orderId,
   });
 };
 
@@ -385,6 +476,9 @@ export const sendOrderCreatedEmail = async ({
     to: email,
     subject: `Order ${orderRef} created — Metro Gini`,
     html,
+    emailType: "order_created",
+    referenceType: "order",
+    referenceId: orderId,
   });
 };
 
@@ -410,6 +504,9 @@ export const sendAdvancePaymentEmail = async ({
     to: email,
     subject: `Advance payment of ₹${amount} received — Metro Gini`,
     html,
+    emailType: "advance_payment",
+    referenceType: "order",
+    referenceId: orderId,
   });
 };
 
@@ -521,6 +618,9 @@ export const sendFullPaymentEmail = async ({
       : `Billing summary for order ${orderRef} (payment pending) — Metro Gini`,
     html,
     attachments: attachments.length ? attachments : undefined,
+    emailType: "full_payment_invoice",
+    referenceType: "order",
+    referenceId: orderId,
   });
 };
 
@@ -558,6 +658,7 @@ export const sendTestEmail = async ({ to, name }) => {
     to,
     subject: "Metro Gini — SMTP test email",
     html,
+    emailType: "smtp_test",
   });
 
   return { to: to.trim() };
