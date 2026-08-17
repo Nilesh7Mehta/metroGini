@@ -164,6 +164,40 @@ const isProviderSuccess = (httpStatus, parsed) => {
   return true;
 };
 
+const SPRINGEDGE_FETCH_ATTEMPTS = 3;
+const SPRINGEDGE_RETRY_DELAY_MS = 400;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const describeNetworkError = (error) => {
+  const cause = error?.cause;
+  const detail = cause
+    ? [cause.code, cause.message].filter(Boolean).join(": ")
+    : "";
+  const base = error?.message || "Network/API failure contacting SpringEdge";
+  return detail && !base.includes(detail) ? `${base} — ${detail}` : base;
+};
+
+const fetchSpringEdge = async (url) => {
+  let lastError;
+  for (let attempt = 1; attempt <= SPRINGEDGE_FETCH_ATTEMPTS; attempt++) {
+    try {
+      return await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt >= SPRINGEDGE_FETCH_ATTEMPTS) break;
+      console.warn(
+        `[sms] SpringEdge fetch attempt ${attempt}/${SPRINGEDGE_FETCH_ATTEMPTS} failed: ${describeNetworkError(error)}; retrying`,
+      );
+      await sleep(SPRINGEDGE_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastError;
+};
+
 const insertSmsLog = async ({
   templateKey,
   templateId,
@@ -283,10 +317,7 @@ export const sendSms = async (
   let parsed = null;
 
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
+    const response = await fetchSpringEdge(url);
     httpStatus = response.status;
     bodyText = await response.text();
     try {
@@ -295,22 +326,23 @@ export const sendSms = async (
       parsed = bodyText;
     }
   } catch (error) {
+    const errorMessage = describeNetworkError(error);
     await insertSmsLog({
       templateKey: built.templateKey,
       templateId: built.templateId,
       mobile,
       message: built.message,
       status: "failed",
-      providerResponse: { error: error.message },
+      providerResponse: { error: errorMessage },
       errorCode: "network_error",
-      errorMessage: error.message || "Network/API failure contacting SpringEdge",
+      errorMessage,
       referenceType: meta.reference_type,
       referenceId: meta.reference_id,
     });
     throw {
       status: 502,
       code: "network_error",
-      message: error.message || "Network/API failure contacting SpringEdge",
+      message: errorMessage,
     };
   }
 

@@ -16,4 +16,4 @@ export const getSpringEdgeSender = () =>
 
 export const getSpringEdgeApiUrl = () =>
   process.env.SPRINGEDGE_API_URL?.trim() ||
-  "https://instantalerts.co/api/web/send/";
+  "https://web.springedge.com/api/web/send/";
