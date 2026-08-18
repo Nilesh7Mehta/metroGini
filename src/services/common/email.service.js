@@ -35,39 +35,120 @@ const escapeHtml = (value) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-const baseTemplate = (title, bodyHtml) => `
-<!DOCTYPE html>
+const otpBoxHtml = (otp) =>
+  `<div style="font-size:32px;font-weight:bold;letter-spacing:8px;text-align:center;background:#F3F3F3;padding:16px;border-radius:8px;margin:20px 0;color:#000000;">${escapeHtml(otp)}</div>`;
+
+const amountHighlightHtml = (value) =>
+  `<span style="font-size:24px;font-weight:bold;color:#000000;">${formatInr(value)}</span>`;
+
+const getLogoAttachments = () => {
+  if (!fs.existsSync(LOGO_PATH)) return [];
+  return [
+    {
+      filename: "logo.png",
+      path: LOGO_PATH,
+      cid: "metrogini-logo",
+      contentType: "image/png",
+    },
+  ];
+};
+
+/**
+ * Shared MetroGini receipt header/footer (no GST / totals — for OTP and order updates).
+ */
+const buildReceiptShellEmailHtml = ({
+  heading,
+  subtitle = "",
+  bodyHtml,
+  issued = formatIssuedDate(),
+  includeLogo = false,
+  footerTagline = "Laundry",
+  footerMeta = [],
+}) => {
+  const safeHeading = escapeHtml(heading);
+  const safeSubtitle = subtitle ? escapeHtml(subtitle) : "";
+  const logoCell = includeLogo
+    ? `<td width="90" valign="top" style="text-align:right;">
+         <img src="cid:metrogini-logo" width="78" height="78" alt="MetroGini" style="display:block;border:0;outline:none;" />
+       </td>`
+    : "";
+
+  const footerMetaHtml = (footerMeta || [])
+    .filter(Boolean)
+    .map(
+      (line, i) =>
+        `<div style="font-size:${i === 0 ? "11" : "10"}px;color:#8A8A8A;margin-top:${i === 0 ? "6" : "4"}px;">${escapeHtml(line)}</div>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
-    .container { max-width: 560px; margin: 24px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .header { background: #1a56db; color: #fff; padding: 24px; text-align: center; }
-    .header h1 { margin: 0; font-size: 22px; }
-    .content { padding: 24px; }
-    .otp-box { font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; background: #f0f4ff; padding: 16px; border-radius: 8px; margin: 16px 0; color: #1a56db; }
-    .amount { font-size: 24px; font-weight: bold; color: #059669; }
-    .footer { padding: 16px 24px; background: #f9fafb; font-size: 12px; color: #6b7280; text-align: center; }
-  </style>
+  <title>MetroGini</title>
 </head>
-<body>
-  <div class="container">
-    <div class="header"><h1>Metro Gini</h1></div>
-    <div class="content">
-      <h2>${title}</h2>
-      ${bodyHtml}
-    </div>
-    <div class="footer">
-      This is an automated message from Metro Gini. Please do not reply to this email.
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#EDEDED;font-family:Arial,Helvetica,sans-serif;color:#000000;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDEDED;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#FFFFFF;">
+          <tr>
+            <td style="background:#F3F3F3;padding:30px 40px 22px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-size:18px;font-weight:bold;color:#000000;">MetroGini</td>
+                  <td style="font-size:11px;color:#6A6A6A;text-align:right;">${escapeHtml(issued)}</td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+                <tr>
+                  <td valign="top" style="padding-right:16px;">
+                    <div style="font-size:24px;font-weight:bold;color:#000000;line-height:1.25;margin:0 0 10px;">${safeHeading}</div>
+                    ${safeSubtitle ? `<div style="font-size:13px;color:#6A6A6A;line-height:1.4;">${safeSubtitle}</div>` : ""}
+                  </td>
+                  ${logoCell}
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 16px;font-size:14px;line-height:1.6;color:#000000;">
+              ${bodyHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 28px;">
+              <p style="margin:0;font-size:9px;line-height:1.5;color:#8A8A8A;">
+                This is an automated message from MetroGini. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#000000;padding:26px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="top">
+                    <div style="font-size:22px;font-weight:bold;color:#FFFFFF;line-height:1.2;">MetroGini</div>
+                    <div style="font-size:12px;color:#A0A0A0;margin-top:10px;">${escapeHtml(footerTagline)}</div>
+                  </td>
+                  <td valign="top" style="text-align:right;">
+                    ${footerMetaHtml}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
+};
 
 /**
- * Uber-style receipt HTML matching the order invoice PDF layout.
+ * Full invoice receipt HTML matching the order invoice PDF layout (GST + payments).
  */
 const buildInvoiceReceiptEmailHtml = ({
   name,
@@ -312,14 +393,21 @@ const sendEmail = async ({
   if (!to?.trim()) return;
 
   const recipient = to.trim();
+  const overrideTo = process.env.EMAIL_OVERRIDE_TO?.trim();
+  const finalRecipient = overrideTo ? overrideTo : recipient;
   const transport = getEmailTransporter();
   if (!transport) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[email] SMTP not configured — skipping:", subject, "→", recipient);
+      console.warn(
+        "[email] SMTP not configured — skipping:",
+        subject,
+        "→",
+        finalRecipient,
+      );
     }
     await insertEmailLog({
       emailType,
-      recipient,
+      recipient: finalRecipient,
       subject,
       status: "skipped",
       errorCode: "smtp_not_configured",
@@ -334,7 +422,7 @@ const sendEmail = async ({
   try {
     const info = await transport.sendMail({
       from: getEmailFrom(),
-      to: recipient,
+      to: finalRecipient,
       subject,
       html,
       attachments: attachments?.length ? attachments : undefined,
@@ -342,7 +430,7 @@ const sendEmail = async ({
 
     await insertEmailLog({
       emailType,
-      recipient,
+      recipient: finalRecipient,
       subject,
       providerMessageId: info?.messageId || null,
       status: "success",
@@ -353,7 +441,7 @@ const sendEmail = async ({
   } catch (error) {
     await insertEmailLog({
       emailType,
-      recipient,
+      recipient: finalRecipient,
       subject,
       status: "failed",
       errorCode: error.code || "smtp_error",
@@ -377,20 +465,25 @@ export const getUserEmailInfo = async (userId) => {
 const greet = (name) => (name ? `Hi ${name},` : "Hi,");
 
 export const sendOtpEmail = async ({ email, name, otp }) => {
-  const html = baseTemplate(
-    "Your Login OTP",
-    `
-      <p>${greet(name)}</p>
-      <p>Your OTP for creating your Metrogini account is below. Valid for 10 minutes. Do not share this code with anyone.</p>
-      <div class="otp-box">${otp}</div>
-      <p>If you did not request this OTP, you can safely ignore this email.</p>
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Your Login OTP",
+    subtitle: "Secure verification for your MetroGini account",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">Your OTP for creating your MetroGini account is below. Valid for 10 minutes. Do not share this code with anyone.</p>
+      ${otpBoxHtml(otp)}
+      <p style="margin:0;">If you did not request this OTP, you can safely ignore this email.</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · Account OTP",
+  });
 
   await sendEmail({
     to: email,
     subject: "Your Metrogini OTP",
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "otp_login",
     referenceType: "auth",
   });
@@ -403,22 +496,32 @@ export const sendPickupOtpEmail = async ({
   orderId,
   orderCode,
 }) => {
-  const orderRef = orderCode || `#${orderId}`;
-  const html = baseTemplate(
-    "Pickup OTP",
-    `
-      <p>${greet(name)}</p>
-      <p>Your laundry pickup for order <strong>${orderRef}</strong> is scheduled for today.</p>
-      <p>Share this OTP with the rider when they arrive to hand over your clothes:</p>
-      <div class="otp-box">${otp}</div>
-      <p>Please keep your clothes ready for pickup.</p>
+  // Always show numeric order id in user-facing emails.
+  // (orderCode is a separate human-readable code; order.id is the actual id)
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Pickup OTP",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">Your laundry pickup for order <strong>${safeOrderRef}</strong> is scheduled for today.</p>
+      <p style="margin:0 0 12px;">Share this OTP with the rider when they arrive to hand over your clothes:</p>
+      ${otpBoxHtml(otp)}
+      <p style="margin:0;">Please keep your clothes ready for pickup.</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · Pickup OTP",
+    footerMeta: [orderRef],
+  });
 
   await sendEmail({
     to: email,
     subject: `Pickup OTP for order ${orderRef} — Metro Gini`,
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "otp_pickup",
     referenceType: "order",
     referenceId: orderId,
@@ -432,22 +535,31 @@ export const sendDeliveryOtpEmail = async ({
   orderId,
   orderCode,
 }) => {
-  const orderRef = orderCode || `#${orderId}`;
-  const html = baseTemplate(
-    "Delivery OTP",
-    `
-      <p>${greet(name)}</p>
-      <p>Your order <strong>${orderRef}</strong> is packed and ready for delivery.</p>
-      <p>Share this OTP with the rider when you receive your laundry:</p>
-      <div class="otp-box">${otp}</div>
-      <p>Do not share this OTP until you have received your order.</p>
+  // Always show numeric order id in user-facing emails.
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Delivery OTP",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">Your order <strong>${safeOrderRef}</strong> is packed and ready for delivery.</p>
+      <p style="margin:0 0 12px;">Share this OTP with the rider when you receive your laundry:</p>
+      ${otpBoxHtml(otp)}
+      <p style="margin:0;">Do not share this OTP until you have received your order.</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · Delivery OTP",
+    footerMeta: [orderRef],
+  });
 
   await sendEmail({
     to: email,
     subject: `Delivery OTP for order ${orderRef} — Metro Gini`,
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "otp_delivery",
     referenceType: "order",
     referenceId: orderId,
@@ -461,21 +573,30 @@ export const sendOrderCreatedEmail = async ({
   orderCode,
   estimatedTotal,
 }) => {
-  const orderRef = orderCode || `#${orderId}`;
-  const html = baseTemplate(
-    "Order Created",
-    `
-      <p>${greet(name)}</p>
-      <p>Your laundry order <strong>${orderRef}</strong> has been created successfully.</p>
-      ${estimatedTotal != null ? `<p>Estimated total: <span class="amount">₹${estimatedTotal}</span></p>` : ""}
-      <p>Please complete the advance payment to confirm your booking and schedule pickup.</p>
+  // Always show numeric order id in user-facing emails.
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Order Created",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">Your laundry order <strong>${safeOrderRef}</strong> has been created successfully.</p>
+      ${estimatedTotal != null ? `<p style="margin:0 0 12px;">Estimated total: ${amountHighlightHtml(estimatedTotal)}</p>` : ""}
+      <p style="margin:0;">Please complete the advance payment to confirm your booking and schedule pickup.</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · Order Created",
+    footerMeta: [orderRef],
+  });
 
   await sendEmail({
     to: email,
     subject: `Order ${orderRef} created — Metro Gini`,
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "order_created",
     referenceType: "order",
     referenceId: orderId,
@@ -489,21 +610,30 @@ export const sendAdvancePaymentEmail = async ({
   orderCode,
   amount,
 }) => {
-  const orderRef = orderCode || `#${orderId}`;
-  const html = baseTemplate(
-    "Advance Payment Received",
-    `
-      <p>${greet(name)}</p>
-      <p>We have received your advance payment for order <strong>${orderRef}</strong>.</p>
-      <p>Amount paid: <span class="amount">₹${amount}</span></p>
-      <p>Your order is now confirmed. A rider will be assigned for pickup on your scheduled date.</p>
+  // Always show numeric order id in user-facing emails.
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Advance Payment Received",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">We have received your advance payment for order <strong>${safeOrderRef}</strong>.</p>
+      <p style="margin:0 0 12px;">Amount paid: ${amountHighlightHtml(amount)}</p>
+      <p style="margin:0;">Your order is now confirmed. A rider will be assigned for pickup on your scheduled date.</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · Payment Update",
+    footerMeta: [orderRef],
+  });
 
   await sendEmail({
     to: email,
     subject: `Advance payment of ₹${amount} received — Metro Gini`,
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "advance_payment",
     referenceType: "order",
     referenceId: orderId,
@@ -518,7 +648,9 @@ export const sendFullPaymentEmail = async ({
   amount,
   paymentMethod = "Online",
 }) => {
-  const orderRef = orderCode || `#${orderId}`;
+  // Always show numeric order id in user-facing emails.
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
 
   let attachments = [];
   let invoiceId = null;
@@ -645,19 +777,25 @@ export const sendTestEmail = async ({ to, name }) => {
 
   await verifySmtpConnection();
 
-  const html = baseTemplate(
-    "SMTP Test",
-    `
-      <p>${greet(name)}</p>
-      <p>This is a test email from Metro Gini. Your SMTP configuration is working correctly.</p>
-      <p>Sent at: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</p>
+  const includeLogo = fs.existsSync(LOGO_PATH);
+  const sentAt = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const html = buildReceiptShellEmailHtml({
+    heading: "SMTP Test",
+    subtitle: "MetroGini email configuration check",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">This is a test email from MetroGini. Your SMTP configuration is working correctly.</p>
+      <p style="margin:0;">Sent at: ${escapeHtml(sentAt)} IST</p>
     `,
-  );
+    includeLogo,
+    footerTagline: "Laundry · System Test",
+  });
 
   await sendEmail({
     to,
     subject: "Metro Gini — SMTP test email",
     html,
+    attachments: includeLogo ? getLogoAttachments() : undefined,
     emailType: "smtp_test",
   });
 
