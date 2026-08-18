@@ -16,6 +16,7 @@ export const formatVendorProfile = (vendor) => ({
     email: vendor.email ?? null,
     status: vendor.status ?? null,
     gst_number: vendor.gst_number ?? null,
+    tds_number: vendor.tds_number ?? null,
     pan_number: vendor.pan_card_number ?? null,
     aadhar_number: vendor.aadhar_number ?? null,
   },
@@ -53,6 +54,7 @@ const mapProfileUpdateBody = (body) => {
     pan_card_number:
       merchant.pan_number ?? body.pan_number ?? body.pan_card_number,
     gst_number: merchant.gst_number ?? body.gst_number,
+    tds_number: merchant.tds_number ?? body.tds_number,
     shop_address:
       address.shop_address ?? body.shop_address,
     pincode: address.pincode ?? body.pincode,
@@ -73,7 +75,7 @@ const mapProfileUpdateBody = (body) => {
 export const getVendorProfileService = async (vendorId) => {
   const { rows } = await sql.query(
     `SELECT id, owner_contact_name, mobile_number, email, laundry_shop_name,
-            aadhar_number, shop_address, pincode, gst_number, pan_card_number,
+            aadhar_number, shop_address, pincode, gst_number, tds_number, pan_card_number,
             account_holder_name, bank_name, account_number, ifsc_code, status,
             is_terms_and_condition, is_active, vendor_per_kg_amount
      FROM vendors

@@ -57,6 +57,7 @@ export const addVendorService = async (body, file) => {
     aadhar_number: validatedAadhar,
     pan_card_number,
     gst_number,
+    tds_number,
     laundry_shop_name: validatedLaundry,
     shop_address: validatedAddress,
     account_holder_name: validatedAccountHolder,
@@ -70,9 +71,9 @@ export const addVendorService = async (body, file) => {
     const { rows } = await sql.query(
       `INSERT INTO vendors
         (owner_contact_name, mobile_number, email, aadhar_number, pan_card_number,
-         laundry_shop_name, shop_address, gst_number, account_holder_name, bank_name,
+         laundry_shop_name, shop_address, gst_number, tds_number, account_holder_name, bank_name,
          account_number, ifsc_code, image , pincode , status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13 , $14 , active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, 'active')
        RETURNING *`,
       [
         validatedOwner,
@@ -83,6 +84,7 @@ export const addVendorService = async (body, file) => {
         validatedLaundry,
         validatedAddress || null,
         gst_number || null,
+        tds_number || null,
         validatedAccountHolder || null,
         validatedBank || null,
         validatedAccountNumber || null,
@@ -148,14 +150,15 @@ export const updateVendorService = async (id, body, file) => {
         laundry_shop_name   = COALESCE($6, laundry_shop_name),
         shop_address        = COALESCE($7, shop_address),
         gst_number          = COALESCE($8, gst_number),
-        account_holder_name = COALESCE($9, account_holder_name),
-        bank_name           = COALESCE($10, bank_name),
-        account_number      = COALESCE($11, account_number),
-        ifsc_code           = COALESCE($12, ifsc_code),
-        image               = COALESCE($13, image),
-        pincode             = COALESCE($14, pincode),
+        tds_number          = COALESCE($9, tds_number),
+        account_holder_name = COALESCE($10, account_holder_name),
+        bank_name           = COALESCE($11, bank_name),
+        account_number      = COALESCE($12, account_number),
+        ifsc_code           = COALESCE($13, ifsc_code),
+        image               = COALESCE($14, image),
+        pincode             = COALESCE($15, pincode),
         updated_at          = NOW()
-       WHERE id = $15
+       WHERE id = $16
        RETURNING *`,
       [
         patch("owner_contact_name"),
@@ -168,6 +171,7 @@ export const updateVendorService = async (id, body, file) => {
         patch("laundry_shop_name"),
         patch("shop_address"),
         patch("gst_number"),
+        patch("tds_number"),
         patch("account_holder_name"),
         patch("bank_name"),
         patch("account_number"),

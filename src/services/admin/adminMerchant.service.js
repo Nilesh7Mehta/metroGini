@@ -675,6 +675,7 @@ const fetchVendorById = async (vendorId) => {
       v.laundry_shop_name,
       v.shop_address,
       v.gst_number,
+      v.tds_number,
       v.pan_card_number,
       v.account_holder_name,
       v.bank_name,
@@ -981,6 +982,12 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     business.gstin !== undefined || business.gst_number !== undefined
       ? (business.gstin ?? business.gst_number)
       : undefined;
+  const tdsRaw =
+    business.tds_number !== undefined ||
+    business.tan_number !== undefined ||
+    body.tds_number !== undefined
+      ? (business.tds_number ?? business.tan_number ?? body.tds_number)
+      : undefined;
 
   const dbFields = {
     owner_contact_name,
@@ -991,6 +998,7 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       pickString(business.pan_number)
       || (isUpdate ? existing?.pan_card_number : null),
     gst_number: pickOptionalString(gstRaw, existing?.gst_number, { isUpdate }),
+    tds_number: pickOptionalString(tdsRaw, existing?.tds_number, { isUpdate }),
     laundry_shop_name,
     shop_address,
     account_holder_name:
@@ -1038,6 +1046,7 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     password: password || null,
     pan_card_number: dbFields.pan_card_number?.toUpperCase?.() || null,
     gst_number: dbFields.gst_number?.toUpperCase?.() || null,
+    tds_number: dbFields.tds_number?.toUpperCase?.() || null,
     ifsc_code: dbFields.ifsc_code?.toUpperCase?.() || null,
     service_area:
       pickString(business.service_area)
@@ -1131,6 +1140,7 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
       buildDetailKeyValue('aadhar_number', vendor.aadhar_number),
       buildDetailKeyValue('service_areas', vendor.service_area),
       buildDetailKeyValue('gst_number', vendor.gst_number),
+      buildDetailKeyValue('tds_number', vendor.tds_number),
       buildDetailKeyValue('pan_number', vendor.pan_card_number),
       buildDetailKeyValue('business_type', vendor.business_type),
       buildDetailKeyValue(
@@ -1282,6 +1292,7 @@ export const createAdminMerchantService = async (body) => {
         aadhar_number,
         pan_card_number,
         gst_number,
+        tds_number,
         laundry_shop_name,
         shop_address,
         account_holder_name,
@@ -1311,8 +1322,8 @@ export const createAdminMerchantService = async (body) => {
         is_active
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-        $13, $14, $15, $16::date, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+        $13, $14, $15, $16, $17::date, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33,
         'active', TRUE
       )
       RETURNING id
@@ -1325,6 +1336,7 @@ export const createAdminMerchantService = async (body) => {
         payload.aadhar_number,
         payload.pan_card_number,
         payload.gst_number,
+        payload.tds_number,
         payload.laundry_shop_name,
         payload.shop_address,
         payload.account_holder_name,
@@ -1430,6 +1442,7 @@ export const updateAdminMerchantService = async (rawId, body) => {
       payload.aadhar_number,
       payload.pan_card_number,
       payload.gst_number,
+      payload.tds_number,
       payload.laundry_shop_name,
       payload.shop_address,
       payload.account_holder_name,
@@ -1477,33 +1490,34 @@ export const updateAdminMerchantService = async (rawId, body) => {
         aadhar_number = $4,
         pan_card_number = $5,
         gst_number = $6,
-        laundry_shop_name = $7,
-        shop_address = $8,
-        account_holder_name = $9,
-        bank_name = $10,
-        account_number = $11,
-        ifsc_code = $12,
-        service_area = $13,
-        business_type = $14,
-        registration_date = $15::date,
-        washing_machines = $16,
-        washing_capacity_kg = $17,
-        dryers = $18,
-        iron_stations = $19,
-        dry_cleaning_machines = $20,
-        detergents_used = $21,
-        fabric_conditioners = $22,
-        special_chemicals = $23,
-        special_handling = $24,
-        quality_checks = $25,
-        water_supply = $26,
-        power_backup = $27,
-        upi_id = $28,
-        max_wash_kg = $29,
-        max_dry_pcs = $30,
-        vendor_per_kg_amount = $31,
-        is_active = $32,
-        status = CASE WHEN $32 THEN 'active' ELSE 'inactive' END,
+        tds_number = $7,
+        laundry_shop_name = $8,
+        shop_address = $9,
+        account_holder_name = $10,
+        bank_name = $11,
+        account_number = $12,
+        ifsc_code = $13,
+        service_area = $14,
+        business_type = $15,
+        registration_date = $16::date,
+        washing_machines = $17,
+        washing_capacity_kg = $18,
+        dryers = $19,
+        iron_stations = $20,
+        dry_cleaning_machines = $21,
+        detergents_used = $22,
+        fabric_conditioners = $23,
+        special_chemicals = $24,
+        special_handling = $25,
+        quality_checks = $26,
+        water_supply = $27,
+        power_backup = $28,
+        upi_id = $29,
+        max_wash_kg = $30,
+        max_dry_pcs = $31,
+        vendor_per_kg_amount = $32,
+        is_active = $33,
+        status = CASE WHEN $33 THEN 'active' ELSE 'inactive' END,
         updated_at = NOW()
         ${passwordClause}
       WHERE id = ${vendorIdParam}

@@ -4,12 +4,15 @@ const AADHAR_REGEX = /^\d{12}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const GST_REGEX =
   /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+/** Indian TAN (Tax Deduction Account Number), commonly used as TDS number. */
+const TDS_REGEX = /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/;
 
 /** Reference formats for validation error messages */
 export const VENDOR_FORMAT_EXAMPLES = {
   aadhaar: "123456789012",
   pan: "AAAAA1234A",
   gst: "22AAAAA0000A1Z5",
+  tds: "ABCD12345E",
 };
 const ACCOUNT_NUMBER_REGEX = /^\d{9,18}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -29,6 +32,7 @@ export const normalizeVendorFields = (data = {}) => ({
   aadhar_number: emptyToNull(data.aadhar_number),
   pan_card_number: data.pan_card_number?.toUpperCase?.(),
   gst_number: emptyToNull(data.gst_number)?.toUpperCase?.() ?? null,
+  tds_number: emptyToNull(data.tds_number)?.toUpperCase?.() ?? null,
   laundry_shop_name: data.laundry_shop_name,
   shop_address: data.shop_address,
   pincode: data.pincode,
@@ -109,6 +113,12 @@ export const validateVendorFields = (data = {}, { partial = false } = {}) => {
     "gst_number",
     (v) => !v || GST_REGEX.test(String(v)),
     `gst_number must be a valid 15-character GST number (e.g. ${VENDOR_FORMAT_EXAMPLES.gst})`,
+  );
+
+  validatePresent(
+    "tds_number",
+    (v) => !v || TDS_REGEX.test(String(v)),
+    `tds_number must be a valid 10-character TAN (e.g. ${VENDOR_FORMAT_EXAMPLES.tds})`,
   );
 
   validatePresent(

@@ -12,6 +12,7 @@ export const createVendorTable = async () => {
       laundry_shop_name VARCHAR(255),
       shop_address TEXT,
       gst_number VARCHAR(50),
+      tds_number VARCHAR(50),
       account_holder_name VARCHAR(255),
       bank_name VARCHAR(255),
       account_number VARCHAR(50),
