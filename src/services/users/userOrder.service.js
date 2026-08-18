@@ -9,6 +9,7 @@ import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.service.js";
 import { sendSmsToUserSafe } from "../common/sms.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
+import { resolveBasePricePerKg } from "../common/serviceZonePrice.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { orderReceivedTemplate } from "../../utils/userNotificationTemplates.js";
 
@@ -290,7 +291,7 @@ export const updateOrderInstructionsService = async ({
 
 export const finalizeOrderService = async ({ order_id, user_id }) => {
   const orderResult = await sql.query(
-    `SELECT o.*, s.base_price_per_kg, st.extra_price_per_kg, st.flat_fee,
+    `SELECT o.*, st.extra_price_per_kg, st.flat_fee,
             ts.is_peak, ts.peak_extra_charge
      FROM orders o
      JOIN services s ON o.service_id = s.id
@@ -316,14 +317,21 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     };
   }
 
+  const base_price_per_kg = await resolveBasePricePerKg(sql, {
+    serviceId: order.service_id,
+    addressId: order.address_id,
+  });
+  const extra_price_per_kg = Number(order.extra_price_per_kg);
+  const flat_fee = Number(order.flat_fee);
+
   const avg_weight =
     (Number(order.estimated_weight_min) + Number(order.estimated_weight_max)) /
     2;
   const peak_charge = order.is_peak ? Number(order.peak_extra_charge) : 0;
   const estimated_total =
-    avg_weight * Number(order.base_price_per_kg) +
-    avg_weight * Number(order.extra_price_per_kg) +
-    Number(order.flat_fee) +
+    avg_weight * base_price_per_kg +
+    avg_weight * extra_price_per_kg +
+    flat_fee +
     peak_charge;
 
   await sql.query(
@@ -331,9 +339,9 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
      peak_extra_charge=$4, estimated_total=$5, status='booked', booked_at=NOW(), updated_at=NOW()
      WHERE id=$6`,
     [
-      order.base_price_per_kg,
-      order.extra_price_per_kg,
-      order.flat_fee,
+      base_price_per_kg,
+      extra_price_per_kg,
+      flat_fee,
       peak_charge,
       estimated_total,
       order_id,
@@ -422,8 +430,8 @@ export const completeOrderService = async ({
     await assertPickupSlotAvailable(pickup_date, pickup_slot_id, order_id);
 
     const orderResult = await client.query(
-      `SELECT o.id, o.address_id, o.estimated_weight_min, o.estimated_weight_max,
-              s.base_price_per_kg, st.extra_price_per_kg, st.flat_fee, st.delivery_hours
+      `SELECT o.id, o.service_id, o.address_id, o.estimated_weight_min, o.estimated_weight_max,
+              st.extra_price_per_kg, st.flat_fee, st.delivery_hours
        FROM orders o
        JOIN services s ON o.service_id = s.id
        JOIN service_types st ON st.id = $3
@@ -467,10 +475,17 @@ export const completeOrderService = async ({
       ? Number(slotCheck.rows[0].peak_extra_charge)
       : 0;
 
+    const base_price_per_kg = await resolveBasePricePerKg(client, {
+      serviceId: order.service_id,
+      addressId: order.address_id,
+    });
+    const extra_price_per_kg = Number(order.extra_price_per_kg);
+    const flat_fee = Number(order.flat_fee);
+
     const estimated_total =
-      avg_weight * Number(order.base_price_per_kg) +
-      avg_weight * Number(order.extra_price_per_kg) +
-      Number(order.flat_fee) +
+      avg_weight * base_price_per_kg +
+      avg_weight * extra_price_per_kg +
+      flat_fee +
       peak_charge;
 
     await client.query(
@@ -495,9 +510,9 @@ export const completeOrderService = async ({
         pickup_slot_id,
         delivery_date,
         delivery_slot_id,
-        order.base_price_per_kg,
-        order.extra_price_per_kg,
-        order.flat_fee,
+        base_price_per_kg,
+        extra_price_per_kg,
+        flat_fee,
         peak_charge,
         estimated_total,
         order_id,
@@ -534,7 +549,7 @@ export const completeOrderService = async ({
 
 export const reviewOrderService = async ({ order_id, user_id }) => {
   const result = await sql.query(
-    `SELECT o.*, s.name AS service_name, s.base_price_per_kg,
+    `SELECT o.*, s.name AS service_name,
             st.name AS service_type_name, st.extra_price_per_kg, st.flat_fee,
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
@@ -560,6 +575,12 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
     throw { status: 404, message: "Created order not found" };
 
   const order = result.rows[0];
+  if (order.base_price_per_kg == null) {
+    order.base_price_per_kg = await resolveBasePricePerKg(sql, {
+      serviceId: order.service_id,
+      addressId: order.address_id,
+    });
+  }
   const pricing = calculateOrderPricing(order);
   return { order, pricing };
 };
@@ -576,18 +597,16 @@ export const applyCouponService = async ({
     await client.query("BEGIN");
 
     const orderResult = await client.query(
-      `SELECT o.id, o.applied_coupon_id,
+      `SELECT o.id, o.service_id, o.address_id, o.applied_coupon_id,
               o.estimated_weight_min, o.estimated_weight_max,
               o.estimated_total,
               o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
               o.peak_extra_charge,
-              s.base_price_per_kg AS service_base_price_per_kg,
               st.extra_price_per_kg AS service_type_extra_price_per_kg,
               st.flat_fee AS service_type_flat_fee,
               ts.is_peak AS slot_is_peak,
               ts.peak_extra_charge AS slot_peak_extra_charge
        FROM orders o
-       LEFT JOIN services s ON o.service_id = s.id
        LEFT JOIN service_types st ON o.service_type_id = st.id
        LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
        WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'
@@ -599,11 +618,18 @@ export const applyCouponService = async ({
 
     const orderRow = orderResult.rows[0];
 
+    const resolvedBasePrice =
+      orderRow.base_price_per_kg != null
+        ? Number(orderRow.base_price_per_kg)
+        : await resolveBasePricePerKg(client, {
+            serviceId: orderRow.service_id,
+            addressId: orderRow.address_id,
+          });
+
     const pricingOrder = {
       estimated_weight_min: orderRow.estimated_weight_min,
       estimated_weight_max: orderRow.estimated_weight_max,
-      base_price_per_kg:
-        orderRow.base_price_per_kg ?? orderRow.service_base_price_per_kg,
+      base_price_per_kg: resolvedBasePrice,
       extra_price_per_kg:
         orderRow.extra_price_per_kg ?? orderRow.service_type_extra_price_per_kg,
       flat_fee: orderRow.flat_fee ?? orderRow.service_type_flat_fee,

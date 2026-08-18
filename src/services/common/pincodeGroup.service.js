@@ -1,4 +1,5 @@
 import sql from "../../config/db.js";
+import { seedZonePricesForPincodeGroup } from "./serviceZonePrice.service.js";
 
 const VALID_STATUSES = ["ACTIVE", "INACTIVE"];
 
@@ -41,14 +42,24 @@ export const createPincodeGroup = async (body) => {
 
   const validatedCityId = await validateCityId(city_id, { required: true });
 
-  const { rows } = await sql.query(
-    `INSERT INTO pincode_groups (group_code, name, city_id, status)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [group_code.trim(), name.trim(), validatedCityId, validateStatus(status)],
-  );
-
-  return rows[0];
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `INSERT INTO pincode_groups (group_code, name, city_id, status)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [group_code.trim(), name.trim(), validatedCityId, validateStatus(status)],
+    );
+    await seedZonePricesForPincodeGroup(client, rows[0].id);
+    await client.query("COMMIT");
+    return rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const getPincodeGroups = async (filters = {}) => {

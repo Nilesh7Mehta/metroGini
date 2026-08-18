@@ -1,4 +1,8 @@
 import { createService, updateService } from '../../services/admin/adminService.service.js';
+import {
+  getServiceZonePrices,
+  upsertServiceZonePrices,
+} from '../../services/common/serviceZonePrice.service.js';
 
 const handleError = (res, err, next) => {
   if (err.code === '23505') {
@@ -37,6 +41,46 @@ export const updateServiceById = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'Service updated successfully',
+      data,
+    });
+  } catch (err) {
+    handleError(res, err, next);
+  }
+};
+
+export const getServiceZonePricesById = async (req, res, next) => {
+  try {
+    const data = await getServiceZonePrices(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Service zone prices retrieved successfully',
+      data,
+    });
+  } catch (err) {
+    handleError(res, err, next);
+  }
+};
+
+export const addServiceZonePrices = async (req, res, next) => {
+  try {
+    const serviceId = req.params.id ?? req.body?.service_id;
+    const data = await upsertServiceZonePrices(serviceId, req.body);
+    return res.status(201).json({
+      success: true,
+      message: 'Service zone prices added successfully',
+      data,
+    });
+  } catch (err) {
+    handleError(res, err, next);
+  }
+};
+
+export const updateServiceZonePricesById = async (req, res, next) => {
+  try {
+    const data = await upsertServiceZonePrices(req.params.id, req.body);
+    return res.status(200).json({
+      success: true,
+      message: 'Service zone prices updated successfully',
       data,
     });
   } catch (err) {

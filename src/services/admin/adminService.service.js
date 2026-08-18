@@ -1,5 +1,6 @@
 import sql from '../../config/db.js';
 import { deleteFile } from '../../utils/file.service.js';
+import { seedZonePricesForService } from '../common/serviceZonePrice.service.js';
 
 const parseBoolean = (value, fallback = true) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -33,17 +34,28 @@ export const createService = async (body, imagePath) => {
   }
 
   const resolvedImage = imagePath || image?.trim() || null;
+  const price = Number(base_price_per_kg);
 
-  const { rows } = await sql.query(
-    `
-    INSERT INTO services (name, base_price_per_kg, image, is_active)
-    VALUES ($1, $2, $3, $4)
-    RETURNING *
-    `,
-    [name.trim(), Number(base_price_per_kg), resolvedImage, parseBoolean(is_active, true)],
-  );
-
-  return rows[0];
+  const client = await sql.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `
+      INSERT INTO services (name, base_price_per_kg, image, is_active)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+      `,
+      [name.trim(), price, resolvedImage, parseBoolean(is_active, true)],
+    );
+    await seedZonePricesForService(client, rows[0].id, price);
+    await client.query('COMMIT');
+    return rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const updateService = async (id, body, imagePath) => {

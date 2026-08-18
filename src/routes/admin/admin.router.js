@@ -60,6 +60,10 @@ router.post('/addCity', authenticate, cityUpload.single('image'), adminCityContr
 router.post('/updateCity/:id', authenticate, cityUpload.single('image'), adminCityController.updateCityById);
 router.post('/addService', authenticate, serviceUpload.single('image'), adminServiceController.addService);
 router.put('/updateService/:id', authenticate, serviceUpload.single('image'), adminServiceController.updateServiceById);
+router.post('/addServiceZonePrice', authenticate, adminServiceController.addServiceZonePrices);
+router.get('/services/:id/zone-prices', authenticate, adminServiceController.getServiceZonePricesById);
+router.post('/services/:id/zone-prices', authenticate, adminServiceController.addServiceZonePrices);
+router.put('/services/:id/zone-prices', authenticate, adminServiceController.updateServiceZonePricesById);
 router.get('/service-types', authenticate, adminServiceTypeController.getServiceTypesList);
 router.post('/addServiceType', authenticate, adminServiceTypeController.addServiceType);
 router.put('/updateServiceType/:id', authenticate, adminServiceTypeController.updateServiceTypeById);

@@ -1,6 +1,7 @@
 import sql from "../config/db.js";
 import { getImageUrl } from "../utils/getImageUrl.js";
 import { getPickupAvailabilityCalendar } from "../services/common/timeSlotAvailability.service.js";
+import { getServicesForCatalog } from "../services/common/serviceZonePrice.service.js";
 
 export const getCities = async (req, res, next) => {
     try {
@@ -17,11 +18,14 @@ export const getCities = async (req, res, next) => {
 
 export const getServices = async (req, res, next) => {
     try {
-        const { rows } = await sql.query(`SELECT * FROM services order by id desc`);
+        const data = await getServicesForCatalog({
+            pincode: req.query.pincode,
+            pincode_group_id: req.query.pincode_group_id ?? req.query.zone_id,
+        });
         res.status(200).json({
             success: true,
             message: "Services retrieved successfully",
-            data: rows,
+            data,
         });
     } catch (error) {
         next(error);
