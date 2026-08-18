@@ -18,8 +18,9 @@ export const getCities = async (req, res, next) => {
 
 export const getServices = async (req, res, next) => {
     try {
+        const pincode = req.query.pincode;
         const data = await getServicesForCatalog({
-            pincode: req.query.pincode,
+            pincode,
             pincode_group_id: req.query.pincode_group_id ?? req.query.zone_id,
         });
         res.status(200).json({

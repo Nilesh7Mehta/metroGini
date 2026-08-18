@@ -10,6 +10,7 @@ import { sendUserEmailSafe, sendOrderCreatedEmail } from "../common/email.servic
 import { sendSmsToUserSafe } from "../common/sms.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
 import { resolveBasePricePerKg } from "../common/serviceZonePrice.service.js";
+import { assertPincodeServiceable } from "../common/pincode.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { orderReceivedTemplate } from "../../utils/userNotificationTemplates.js";
 
@@ -27,12 +28,15 @@ export const createDraftOrderService = async ({
     }
 
     const addressResult = await client.query(
-      `SELECT id FROM user_address_details WHERE user_id = $1 AND is_selected = true LIMIT 1`,
+      `SELECT id, pincode FROM user_address_details WHERE user_id = $1 AND is_selected = true LIMIT 1`,
       [user_id],
     );
-    const addressId = addressResult.rows[0]?.id;
-    if (!addressId)
+    const address = addressResult.rows[0];
+    if (!address?.id)
       throw { status: 400, message: "Please select a delivery address" };
+
+    await assertPincodeServiceable(address.pincode);
+    const addressId = address.id;
 
     const { min: min_weight, max: max_weight } =
       getEstimatedWeightRangeFromClothesCount(clothes_count);
@@ -317,6 +321,12 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     };
   }
 
+  const addressPin = await sql.query(
+    `SELECT pincode FROM user_address_details WHERE id = $1`,
+    [order.address_id],
+  );
+  await assertPincodeServiceable(addressPin.rows[0]?.pincode);
+
   const base_price_per_kg = await resolveBasePricePerKg(sql, {
     serviceId: order.service_id,
     addressId: order.address_id,
@@ -451,6 +461,12 @@ export const completeOrderService = async ({
         message: "Please select a delivery address before completing order",
       };
     }
+
+    const addressPin = await client.query(
+      `SELECT pincode FROM user_address_details WHERE id = $1`,
+      [order.address_id],
+    );
+    await assertPincodeServiceable(addressPin.rows[0]?.pincode);
 
     const pickupDateTime = new Date(
       `${pickup_date}T${slotCheck.rows[0].start_time}`,

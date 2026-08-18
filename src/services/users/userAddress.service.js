@@ -1,4 +1,5 @@
 import sql from "../../config/db.js";
+import { assertPincodeServiceable } from "../common/pincode.service.js";
 
 // get Address
 export const getAddress = async ({ userId }) => {
@@ -62,6 +63,18 @@ export const addAddress = async ({ userId, body }) => {
     };
   }
 
+  try {
+    await assertPincodeServiceable(pincode);
+  } catch (error) {
+    if (error.status) {
+      return {
+        statusCode: error.status,
+        body: { success: false, message: error.message },
+      };
+    }
+    throw error;
+  }
+
   const insertQuery = `
     INSERT INTO user_address_details
       (user_id, address_type, complete_address, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode)
@@ -79,7 +92,7 @@ export const addAddress = async ({ userId, body }) => {
     contact_number,
     latitude,
     longitude,
-    pincode
+    String(pincode).trim(),
   ];
 
   const result = await sql.query(insertQuery, values);
@@ -136,6 +149,18 @@ export const updateAddress = async ({ userId, addressId, body }) => {
     };
   }
 
+  try {
+    await assertPincodeServiceable(pincode);
+  } catch (error) {
+    if (error.status) {
+      return {
+        statusCode: error.status,
+        body: { success: false, message: error.message },
+      };
+    }
+    throw error;
+  }
+
   const updateQuery = `
     UPDATE user_address_details
     SET address_type = $1,
@@ -160,7 +185,7 @@ export const updateAddress = async ({ userId, addressId, body }) => {
     contact_number,
     latitude,
     longitude,
-    pincode,
+    String(pincode).trim(),
     addressId,
     userId,
   ];
@@ -213,6 +238,29 @@ export const deleteAddress = async ({ userId, addressId }) => {
 
 // Set Default Address
 export const setDefaultAddress = async ({ userId, addressId }) => {
+  const existing = await sql.query(
+    `SELECT pincode FROM user_address_details WHERE id = $1 AND user_id = $2`,
+    [addressId, userId],
+  );
+  if (existing.rows.length === 0) {
+    return {
+      statusCode: 404,
+      body: { success: false, message: "Address not found or not accessible" },
+    };
+  }
+
+  try {
+    await assertPincodeServiceable(existing.rows[0].pincode);
+  } catch (error) {
+    if (error.status) {
+      return {
+        statusCode: error.status,
+        body: { success: false, message: error.message },
+      };
+    }
+    throw error;
+  }
+
   // First, unset previous default address
   await sql.query(
     `UPDATE user_address_details

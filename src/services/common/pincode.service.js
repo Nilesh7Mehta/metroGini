@@ -2,12 +2,64 @@ import sql from "../../config/db.js";
 
 const PINCODE_REGEX = /^\d{6}$/;
 
+export const PINCODE_NOT_SERVICEABLE_MESSAGE =
+  "Sorry, we are not serviceable in this pincode";
+
 const validatePincode = (value) => {
   const pincode = String(value || "").trim();
   if (!PINCODE_REGEX.test(pincode)) {
     throw { status: 400, message: "pincode must be a valid 6-digit pincode" };
   }
   return pincode;
+};
+
+/**
+ * Ensures the pincode exists in our coverage table, is marked serviceable,
+ * and belongs to an ACTIVE pincode group (zone).
+ */
+export const assertPincodeServiceable = async (pincode) => {
+  const validatedPincode = validatePincode(pincode);
+
+  const { rows } = await sql.query(
+    `SELECT p.pincode,
+            p.pincode_group_id,
+            p.serviceable,
+            pg.group_code,
+            pg.name AS group_name,
+            pg.status AS group_status
+     FROM pincodes p
+     LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
+     WHERE p.pincode = $1`,
+    [validatedPincode],
+  );
+
+  const row = rows[0];
+  const isServiceable =
+    row &&
+    row.serviceable === true &&
+    row.pincode_group_id &&
+    String(row.group_status || "").toUpperCase() === "ACTIVE";
+
+  if (!isServiceable) {
+    throw {
+      status: 400,
+      code: "pincode_not_serviceable",
+      message: PINCODE_NOT_SERVICEABLE_MESSAGE,
+    };
+  }
+
+  return {
+    pincode: row.pincode,
+    pincode_group_id: Number(row.pincode_group_id),
+    group_code: row.group_code,
+    group_name: row.group_name,
+    serviceable: true,
+  };
+};
+
+export const checkPincodeServiceable = async (pincode) => {
+  const data = await assertPincodeServiceable(pincode);
+  return data;
 };
 
 const validateGroupId = async (pincodeGroupId) => {
