@@ -333,7 +333,7 @@ export const sendTestPush = async (userId, { title, body } = {}) => {
     };
   }
 
-  const testTitle = title?.trim() || "Metro Gini — Test Push";
+  const testTitle = title?.trim() || "MetroGini — Test Push";
   const testBody =
     body?.trim() ||
     `Test notification sent at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`;

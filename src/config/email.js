@@ -37,7 +37,7 @@ export const getEmailTransporter = () => {
 };
 
 export const getEmailFrom = () => {
-  const name = process.env.SMTP_FROM_NAME || "Metro Gini";
+  const name = process.env.SMTP_FROM_NAME || "MetroGini";
   const email = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
   return `"${name}" <${email}>`;
 };

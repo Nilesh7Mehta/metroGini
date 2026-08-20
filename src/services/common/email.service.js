@@ -6,6 +6,9 @@ import { getEmailFrom, getEmailTransporter, isEmailEnabled } from "../../config/
 import { ensureUserOrderInvoiceFile } from "../../utils/userOrderInvoice.util.js";
 
 const LOGO_PATH = path.join(process.cwd(), "uploads", "logo.png");
+const FACEBOOK_ICON_PATH = path.join(process.cwd(), "src", "assets", "email", "facebook.png");
+const INSTAGRAM_ICON_PATH = path.join(process.cwd(), "src", "assets", "email", "instagram.png");
+const EMAIL_FOOTER_BG = "#1c8c9c";
 
 /** Match PDF invoice money format: Rs.1,234.56 */
 const formatInr = (value) => {
@@ -41,17 +44,98 @@ const otpBoxHtml = (otp) =>
 const amountHighlightHtml = (value) =>
   `<span style="font-size:24px;font-weight:bold;color:#000000;">${formatInr(value)}</span>`;
 
+const getSocialUrls = () => ({
+  facebook: process.env.SOCIAL_FACEBOOK_URL || "https://www.facebook.com/share/17ecoU7Ko6/",
+  instagram: process.env.SOCIAL_INSTAGRAM_URL || "https://www.instagram.com/metrogini",
+});
+
 const getLogoAttachments = () => {
-  if (!fs.existsSync(LOGO_PATH)) return [];
-  return [
-    {
+  const attachments = [];
+  if (fs.existsSync(LOGO_PATH)) {
+    attachments.push({
       filename: "logo.png",
       path: LOGO_PATH,
       cid: "metrogini-logo",
       contentType: "image/png",
-    },
-  ];
+    });
+  }
+  if (fs.existsSync(FACEBOOK_ICON_PATH)) {
+    attachments.push({
+      filename: "facebook.png",
+      path: FACEBOOK_ICON_PATH,
+      cid: "metrogini-facebook",
+      contentType: "image/png",
+    });
+  }
+  if (fs.existsSync(INSTAGRAM_ICON_PATH)) {
+    attachments.push({
+      filename: "instagram.png",
+      path: INSTAGRAM_ICON_PATH,
+      cid: "metrogini-instagram",
+      contentType: "image/png",
+    });
+  }
+  return attachments;
 };
+
+const socialIconHtml = (href, src, alt, padLeft = "0") =>
+  `<td style="padding-left:${padLeft};">
+     <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+       <img src="${src}" width="28" height="28" alt="${escapeHtml(alt)}" style="display:block;border:0;outline:none;text-decoration:none;width:28px;height:28px;" />
+     </a>
+   </td>`;
+
+const buildSocialIconsHtml = () => {
+  const { facebook, instagram } = getSocialUrls();
+  const fbSrc = fs.existsSync(FACEBOOK_ICON_PATH)
+    ? "cid:metrogini-facebook"
+    : "https://img.icons8.com/color/48/facebook-new.png";
+  const igSrc = fs.existsSync(INSTAGRAM_ICON_PATH)
+    ? "cid:metrogini-instagram"
+    : "https://img.icons8.com/color/48/instagram-new.png";
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right">
+            <tr>
+              ${socialIconHtml(facebook, fbSrc, "Facebook")}
+              ${socialIconHtml(instagram, igSrc, "Instagram", "10px")}
+            </tr>
+          </table>`;
+};
+
+const buildFooterBrandHtml = () => {
+  const logoCell = fs.existsSync(LOGO_PATH)
+    ? `<td valign="middle" width="48" style="width:48px;padding:0 4px 0 0;font-size:0;line-height:0;">
+         <img src="cid:metrogini-logo" width="48" height="48" alt="MetroGini" style="display:block;border:0;outline:none;margin:0;padding:0;width:48px;height:48px;border-radius:10px;" />
+       </td>`
+    : "";
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+            <tr>
+              ${logoCell}
+              <td valign="middle" style="padding:0;">
+                <div style="font-size:20px;font-weight:bold;color:#FFFFFF;line-height:1.2;font-family:Arial,Helvetica,sans-serif;">MetroGini</div>
+                <div style="font-size:13px;font-weight:normal;color:#FFFFFF;line-height:1.3;margin-top:3px;font-family:Arial,Helvetica,sans-serif;">Wash By Kilo</div>
+              </td>
+            </tr>
+          </table>`;
+};
+
+const buildEmailFooterHtml = ({ footerMetaHtml = "" }) =>
+  `<tr>
+     <td style="background:${EMAIL_FOOTER_BG};padding:26px 40px;">
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+         <tr>
+           <td valign="middle" style="padding-right:16px;">
+             ${buildFooterBrandHtml()}
+             ${footerMetaHtml}
+           </td>
+           <td valign="middle" align="right" style="text-align:right;white-space:nowrap;">
+             ${buildSocialIconsHtml()}
+           </td>
+         </tr>
+       </table>
+     </td>
+   </tr>`;
 
 /**
  * Shared MetroGini receipt header/footer (no GST / totals — for OTP and order updates).
@@ -68,8 +152,8 @@ const buildReceiptShellEmailHtml = ({
   const safeHeading = escapeHtml(heading);
   const safeSubtitle = subtitle ? escapeHtml(subtitle) : "";
   const logoCell = includeLogo
-    ? `<td width="90" valign="top" style="text-align:right;">
-         <img src="cid:metrogini-logo" width="78" height="78" alt="MetroGini" style="display:block;border:0;outline:none;" />
+    ? `<td width="110" valign="top" style="text-align:right;">
+         <img src="cid:metrogini-logo" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
        </td>`
     : "";
 
@@ -77,7 +161,7 @@ const buildReceiptShellEmailHtml = ({
     .filter(Boolean)
     .map(
       (line, i) =>
-        `<div style="font-size:${i === 0 ? "11" : "10"}px;color:#8A8A8A;margin-top:${i === 0 ? "6" : "4"}px;">${escapeHtml(line)}</div>`,
+        `<div style="font-size:${i === 0 ? "11" : "10"}px;color:#99F6E4;margin-top:${i === 0 ? "6" : "4"}px;">${escapeHtml(line)}</div>`,
     )
     .join("");
 
@@ -97,11 +181,10 @@ const buildReceiptShellEmailHtml = ({
             <td style="background:#F3F3F3;padding:30px 40px 22px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="font-size:18px;font-weight:bold;color:#000000;">MetroGini</td>
                   <td style="font-size:11px;color:#6A6A6A;text-align:right;">${escapeHtml(issued)}</td>
                 </tr>
               </table>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;">
                 <tr>
                   <td valign="top" style="padding-right:16px;">
                     <div style="font-size:24px;font-weight:bold;color:#000000;line-height:1.25;margin:0 0 10px;">${safeHeading}</div>
@@ -124,21 +207,7 @@ const buildReceiptShellEmailHtml = ({
               </p>
             </td>
           </tr>
-          <tr>
-            <td style="background:#000000;padding:26px 40px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td valign="top">
-                    <div style="font-size:22px;font-weight:bold;color:#FFFFFF;line-height:1.2;">MetroGini</div>
-                    <div style="font-size:12px;color:#A0A0A0;margin-top:10px;">${escapeHtml(footerTagline)}</div>
-                  </td>
-                  <td valign="top" style="text-align:right;">
-                    ${footerMetaHtml}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          ${buildEmailFooterHtml({ footerTagline, footerMetaHtml })}
         </table>
       </td>
     </tr>
@@ -211,8 +280,8 @@ const buildInvoiceReceiptEmailHtml = ({
       : "";
 
   const logoCell = includeLogo
-    ? `<td width="90" valign="top" style="text-align:right;">
-         <img src="cid:metrogini-logo" width="78" height="78" alt="MetroGini" style="display:block;border:0;outline:none;" />
+    ? `<td width="110" valign="top" style="text-align:right;">
+         <img src="cid:metrogini-logo" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
        </td>`
     : "";
 
@@ -233,11 +302,10 @@ const buildInvoiceReceiptEmailHtml = ({
             <td style="background:#F3F3F3;padding:30px 40px 22px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="font-size:18px;font-weight:bold;color:#000000;">MetroGini</td>
                   <td style="font-size:11px;color:#6A6A6A;text-align:right;">${escapeHtml(issued)}</td>
                 </tr>
               </table>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;">
                 <tr>
                   <td valign="top" style="padding-right:16px;">
                     <div style="font-size:24px;font-weight:bold;color:#000000;line-height:1.25;margin:0 0 10px;">${greeting}</div>
@@ -318,24 +386,11 @@ const buildInvoiceReceiptEmailHtml = ({
             </td>
           </tr>
 
-          <!-- Black footer (matches PDF) -->
-          <tr>
-            <td style="background:#000000;padding:26px 40px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td valign="top">
-                    <div style="font-size:22px;font-weight:bold;color:#FFFFFF;line-height:1.2;">MetroGini</div>
-                    <div style="font-size:12px;color:#A0A0A0;margin-top:10px;">Laundry · Order Receipt</div>
-                  </td>
-                  <td valign="top" style="text-align:right;">
-                    <div style="font-size:12px;color:#BDBDBD;">Order receipt</div>
-                    <div style="font-size:11px;color:#8A8A8A;margin-top:6px;">${safeInvoiceId}</div>
-                    <div style="font-size:10px;color:#8A8A8A;margin-top:4px;">${safeOrderRef}</div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          ${buildEmailFooterHtml({
+            footerTagline: "Laundry · Order Receipt",
+            footerMetaHtml: `<div style="font-size:11px;color:#99F6E4;margin-top:6px;">${safeInvoiceId}</div>
+             <div style="font-size:10px;color:#99F6E4;margin-top:4px;">${safeOrderRef}</div>`,
+          })}
         </table>
       </td>
     </tr>
@@ -483,7 +538,7 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
     to: email,
     subject: "Your Metrogini OTP",
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "otp_login",
     referenceType: "auth",
   });
@@ -519,9 +574,9 @@ export const sendPickupOtpEmail = async ({
 
   await sendEmail({
     to: email,
-    subject: `Pickup OTP for order ${orderRef} — Metro Gini`,
+    subject: `Pickup OTP for order ${orderRef} — MetroGini`,
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "otp_pickup",
     referenceType: "order",
     referenceId: orderId,
@@ -557,9 +612,9 @@ export const sendDeliveryOtpEmail = async ({
 
   await sendEmail({
     to: email,
-    subject: `Delivery OTP for order ${orderRef} — Metro Gini`,
+    subject: `Delivery OTP for order ${orderRef} — MetroGini`,
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "otp_delivery",
     referenceType: "order",
     referenceId: orderId,
@@ -594,9 +649,9 @@ export const sendOrderCreatedEmail = async ({
 
   await sendEmail({
     to: email,
-    subject: `Order ${orderRef} created — Metro Gini`,
+    subject: `Order ${orderRef} created — MetroGini`,
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "order_created",
     referenceType: "order",
     referenceId: orderId,
@@ -631,9 +686,9 @@ export const sendAdvancePaymentEmail = async ({
 
   await sendEmail({
     to: email,
-    subject: `Advance payment of ₹${amount} received — Metro Gini`,
+    subject: `Advance payment of ₹${amount} received — MetroGini`,
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "advance_payment",
     referenceType: "order",
     referenceId: orderId,
@@ -714,14 +769,7 @@ export const sendFullPaymentEmail = async ({
     : new Date();
   const includeLogo = fs.existsSync(LOGO_PATH);
 
-  if (includeLogo) {
-    attachments.push({
-      filename: "logo.png",
-      path: LOGO_PATH,
-      cid: "metrogini-logo",
-      contentType: "image/png",
-    });
-  }
+  attachments.push(...getLogoAttachments());
 
   const html = buildInvoiceReceiptEmailHtml({
     name: name || order?.user_name || "Customer",
@@ -746,8 +794,8 @@ export const sendFullPaymentEmail = async ({
   await sendEmail({
     to: email,
     subject: isPaid
-      ? `Invoice ${displayInvoiceId} for order ${orderRef} — Metro Gini`
-      : `Billing summary for order ${orderRef} (payment pending) — Metro Gini`,
+      ? `Invoice ${displayInvoiceId} for order ${orderRef} — MetroGini`
+      : `Billing summary for order ${orderRef} (payment pending) — MetroGini`,
     html,
     attachments: attachments.length ? attachments : undefined,
     emailType: "full_payment_invoice",
@@ -793,9 +841,9 @@ export const sendTestEmail = async ({ to, name }) => {
 
   await sendEmail({
     to,
-    subject: "Metro Gini — SMTP test email",
+    subject: "MetroGini — SMTP test email",
     html,
-    attachments: includeLogo ? getLogoAttachments() : undefined,
+    attachments: getLogoAttachments(),
     emailType: "smtp_test",
   });
 
