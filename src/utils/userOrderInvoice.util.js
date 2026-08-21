@@ -21,6 +21,8 @@ const COLORS = {
   headerBg: '#F3F3F3',
   white: '#FFFFFF',
   green: '#0F9D58',
+  footerBg: '#1c8c9c',
+  footerMuted: '#99F6E4',
 };
 
 const FONT_CANDIDATES = [
@@ -312,21 +314,21 @@ const buildOrderReceiptPdf = (data) =>
       if (range?.count > 0) doc.switchToPage(range.start);
     }
 
-    doc.rect(0, footerY, PAGE_W, FOOTER_H).fill('#000000');
+    doc.rect(0, footerY, PAGE_W, FOOTER_H).fill(COLORS.footerBg);
     doc
       .fillColor(COLORS.white)
       .font(fonts.bold)
       .fontSize(22)
       .text('MetroGini', MARGIN_X, footerY + 26, { lineBreak: false });
     doc
-      .fillColor('#A0A0A0')
+      .fillColor(COLORS.footerMuted)
       .font(fonts.regular)
       .fontSize(12)
       .text('Laundry · Order Receipt', MARGIN_X, footerY + 56, {
         lineBreak: false,
       });
     doc
-      .fillColor('#BDBDBD')
+      .fillColor(COLORS.white)
       .font(fonts.regular)
       .fontSize(12)
       .text('Order receipt', MARGIN_X, footerY + 24, {
@@ -335,7 +337,7 @@ const buildOrderReceiptPdf = (data) =>
         lineBreak: false,
       });
     doc
-      .fillColor('#8A8A8A')
+      .fillColor(COLORS.footerMuted)
       .font(fonts.regular)
       .fontSize(11)
       .text(invoiceId, MARGIN_X, footerY + 46, {
@@ -344,7 +346,7 @@ const buildOrderReceiptPdf = (data) =>
         lineBreak: false,
       });
     doc
-      .fillColor('#8A8A8A')
+      .fillColor(COLORS.footerMuted)
       .font(fonts.regular)
       .fontSize(10)
       .text(orderRef, MARGIN_X, footerY + 66, {
