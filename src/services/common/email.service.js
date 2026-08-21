@@ -1,13 +1,15 @@
 
-import fs from "fs";
-import path from "path";
 import sql from "../../config/db.js";
 import { getEmailFrom, getEmailTransporter, isEmailEnabled } from "../../config/email.js";
 import { ensureUserOrderInvoiceFile } from "../../utils/userOrderInvoice.util.js";
 
-const LOGO_PATH = path.join(process.cwd(), "uploads", "logo.png");
-const FACEBOOK_ICON_PATH = path.join(process.cwd(), "src", "assets", "email", "facebook.png");
-const INSTAGRAM_ICON_PATH = path.join(process.cwd(), "src", "assets", "email", "instagram.png");
+/** Public HTTPS assets — Gmail unpacks CID images 2–3s after HTML, so logos must be hosted. */
+const EMAIL_ASSET_CDN =
+  "https://raw.githubusercontent.com/Nilesh7Mehta/metroGini/main/src/assets/email";
+const getEmailLogoUrl = () =>
+  process.env.EMAIL_LOGO_URL?.trim() || `${EMAIL_ASSET_CDN}/logo.png`;
+const EMAIL_FACEBOOK_ICON_URL = `${EMAIL_ASSET_CDN}/facebook.png`;
+const EMAIL_INSTAGRAM_ICON_URL = `${EMAIL_ASSET_CDN}/instagram.png`;
 const EMAIL_FOOTER_BG = "#1c8c9c";
 
 /** Match PDF invoice money format: Rs.1,234.56 */
@@ -41,42 +43,10 @@ const escapeHtml = (value) =>
 const otpBoxHtml = (otp) =>
   `<div style="font-size:32px;font-weight:bold;letter-spacing:8px;text-align:center;background:#F3F3F3;padding:16px;border-radius:8px;margin:20px 0;color:#000000;">${escapeHtml(otp)}</div>`;
 
-const amountHighlightHtml = (value) =>
-  `<span style="font-size:24px;font-weight:bold;color:#000000;">${formatInr(value)}</span>`;
-
 const getSocialUrls = () => ({
   facebook: process.env.SOCIAL_FACEBOOK_URL || "https://www.facebook.com/share/17ecoU7Ko6/",
   instagram: process.env.SOCIAL_INSTAGRAM_URL || "https://www.instagram.com/metrogini",
 });
-
-const getLogoAttachments = () => {
-  const attachments = [];
-  if (fs.existsSync(LOGO_PATH)) {
-    attachments.push({
-      filename: "logo.png",
-      path: LOGO_PATH,
-      cid: "metrogini-logo",
-      contentType: "image/png",
-    });
-  }
-  if (fs.existsSync(FACEBOOK_ICON_PATH)) {
-    attachments.push({
-      filename: "facebook.png",
-      path: FACEBOOK_ICON_PATH,
-      cid: "metrogini-facebook",
-      contentType: "image/png",
-    });
-  }
-  if (fs.existsSync(INSTAGRAM_ICON_PATH)) {
-    attachments.push({
-      filename: "instagram.png",
-      path: INSTAGRAM_ICON_PATH,
-      cid: "metrogini-instagram",
-      contentType: "image/png",
-    });
-  }
-  return attachments;
-};
 
 const socialIconHtml = (href, src, alt, padLeft = "0") =>
   `<td style="padding-left:${padLeft};">
@@ -87,12 +57,8 @@ const socialIconHtml = (href, src, alt, padLeft = "0") =>
 
 const buildSocialIconsHtml = () => {
   const { facebook, instagram } = getSocialUrls();
-  const fbSrc = fs.existsSync(FACEBOOK_ICON_PATH)
-    ? "cid:metrogini-facebook"
-    : "https://img.icons8.com/color/48/facebook-new.png";
-  const igSrc = fs.existsSync(INSTAGRAM_ICON_PATH)
-    ? "cid:metrogini-instagram"
-    : "https://img.icons8.com/color/48/instagram-new.png";
+  const fbSrc = EMAIL_FACEBOOK_ICON_URL;
+  const igSrc = EMAIL_INSTAGRAM_ICON_URL;
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right">
             <tr>
@@ -103,11 +69,9 @@ const buildSocialIconsHtml = () => {
 };
 
 const buildFooterBrandHtml = () => {
-  const logoCell = fs.existsSync(LOGO_PATH)
-    ? `<td valign="middle" width="48" style="width:48px;padding:0 4px 0 0;font-size:0;line-height:0;">
-         <img src="cid:metrogini-logo" width="48" height="48" alt="MetroGini" style="display:block;border:0;outline:none;margin:0;padding:0;width:48px;height:48px;border-radius:10px;" />
-       </td>`
-    : "";
+  const logoCell = `<td valign="middle" width="48" style="width:48px;padding:0 4px 0 0;font-size:0;line-height:0;">
+         <img src="${escapeHtml(getEmailLogoUrl())}" width="48" height="48" alt="MetroGini" style="display:block;border:0;outline:none;margin:0;padding:0;width:48px;height:48px;border-radius:10px;" />
+       </td>`;
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
             <tr>
@@ -145,17 +109,14 @@ const buildReceiptShellEmailHtml = ({
   subtitle = "",
   bodyHtml,
   issued = formatIssuedDate(),
-  includeLogo = false,
   footerTagline = "Laundry",
   footerMeta = [],
 }) => {
   const safeHeading = escapeHtml(heading);
   const safeSubtitle = subtitle ? escapeHtml(subtitle) : "";
-  const logoCell = includeLogo
-    ? `<td width="110" valign="top" style="text-align:right;">
-         <img src="cid:metrogini-logo" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
-       </td>`
-    : "";
+  const logoCell = `<td width="110" valign="top" style="text-align:right;">
+         <img src="${escapeHtml(getEmailLogoUrl())}" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
+       </td>`;
 
   const footerMetaHtml = (footerMeta || [])
     .filter(Boolean)
@@ -233,10 +194,7 @@ const buildInvoiceReceiptEmailHtml = ({
   sgstAmount,
   gstAmount,
   payWhen,
-  weightInfo,
-  clothesInfo,
   hasPdf,
-  includeLogo,
 }) => {
   const safeName = escapeHtml(name || "Customer");
   const safeOrderRef = escapeHtml(orderRef);
@@ -255,8 +213,6 @@ const buildInvoiceReceiptEmailHtml = ({
   const payIcon = isPaid ? "P" : "!";
   const payIconBg = isPaid ? "#0F9D58" : "#6A6A6A";
   const amountRowLabel = isPaid ? "Final amount paid" : "Amount due";
-  const weight = weightInfo || "-";
-  const clothes = clothesInfo || "-";
 
   const gstRows =
     subtotalBeforeGst != null && gstAmount != null
@@ -279,11 +235,9 @@ const buildInvoiceReceiptEmailHtml = ({
         </tr>`
       : "";
 
-  const logoCell = includeLogo
-    ? `<td width="110" valign="top" style="text-align:right;">
-         <img src="cid:metrogini-logo" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
-       </td>`
-    : "";
+  const logoCell = `<td width="110" valign="top" style="text-align:right;">
+         <img src="${escapeHtml(getEmailLogoUrl())}" width="96" height="96" alt="MetroGini" style="display:block;border:0;outline:none;width:96px;height:96px;" />
+       </td>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -372,19 +326,16 @@ const buildInvoiceReceiptEmailHtml = ({
             </td>
           </tr>
 
-          <!-- Legal + PDF note -->
-          <tr>
+          <!-- PDF note -->
+          ${
+            hasPdf
+              ? `<tr>
             <td style="padding:16px 40px 28px;">
-              <p style="margin:0;font-size:9px;line-height:1.5;color:#8A8A8A;">
-                Not a GST invoice. Order ${safeOrderRef} · Invoice ${safeInvoiceId} · Weight ${escapeHtml(weight)} · ${escapeHtml(clothes)} clothes. MetroGini does not replace formal GST invoices where applicable.
-              </p>
-              ${
-                hasPdf
-                  ? `<p style="margin:14px 0 0;font-size:12px;color:#6A6A6A;">Your ${isPaid ? "invoice" : "billing summary"} PDF is attached to this email.</p>`
-                  : ""
-              }
+              <p style="margin:0;font-size:12px;color:#6A6A6A;">Your ${isPaid ? "invoice" : "billing summary"} PDF is attached to this email.</p>
             </td>
-          </tr>
+          </tr>`
+              : ""
+          }
 
           ${buildEmailFooterHtml({
             footerTagline: "Laundry · Order Receipt",
@@ -520,7 +471,6 @@ export const getUserEmailInfo = async (userId) => {
 const greet = (name) => (name ? `Hi ${name},` : "Hi,");
 
 export const sendOtpEmail = async ({ email, name, otp }) => {
-  const includeLogo = fs.existsSync(LOGO_PATH);
   const html = buildReceiptShellEmailHtml({
     heading: "Your Login OTP",
     subtitle: "Secure verification for your MetroGini account",
@@ -530,7 +480,6 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
       ${otpBoxHtml(otp)}
       <p style="margin:0;">If you did not request this OTP, you can safely ignore this email.</p>
     `,
-    includeLogo,
     footerTagline: "Laundry · Account OTP",
   });
 
@@ -538,7 +487,6 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
     to: email,
     subject: "Your Metrogini OTP",
     html,
-    attachments: getLogoAttachments(),
     emailType: "otp_login",
     referenceType: "auth",
   });
@@ -556,7 +504,6 @@ export const sendPickupOtpEmail = async ({
   const orderRef =
     orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
   const safeOrderRef = escapeHtml(orderRef);
-  const includeLogo = fs.existsSync(LOGO_PATH);
   const html = buildReceiptShellEmailHtml({
     heading: "Pickup OTP",
     subtitle: `Order ${safeOrderRef}`,
@@ -567,7 +514,6 @@ export const sendPickupOtpEmail = async ({
       ${otpBoxHtml(otp)}
       <p style="margin:0;">Please keep your clothes ready for pickup.</p>
     `,
-    includeLogo,
     footerTagline: "Laundry · Pickup OTP",
     footerMeta: [orderRef],
   });
@@ -576,7 +522,6 @@ export const sendPickupOtpEmail = async ({
     to: email,
     subject: `Pickup OTP for order ${orderRef} — MetroGini`,
     html,
-    attachments: getLogoAttachments(),
     emailType: "otp_pickup",
     referenceType: "order",
     referenceId: orderId,
@@ -594,7 +539,6 @@ export const sendDeliveryOtpEmail = async ({
   const orderRef =
     orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
   const safeOrderRef = escapeHtml(orderRef);
-  const includeLogo = fs.existsSync(LOGO_PATH);
   const html = buildReceiptShellEmailHtml({
     heading: "Delivery OTP",
     subtitle: `Order ${safeOrderRef}`,
@@ -605,7 +549,6 @@ export const sendDeliveryOtpEmail = async ({
       ${otpBoxHtml(otp)}
       <p style="margin:0;">Do not share this OTP until you have received your order.</p>
     `,
-    includeLogo,
     footerTagline: "Laundry · Delivery OTP",
     footerMeta: [orderRef],
   });
@@ -614,45 +557,7 @@ export const sendDeliveryOtpEmail = async ({
     to: email,
     subject: `Delivery OTP for order ${orderRef} — MetroGini`,
     html,
-    attachments: getLogoAttachments(),
     emailType: "otp_delivery",
-    referenceType: "order",
-    referenceId: orderId,
-  });
-};
-
-export const sendOrderCreatedEmail = async ({
-  email,
-  name,
-  orderId,
-  orderCode,
-  estimatedTotal,
-}) => {
-  // Always show numeric order id in user-facing emails.
-  const orderRef =
-    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
-  const safeOrderRef = escapeHtml(orderRef);
-  const includeLogo = fs.existsSync(LOGO_PATH);
-  const html = buildReceiptShellEmailHtml({
-    heading: "Order Created",
-    subtitle: `Order ${safeOrderRef}`,
-    bodyHtml: `
-      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
-      <p style="margin:0 0 12px;">Your laundry order <strong>${safeOrderRef}</strong> has been created successfully.</p>
-      ${estimatedTotal != null ? `<p style="margin:0 0 12px;">Estimated total: ${amountHighlightHtml(estimatedTotal)}</p>` : ""}
-      <p style="margin:0;">Please complete the advance payment to confirm your booking and schedule pickup.</p>
-    `,
-    includeLogo,
-    footerTagline: "Laundry · Order Created",
-    footerMeta: [orderRef],
-  });
-
-  await sendEmail({
-    to: email,
-    subject: `Order ${orderRef} created — MetroGini`,
-    html,
-    attachments: getLogoAttachments(),
-    emailType: "order_created",
     referenceType: "order",
     referenceId: orderId,
   });
@@ -718,7 +623,6 @@ export const sendAdvancePaymentEmail = async ({
 
   const pickupLabel = escapeHtml(formatEmailDate(resolvedPickupDate));
   const deliveryLabel = escapeHtml(formatEmailDate(resolvedDeliveryDate));
-  const includeLogo = fs.existsSync(LOGO_PATH);
   const html = buildReceiptShellEmailHtml({
     heading: "Booking Confirmed",
     subtitle: `Order ${safeOrderRef}`,
@@ -730,7 +634,6 @@ export const sendAdvancePaymentEmail = async ({
       <p style="margin:0 0 12px;"><strong>Delivery Date:</strong> ${deliveryLabel}</p>
       <p style="margin:0;">Thank you for choosing our laundry service. We look forward to serving you!</p>
     `,
-    includeLogo,
     footerTagline: "Laundry · Booking Confirmed",
     footerMeta: [orderRef],
   });
@@ -739,7 +642,6 @@ export const sendAdvancePaymentEmail = async ({
     to: email,
     subject: `Your laundry booking is confirmed — MetroGini`,
     html,
-    attachments: getLogoAttachments(),
     emailType: "advance_payment",
     referenceType: "order",
     referenceId: orderId,
@@ -802,26 +704,9 @@ export const sendFullPaymentEmail = async ({
   const sgstAmount = order?.sgst != null ? Number(order.sgst) : null;
   const displayInvoiceId = invoiceId || (orderId ? `INV-ORD-${orderId}` : "—");
 
-  const weightInfo =
-    order?.actual_weight != null
-      ? `${Number(order.actual_weight).toFixed(1)} kg`
-      : order?.estimated_weight_min != null
-        ? `${order.estimated_weight_min}–${order.estimated_weight_max} kg (est.)`
-        : null;
-  const clothesInfo =
-    order?.actual_clothes_count != null
-      ? String(order.actual_clothes_count)
-      : order?.clothes_count != null
-        ? `${order.clothes_count} (est.)`
-        : null;
-
   const paidAt = order?.payment_completed_at
     ? new Date(order.payment_completed_at)
     : new Date();
-  const includeLogo = fs.existsSync(LOGO_PATH);
-
-  attachments.push(...getLogoAttachments());
-
   const html = buildInvoiceReceiptEmailHtml({
     name: name || order?.user_name || "Customer",
     orderRef,
@@ -836,10 +721,7 @@ export const sendFullPaymentEmail = async ({
     sgstAmount,
     gstAmount,
     payWhen: formatIssuedDate(paidAt),
-    weightInfo,
-    clothesInfo,
     hasPdf,
-    includeLogo,
   });
 
   await sendEmail({
@@ -876,7 +758,6 @@ export const sendTestEmail = async ({ to, name }) => {
 
   await verifySmtpConnection();
 
-  const includeLogo = fs.existsSync(LOGO_PATH);
   const sentAt = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const html = buildReceiptShellEmailHtml({
     heading: "SMTP Test",
@@ -886,7 +767,6 @@ export const sendTestEmail = async ({ to, name }) => {
       <p style="margin:0 0 12px;">This is a test email from MetroGini. Your SMTP configuration is working correctly.</p>
       <p style="margin:0;">Sent at: ${escapeHtml(sentAt)} IST</p>
     `,
-    includeLogo,
     footerTagline: "Laundry · System Test",
   });
 
@@ -894,7 +774,6 @@ export const sendTestEmail = async ({ to, name }) => {
     to,
     subject: "MetroGini — SMTP test email",
     html,
-    attachments: getLogoAttachments(),
     emailType: "smtp_test",
   });
 

@@ -127,19 +127,6 @@ const buildOrderReceiptPdf = (data) =>
       data.paid_at ? new Date(data.paid_at) : new Date(),
     );
 
-    const actualWeight = data.actual_weight != null
-      ? `${Number(data.actual_weight).toFixed(1)} kg`
-      : data.estimated_weight_min != null
-        ? `${data.estimated_weight_min}–${data.estimated_weight_max} kg (est.)`
-        : '-';
-
-    const clothesCount =
-      data.actual_clothes_count != null
-        ? String(data.actual_clothes_count)
-        : data.clothes_count != null
-          ? `${data.clothes_count} (est.)`
-          : '-';
-
     const doc = new PDFDocument({
       size: 'LETTER',
       margin: 0,
@@ -283,31 +270,14 @@ const buildOrderReceiptPdf = (data) =>
 
     y += 44;
     hairline(doc, y);
-    y += 18;
 
     // ========== footer geometry ==========
     const FOOTER_H = 100;
     const footerY = PAGE_H - FOOTER_H;
-
-    if (y > footerY - 80) y = footerY - 80;
-
-    const legalMaxH = Math.max(20, footerY - y - 16);
-
-    doc
-      .fillColor(COLORS.soft)
-      .font(fonts.regular)
-      .fontSize(9)
-      .text(
-        `Not a GST invoice. Order ${orderRef} · Invoice ${invoiceId} · Weight ${actualWeight} · ${clothesCount} clothes. MetroGini does not replace formal GST invoices where applicable.`,
-        MARGIN_X,
-        y,
-        {
-          width: CONTENT_W,
-          lineGap: 1,
-          height: legalMaxH,
-          ellipsis: true,
-        },
-      );
+    const logoSize = 48;
+    const logoX = MARGIN_X;
+    const logoY = footerY + 26;
+    const brandX = fs.existsSync(LOGO_PATH) ? logoX + logoSize + 8 : MARGIN_X;
 
     if (typeof doc.bufferedPageRange === 'function') {
       const range = doc.bufferedPageRange();
@@ -315,16 +285,24 @@ const buildOrderReceiptPdf = (data) =>
     }
 
     doc.rect(0, footerY, PAGE_W, FOOTER_H).fill(COLORS.footerBg);
+
+    if (fs.existsSync(LOGO_PATH)) {
+      doc.save();
+      doc.roundedRect(logoX, logoY, logoSize, logoSize, 10).clip();
+      doc.image(LOGO_PATH, logoX, logoY, { width: logoSize, height: logoSize });
+      doc.restore();
+    }
+
     doc
       .fillColor(COLORS.white)
       .font(fonts.bold)
-      .fontSize(22)
-      .text('MetroGini', MARGIN_X, footerY + 26, { lineBreak: false });
+      .fontSize(20)
+      .text('MetroGini', brandX, footerY + 28, { lineBreak: false });
     doc
-      .fillColor(COLORS.footerMuted)
+      .fillColor(COLORS.white)
       .font(fonts.regular)
-      .fontSize(12)
-      .text('Laundry · Order Receipt', MARGIN_X, footerY + 56, {
+      .fontSize(13)
+      .text('Wash By Kilo', brandX, footerY + 52, {
         lineBreak: false,
       });
     doc
@@ -341,15 +319,6 @@ const buildOrderReceiptPdf = (data) =>
       .font(fonts.regular)
       .fontSize(11)
       .text(invoiceId, MARGIN_X, footerY + 46, {
-        width: CONTENT_W,
-        align: 'right',
-        lineBreak: false,
-      });
-    doc
-      .fillColor(COLORS.footerMuted)
-      .font(fonts.regular)
-      .fontSize(10)
-      .text(orderRef, MARGIN_X, footerY + 66, {
         width: CONTENT_W,
         align: 'right',
         lineBreak: false,
