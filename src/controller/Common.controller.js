@@ -121,12 +121,18 @@ export const getBanners = async (req, res, next) => {
   try {
 
     const { rows } = await sql.query(
-      `SELECT * FROM banners WHERE status = true ORDER BY id DESC`
+      `SELECT
+         b.image_url,
+         c.coupon_code
+       FROM banners b
+       LEFT JOIN coupons c ON c.id = b.coupon_id
+       ORDER BY b.id ASC
+       LIMIT 2`
     );
 
-    const banners = rows.map(banner => ({
-      ...banner,
-      image_url: getImageUrl(req, banner.image_url)
+    const banners = rows.map((banner) => ({
+      image: getImageUrl(req, banner.image_url),
+      couponCode: banner.coupon_code || null,
     }));
 
     res.status(200).json({

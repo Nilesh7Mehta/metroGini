@@ -658,35 +658,86 @@ export const sendOrderCreatedEmail = async ({
   });
 };
 
+const formatEmailDate = (value) => {
+  if (value == null || value === "") return "—";
+
+  const raw = String(value).trim();
+  const ymd = raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const [year, month, day] = ymd.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+};
+
+const getOrderScheduleDates = async (orderId) => {
+  if (orderId == null) return { pickupDate: null, deliveryDate: null };
+
+  const { rows } = await sql.query(
+    `SELECT pickup_date, delivery_date FROM orders WHERE id = $1`,
+    [orderId],
+  );
+  return {
+    pickupDate: rows[0]?.pickup_date ?? null,
+    deliveryDate: rows[0]?.delivery_date ?? null,
+  };
+};
+
 export const sendAdvancePaymentEmail = async ({
   email,
   name,
   orderId,
   orderCode,
-  amount,
+  pickupDate,
+  deliveryDate,
 }) => {
-  // Always show numeric order id in user-facing emails.
   const orderRef =
     orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
   const safeOrderRef = escapeHtml(orderRef);
+
+  let resolvedPickupDate = pickupDate;
+  let resolvedDeliveryDate = deliveryDate;
+  if (resolvedPickupDate == null || resolvedDeliveryDate == null) {
+    const schedule = await getOrderScheduleDates(orderId);
+    resolvedPickupDate = resolvedPickupDate ?? schedule.pickupDate;
+    resolvedDeliveryDate = resolvedDeliveryDate ?? schedule.deliveryDate;
+  }
+
+  const pickupLabel = escapeHtml(formatEmailDate(resolvedPickupDate));
+  const deliveryLabel = escapeHtml(formatEmailDate(resolvedDeliveryDate));
   const includeLogo = fs.existsSync(LOGO_PATH);
   const html = buildReceiptShellEmailHtml({
-    heading: "Advance Payment Received",
+    heading: "Booking Confirmed",
     subtitle: `Order ${safeOrderRef}`,
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
-      <p style="margin:0 0 12px;">We have received your advance payment for order <strong>${safeOrderRef}</strong>.</p>
-      <p style="margin:0 0 12px;">Amount paid: ${amountHighlightHtml(amount)}</p>
-      <p style="margin:0;">Your order is now confirmed. A rider will be assigned for pickup on your scheduled date.</p>
+      <p style="margin:0 0 12px;">Your laundry booking slot has been confirmed successfully.</p>
+      <p style="margin:0 0 12px;">Please have your laundry ready on the pickup date mentioned below.</p>
+      <p style="margin:0 0 4px;"><strong>Pickup Date:</strong> ${pickupLabel}</p>
+      <p style="margin:0 0 12px;"><strong>Delivery Date:</strong> ${deliveryLabel}</p>
+      <p style="margin:0;">Thank you for choosing our laundry service. We look forward to serving you!</p>
     `,
     includeLogo,
-    footerTagline: "Laundry · Payment Update",
+    footerTagline: "Laundry · Booking Confirmed",
     footerMeta: [orderRef],
   });
 
   await sendEmail({
     to: email,
-    subject: `Advance payment of ₹${amount} received — MetroGini`,
+    subject: `Your laundry booking is confirmed — MetroGini`,
     html,
     attachments: getLogoAttachments(),
     emailType: "advance_payment",
