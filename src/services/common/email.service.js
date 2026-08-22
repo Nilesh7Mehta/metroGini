@@ -426,8 +426,15 @@ const sendEmail = async ({
   }
 
   try {
+    const from = getEmailFrom();
+    const fromEmail =
+      process.env.SMTP_FROM_EMAIL?.trim() || process.env.SMTP_USER?.trim();
     const info = await transport.sendMail({
-      from: getEmailFrom(),
+      from,
+      envelope: {
+        from: fromEmail,
+        to: finalRecipient,
+      },
       to: finalRecipient,
       subject,
       html,
