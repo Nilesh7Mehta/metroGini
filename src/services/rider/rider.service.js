@@ -3,6 +3,10 @@ import jwt from "jsonwebtoken";
 import { deleteFile } from "../../utils/file.service.js";
 import { getImageUrl } from "../../utils/getImageUrl.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
+import { sendSmsSafe } from "../common/sms.service.js";
+import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
+// import { generateOTP } from "../../utils/otp.js";
+
 
 export const loginOrVerifyService = async (mobile_number) => {
   const client = await sql.connect();
@@ -24,7 +28,9 @@ export const loginOrVerifyService = async (mobile_number) => {
             )
           ).rows[0];
 
-    const otp = 1234;
+    // Fixed OTP for now (same as user/vendor) — replace with generateOTP() in production
+     const otp = 1234;
+    // const otp = generateOTP();
 
     await client.query(
       `UPDATE riders SET otp = $2, otp_expires_at = NOW() + INTERVAL '2 minutes', otp_attempts = 0 WHERE id = $1`,
@@ -32,6 +38,14 @@ export const loginOrVerifyService = async (mobile_number) => {
     );
 
     await client.query("COMMIT");
+
+    sendSmsSafe(
+      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+      mobile_number,
+      { otp },
+      { reference_type: "auth", reference_id: rider.id },
+    );
+
     return { rider_id: rider.id, mobile_number, otp };
   } catch (error) {
     await client.query("ROLLBACK");
