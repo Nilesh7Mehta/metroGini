@@ -7,11 +7,12 @@ import {
 import { getEstimatedWeightRangeFromClothesCount } from "../../utils/clothesWeight.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendSmsToUserSafe } from "../common/sms.service.js";
+import { sendUserEmailSafe, sendOrderCancelledEmail } from "../common/email.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
 import { resolveBasePricePerKg } from "../common/serviceZonePrice.service.js";
 import { assertPincodeServiceable } from "../common/pincode.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
-import { orderReceivedTemplate } from "../../utils/userNotificationTemplates.js";
+import { orderReceivedTemplate, formatOrderDisplayId } from "../../utils/userNotificationTemplates.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -975,7 +976,7 @@ export const reschedulePickupService = async ({
       identity_id: user_id,
       role: 'user',
       title: 'Pickup Rescheduled',
-      message: `Your pickup for order #${order_id} has been rescheduled to ${pickup_date}. We will send a rider at your selected slot.`,
+      message: `Your pickup for order ${formatOrderDisplayId(order_id)} has been rescheduled to ${pickup_date}. We will send a rider at your selected slot.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
@@ -1085,7 +1086,7 @@ export const rescheduleDeliveryService = async ({
       identity_id: user_id,
       role: 'user',
       title: 'Delivery Rescheduled',
-      message: `Your delivery for order #${order_id} has been rescheduled to ${delivery_date}.`,
+      message: `Your delivery for order ${formatOrderDisplayId(order_id)} has been rescheduled to ${delivery_date}.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
@@ -1120,7 +1121,8 @@ export const cancelServiceService = async ({
     await client.query("BEGIN");
 
     const orderCheck = await client.query(
-      `SELECT (o.pickup_date + ts.start_time) AS pickup_datetime
+      `SELECT o.order_code,
+              (o.pickup_date + ts.start_time) AS pickup_datetime
        FROM orders o JOIN time_slots ts ON o.pickup_slot_id=ts.id
        WHERE o.id=$1 AND o.user_id=$2 AND o.status='booked' FOR UPDATE`,
       [order_id, user_id],
@@ -1171,10 +1173,16 @@ export const cancelServiceService = async ({
       identity_id: user_id,
       role: 'user',
       title: 'Order Cancelled',
-      message: `Your order #${order_id} has been cancelled. A ₹500 coupon has been added to your account.`,
+      message: `Your order ${formatOrderDisplayId(order_id)} has been cancelled. A ₹500 coupon has been added to your account.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
+
+    const cancelledOrder = orderCheck.rows[0];
+    sendUserEmailSafe(user_id, sendOrderCancelledEmail, {
+      orderId: order_id,
+      orderCode: cancelledOrder?.order_code,
+    });
 
     return {
       order_id: parseInt(order_id, 10),

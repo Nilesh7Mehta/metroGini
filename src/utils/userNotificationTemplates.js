@@ -28,8 +28,15 @@ const displayName = (name) => {
   return n || 'there';
 };
 
-const orderRef = (orderCode, orderId) =>
-  orderCode || (orderId != null ? String(orderId) : '');
+/** Display order.id as ORD-003 (never order_code). */
+export const formatOrderDisplayId = (orderId) => {
+  if (orderId == null || orderId === '') return '';
+  const n = Number(orderId);
+  if (!Number.isInteger(n) || n <= 0) return '';
+  return `ORD-${String(n).padStart(3, '0')}`;
+};
+
+const orderRef = (_orderCode, orderId) => formatOrderDisplayId(orderId);
 
 const money = (value) => {
   const n = Number(value);
@@ -123,7 +130,7 @@ export const orderConfirmedTemplate = ({
 } = {}) => ({
   title: 'Order Confirmed! ✅',
   message:
-    `Thank you, ${displayName(name)}! Your Order #${orderRef(orderCode, orderId)} is confirmed. ` +
+    `Thank you, ${displayName(name)}! Your Order ${orderRef(orderCode, orderId)} is confirmed. ` +
     `Our rider will arrive for pickup on ${pickupDate || 'your scheduled date'}` +
     (pickupSlot ? ` during the ${pickupSlot} time slot` : '') +
     `. Please keep your clothes ready!`,
@@ -152,7 +159,7 @@ export const weightInvoiceTemplate = ({
       : totalAmount;
 
   const baseMessage =
-    `Your laundry for Order #${orderRef(orderCode, orderId)} has been successfully sorted and weighed.\n` +
+    `Your laundry for Order ${orderRef(orderCode, orderId)} has been successfully sorted and weighed.\n` +
     `Invoice Summary:\n` +
     `• Total Weight: ${formatWeight(weight)} kg\n` +
     `• Total Amount: Rs. ${money(totalAmount)}\n` +

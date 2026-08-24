@@ -5,7 +5,9 @@ import { getServicesForCatalog } from "../services/common/serviceZonePrice.servi
 
 export const getCities = async (req, res, next) => {
     try {
-        const { rows } = await sql.query(`SELECT * FROM cities order by id desc`);
+        const { rows } = await sql.query(
+            `SELECT * FROM cities ORDER BY is_available DESC, id ASC`,
+        );
         res.status(200).json({
             success: true,
             message: "Cities retrieved successfully",

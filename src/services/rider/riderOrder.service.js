@@ -10,6 +10,7 @@ import { generateOTP } from "../../utils/otp.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import {
   deliveryOtpTemplate,
+  formatOrderDisplayId,
   pickupOtpTemplate,
   ratingRequestTemplate,
 } from "../../utils/userNotificationTemplates.js";
@@ -232,7 +233,7 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
       identity_id: pickedRows[0].user_id,
       role: 'user',
       title: 'Clothes Picked Up',
-      message: `Your clothes for order #${order_id} have been picked up and are on the way to the laundry.`,
+      message: `Your clothes for order ${formatOrderDisplayId(order_id)} have been picked up and are on the way to the laundry.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);

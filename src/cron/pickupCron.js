@@ -6,6 +6,7 @@ import {
   sendPickupOtpEmail,
   sendUserEmailSafe,
 } from "../services/common/email.service.js";
+import { formatOrderDisplayId } from "../utils/userNotificationTemplates.js";
 
 
 export const startPickupCron = () => {
@@ -43,7 +44,7 @@ export const startPickupCron = () => {
           identity_id: order.user_id,
           role: 'user',
           title: 'Pickup Scheduled Today',
-          message: `Your laundry pickup for order #${order.id} is scheduled for today. Our rider will arrive at your selected time slot.`,
+          message: `Your laundry pickup for order ${formatOrderDisplayId(order.id)} is scheduled for today. Our rider will arrive at your selected time slot.`,
           reference_type: 'order',
           reference_id: order.id,
         }]);

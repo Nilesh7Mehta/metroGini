@@ -7,6 +7,7 @@ import {
 import { createNotificationsBatch } from "../../../utils/notificationHelper.js";
 import {
   fetchOrderNotifyContext,
+  formatOrderDisplayId,
   orderConfirmedTemplate,
 } from "../../../utils/userNotificationTemplates.js";
 import { PAYMENT_TYPE } from "../../../utils/status.js";
@@ -107,7 +108,7 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
       identity_id: result.user_id,
       role: "user",
       title: "Payment Complete",
-      message: `Payment of ₹${result.paidAmount} received for order #${result.order_id}. Thank you!`,
+      message: `Payment of ₹${result.paidAmount} received for order ${formatOrderDisplayId(result.order_id)}. Thank you!`,
       reference_type: "order",
       reference_id: result.order_id,
     },
