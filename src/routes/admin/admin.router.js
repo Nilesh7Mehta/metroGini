@@ -18,6 +18,8 @@ import * as adminServiceController from '../../controller/admin/adminService.con
 import * as adminServiceTypeController from '../../controller/admin/adminServiceType.controller.js';
 import * as adminShiftController from '../../controller/admin/adminShift.controller.js';
 import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.controller.js';
+import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAboutUs.controller.js';
+import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
@@ -26,6 +28,8 @@ const bannerUpload = createUploader("banners", 500 * 1024);
 const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const cityUpload = createUploader("cities", 500 * 1024);
 const serviceUpload = createUploader("services", 500 * 1024);
+const knowAboutUsUpload = createUploader("know-about-us", 500 * 1024);
+const howWeWorkUpload = createUploader("how-we-work", 500 * 1024);
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
 router.get('/profile', authenticate, isAdmin, adminController.getProfile);
@@ -97,6 +101,20 @@ router.get('/getCoupon/:id' , authenticate,  adminController.getCouponById);
 router.post("/addBanner", authenticate, bannerUpload.single("image"), bannerController.addBanner);
 router.put("/updateBanner/:id",  authenticate,  bannerUpload.single("image"), bannerController.updateBanner);
 router.delete("/deleteBanner/:id",  authenticate, bannerController.deleteBanner);
+
+// Know About Us
+router.get('/know-about-us', authenticate, isAdmin, adminKnowAboutUsController.getKnowAboutUsList);
+router.get('/know-about-us/:id', authenticate, isAdmin, adminKnowAboutUsController.getKnowAboutUsItem);
+router.post('/addKnowAboutUs', authenticate, isAdmin, knowAboutUsUpload.single('image'), adminKnowAboutUsController.addKnowAboutUs);
+router.put('/updateKnowAboutUs/:id', authenticate, isAdmin, knowAboutUsUpload.single('image'), adminKnowAboutUsController.updateKnowAboutUsById);
+router.delete('/deleteKnowAboutUs/:id', authenticate, isAdmin, adminKnowAboutUsController.deleteKnowAboutUsById);
+
+// How We Work
+router.get('/how-we-work', authenticate, isAdmin, adminHowWeWorkController.getHowWeWorkList);
+router.get('/how-we-work/:id', authenticate, isAdmin, adminHowWeWorkController.getHowWeWorkItem);
+router.post('/addHowWeWork', authenticate, isAdmin, howWeWorkUpload.single('image'), adminHowWeWorkController.addHowWeWork);
+router.put('/updateHowWeWork/:id', authenticate, isAdmin, howWeWorkUpload.single('image'), adminHowWeWorkController.updateHowWeWorkById);
+router.delete('/deleteHowWeWork/:id', authenticate, isAdmin, adminHowWeWorkController.deleteHowWeWorkById);
 
 
 // Vendor

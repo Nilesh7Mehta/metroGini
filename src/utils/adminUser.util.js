@@ -18,6 +18,8 @@ export const ADMIN_SIDEBAR_MODULES = [
   'issues',
   'help_support',
   'banners',
+  'know_about_us',
+  'how_we_work',
   'pincodes',
   'coupons',
   'coupon',

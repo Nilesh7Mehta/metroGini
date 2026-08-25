@@ -33,6 +33,8 @@ router.post('/push/test', authenticate, isUser, pushController.sendTestPushHandl
 router.get('/userfaq',  CommonController.userFaq);
 router.get('/shift',  CommonController.shift);
 router.get('/banners',  CommonController.getBanners);
+router.get('/know-about-us', CommonController.getKnowAboutUs);
+router.get('/how-we-work', CommonController.getHowWeWork);
 
 // Pincode groups
 router.get('/pincode-groups', pincodeGroupController.listPincodeGroups);

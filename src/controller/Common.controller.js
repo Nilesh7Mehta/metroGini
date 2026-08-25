@@ -2,6 +2,8 @@ import sql from "../config/db.js";
 import { getImageUrl } from "../utils/getImageUrl.js";
 import { getPickupAvailabilityCalendar } from "../services/common/timeSlotAvailability.service.js";
 import { getServicesForCatalog } from "../services/common/serviceZonePrice.service.js";
+import { listActiveKnowAboutUs } from "../services/admin/adminKnowAboutUs.service.js";
+import { listActiveHowWeWork } from "../services/admin/adminHowWeWork.service.js";
 
 export const getCities = async (req, res, next) => {
     try {
@@ -142,6 +144,46 @@ export const getBanners = async (req, res, next) => {
       data: banners
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getKnowAboutUs = async (req, res, next) => {
+  try {
+    const rows = await listActiveKnowAboutUs();
+    const data = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      image: getImageUrl(req, row.image),
+      sequence: row.sequence,
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: "Know about us items retrieved successfully",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getHowWeWork = async (req, res, next) => {
+  try {
+    const rows = await listActiveHowWeWork();
+    const data = rows.map((row) => ({
+      id: row.id,
+      heading: row.heading,
+      image: getImageUrl(req, row.image),
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: "How we work items retrieved successfully",
+      data,
+    });
   } catch (error) {
     next(error);
   }
