@@ -20,6 +20,7 @@ export const ADMIN_SIDEBAR_MODULES = [
   'banners',
   'know_about_us',
   'how_we_work',
+  'faqs',
   'pincodes',
   'coupons',
   'coupon',

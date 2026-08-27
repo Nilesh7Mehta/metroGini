@@ -20,6 +20,7 @@ import * as adminShiftController from '../../controller/admin/adminShift.control
 import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.controller.js';
 import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAboutUs.controller.js';
 import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
+import * as adminFaqController from '../../controller/admin/adminFaq.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
@@ -115,6 +116,13 @@ router.get('/how-we-work/:id', authenticate, isAdmin, adminHowWeWorkController.g
 router.post('/addHowWeWork', authenticate, isAdmin, howWeWorkUpload.single('image'), adminHowWeWorkController.addHowWeWork);
 router.put('/updateHowWeWork/:id', authenticate, isAdmin, howWeWorkUpload.single('image'), adminHowWeWorkController.updateHowWeWorkById);
 router.delete('/deleteHowWeWork/:id', authenticate, isAdmin, adminHowWeWorkController.deleteHowWeWorkById);
+
+// FAQs
+router.get('/faqs', authenticate, isAdmin, adminFaqController.getFaqList);
+router.get('/faqs/:id', authenticate, isAdmin, adminFaqController.getFaqItem);
+router.post('/addFaq', authenticate, isAdmin, adminFaqController.addFaq);
+router.put('/updateFaq/:id', authenticate, isAdmin, adminFaqController.updateFaqById);
+router.delete('/deleteFaq/:id', authenticate, isAdmin, adminFaqController.deleteFaqById);
 
 
 // Vendor
