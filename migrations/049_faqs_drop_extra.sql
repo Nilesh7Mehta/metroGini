@@ -4,3 +4,4 @@
 -- ============================================================
 
 ALTER TABLE public.faqs DROP COLUMN IF EXISTS extra;
+
