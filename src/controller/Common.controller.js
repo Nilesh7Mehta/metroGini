@@ -126,6 +126,7 @@ export const getBanners = async (req, res, next) => {
 
     const { rows } = await sql.query(
       `SELECT
+         b.id,
          b.image_url,
          c.coupon_code
        FROM banners b
@@ -135,6 +136,7 @@ export const getBanners = async (req, res, next) => {
     );
 
     const banners = rows.map((banner) => ({
+      id: banner.id,
       image: getImageUrl(req, banner.image_url),
       couponCode: banner.coupon_code || null,
     }));

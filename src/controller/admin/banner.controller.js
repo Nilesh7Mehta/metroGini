@@ -66,10 +66,7 @@ export const deleteBanner = async (req, res, next) => {
 export const getBanners = async (req, res, next) => {
   try {
     const rows = await fetchBanners();
-    const data = rows.map((row) => ({
-      image: getImageUrl(req, row.image_url),
-      couponCode: row.coupon_code || null,
-    }));
+    const data = rows.map((row) => toBannerResponse(req, row));
     return res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
