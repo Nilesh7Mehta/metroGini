@@ -6882,7 +6882,7 @@
                 "roster"
               ]
             },
-            "description": "Weekly roster for the logged-in rider. One item per working day. Same day can have Morning and Evening vendors if the rider is allocated to both shifts."
+            "description": "Weekly roster for the logged-in rider. One item per working day. Same day can have Morning and Evening vendors if the rider is allocated to both shifts. Each vendor includes shift, start_time, end_time, name, address, mobile."
           },
           "response": []
         },

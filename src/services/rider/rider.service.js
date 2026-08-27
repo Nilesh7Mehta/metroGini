@@ -251,6 +251,8 @@ export const getRosterService = async (rider_id) => {
        ) AS roster_date,
        rgss.shift_id,
        s.shift_name,
+       TO_CHAR(s.start_time, 'HH24:MI') AS start_time,
+       TO_CHAR(s.end_time, 'HH24:MI') AS end_time,
        v.id AS vendor_id,
        v.laundry_shop_name AS vendor_name,
        v.shop_address,
@@ -289,6 +291,8 @@ export const getRosterService = async (rider_id) => {
 
     entry.vendors.push({
       shift: row.shift_name,
+      start_time: row.start_time,
+      end_time: row.end_time,
       vendor_name: row.vendor_name,
       shop_address: row.shop_address,
       mobile_number: row.mobile_number,
