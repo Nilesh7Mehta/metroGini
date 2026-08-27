@@ -1,0 +1,100 @@
+MetroGini — User FCM notifications
+==================================
+Order id in copy is shown as ORD-003 (from order.id), not MG order_code.
+OTP is currently hardcoded 1234 in login/rider/vendor flows unless changed.
+
+--------------------------------------------------------------------------------
+1. Welcome
+Trigger : User completes profile for the first time (PUT /api/user/profile)
+Title   : Welcome to Metrogini!
+Message : Hi {name}, your account has been successfully created. Say goodbye to laundry days and hello to fresh, clean clothes. Book your very first pickup in the Metrogini App!
+
+--------------------------------------------------------------------------------
+2. Login / account OTP
+Trigger : Login or register OTP, and resend OTP (POST /api/user/login-or-register, POST /api/user/resend-otp)
+Title   : Metrogini OTP
+Message : Your OTP for creating your Metrogini account is {otp}. Valid for 10 minutes. Do not share this code with anyone.
+Note    : Push only — not stored in the in-app notification inbox.
+
+--------------------------------------------------------------------------------
+3. Booking received
+Trigger : User finalizes / completes order setup (POST /api/user/order/:id/finalize or complete-order)
+Title   : We've received your order!
+Message : Track your order status on the Metrogini App or check your WhatsApp for further updates.
+
+--------------------------------------------------------------------------------
+4. Order confirmed (after advance / dummy payment)
+Trigger : Advance payment success — dummy pay or Razorpay verify/webhook for booking payment
+Title   : Order Confirmed! ✅
+Message : Thank you, {name}! Your Order ORD-00X is confirmed. Our rider will arrive for pickup on {pickup_date} during the {slot} time slot. Please keep your clothes ready!
+Note    : Slot text is omitted if no pickup slot is set. Date falls back to "your scheduled date".
+
+--------------------------------------------------------------------------------
+5. Pickup scheduled today
+Trigger : Pickup cron (runs every 2 minutes). On pickup day, order moves to out_for_pickup.
+Title   : Pickup Scheduled Today
+Message : Your laundry pickup for order ORD-00X is scheduled for today. Our rider will arrive at your selected time slot.
+
+--------------------------------------------------------------------------------
+6. Rider arrived for pickup (pickup OTP)
+Trigger : Rider starts pickup, and again if rider resends pickup OTP
+Title   : Rider arrived for pickup
+Message : Our rider has arrived for your laundry pickup! Please share OTP {otp} with the rider to verify your pickup.
+
+--------------------------------------------------------------------------------
+7. Clothes picked up
+Trigger : Rider verifies pickup OTP (clothes collected from customer)
+Title   : Clothes Picked Up
+Message : Your clothes for order ORD-00X have been picked up and are on the way to the laundry.
+
+--------------------------------------------------------------------------------
+8. Weighed
+Trigger : Vendor finalizes the order (weight + clothes confirmed)
+Title   : Your laundry has been weighed
+Message : The exact weight has been calculated. The final amount details are available in the app.
+
+--------------------------------------------------------------------------------
+9. Payment complete (remaining / full payment)
+Trigger : Remaining payment success — Razorpay webhook after weight invoice is paid
+Title   : Payment Complete
+Message : Payment of ₹{amount} received for order ORD-00X. Thank you!
+
+--------------------------------------------------------------------------------
+10. Laundry ready (delivery OTP generated)
+Trigger : Vendor marks order ready for delivery
+Title   : Your laundry is ready
+Message : Your order is packed and ready for delivery. Your delivery OTP is {otp}. Please share it with the rider upon delivery.
+
+--------------------------------------------------------------------------------
+11. Out for delivery / at doorstep (delivery OTP)
+Trigger : Rider starts delivery (out_for_delivery)
+Title   : Laundry at your doorstep!
+Message : Your fresh laundry is at your doorstep! Please share OTP {otp} with the rider to confirm delivery.
+
+--------------------------------------------------------------------------------
+12. Delivered (rating request)
+Trigger : Rider verifies delivery OTP — order marked delivered
+Title   : Thank you for choosing Metrogini! ✨
+Message : We'd love your feedback. Please take a moment to rate us in the Metrogini App.
+
+--------------------------------------------------------------------------------
+13. Pickup rescheduled
+Trigger : User reschedules pickup (PUT /api/user/order/:id/rescheduleOrderPickup)
+Title   : Pickup Rescheduled
+Message : Your pickup for order ORD-00X has been rescheduled to {pickup_date}. We will send a rider at your selected slot.
+
+--------------------------------------------------------------------------------
+14. Delivery rescheduled
+Trigger : User reschedules delivery (PUT /api/user/order/:id/rescheduleOrderDelivery)
+Title   : Delivery Rescheduled
+Message : Your delivery for order ORD-00X has been rescheduled to {delivery_date}.
+
+--------------------------------------------------------------------------------
+15. Order cancelled
+Trigger : User cancels the order (POST /api/user/order/:id/cancelService)
+Title   : Order Cancelled
+Message : Your order ORD-00X has been cancelled. A ₹500 coupon has been added to your account.
+
+--------------------------------------------------------------------------------
+Not sent today (template exists in code only)
+- Weight & Invoice Details : "Your laundry for Order ORD-00X has been successfully sorted and weighed..." (weightInvoiceTemplate — unused; live weigh push is #8)

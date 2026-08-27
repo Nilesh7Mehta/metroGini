@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
 import newUserRouter from './routes/users/user.router.js';
+import userNotificationRoute from './routes/users/userNotification.router.js';
 import newCommonRouter from './routes/common.router.js';
 import userOrderRouter from './routes/users/userOrder.router.js';
 import newAdminRouter from './routes/admin/admin.router.js';
@@ -73,6 +74,7 @@ app.use('/uploads', express.static('uploads'));
 // Frontend often prefixes API base → /api/uploads/...
 app.use('/api/uploads', express.static('uploads'));
 
+app.use('/api/user/notifications', userNotificationRoute);
 app.use('/api/user', newUserRouter);
 app.use('/api/common', newCommonRouter);
 // Payment routes must be registered before /api/user/order — that router applies auth to all /api/user/order/* paths
