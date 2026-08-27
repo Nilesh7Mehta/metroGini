@@ -3,7 +3,7 @@ import sql from "../../config/db.js";
 const PINCODE_REGEX = /^\d{6}$/;
 
 export const PINCODE_NOT_SERVICEABLE_MESSAGE =
-  "Sorry, we are not serviceable in this pincode";
+  "Service is coming soon in this pincode. Please try another address.";
 
 const validatePincode = (value) => {
   const pincode = String(value || "").trim();
