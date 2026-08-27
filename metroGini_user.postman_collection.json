@@ -1,0 +1,1285 @@
+{
+  "info": {
+    "_postman_id": "0ab27996-6701-4140-840f-dcf18b76748a",
+    "name": "metroGini_user",
+    "description": "User login + order journey.\n\nLogin: Login Or Register → Verify OTP (saves `token` and `refreshToken`).\nOrder: Create Order (saves `orderId`) → Complete Order → Review → Payment → Order Details.\nUser must have a selected default address before creating an order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Login",
+      "item": [
+        {
+          "name": "1. Login Or Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/login-or-register",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "login-or-register"
+              ]
+            },
+            "description": "Sends OTP to the mobile. OTP is currently 1234."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/resend-otp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "resend-otp"
+              ]
+            },
+            "description": "Optional. Same body as login-or-register."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set(\"token\", data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set(\"refreshToken\", data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"otp\": \"1234\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/verify-otp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "verify-otp"
+              ]
+            },
+            "description": "Saves access token to {{token}} and refresh token to {{refreshToken}}."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            },
+            "description": "Confirms login. Requires {{token}} from Verify OTP."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const access = json.access_token || (json.data && json.data.access_token);",
+                  "  if (access) pm.collectionVariables.set(\"token\", access);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"refresh_token\": \"{{refreshToken}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/refresh-token",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "refresh-token"
+              ]
+            },
+            "description": "Uses {{refreshToken}} from Verify OTP and updates {{token}}."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"refresh_token\": \"{{refreshToken}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/logout",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "logout"
+              ]
+            },
+            "description": "Invalidates {{refreshToken}}. Run this last, after the order journey."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Before booking",
+      "item": [
+        {
+          "name": "Get Cities",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/cities",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "cities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Services",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/services",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "services"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Service types",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/service-types",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "service-types"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Time Slots",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/time-slots",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "time-slots"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Slot Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/slots/availability?pincode=400601",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "slots",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "400601",
+                  "description": "Serviceable pincode"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-07-20",
+                  "disabled": true,
+                  "description": "Optional date"
+                }
+              ]
+            },
+            "description": "Pickup/delivery slot availability for a pincode."
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "name": "Delivery Dates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/slots/delivery-dates?pincode=400601&pickup_date=2026-07-20",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "slots",
+                "delivery-dates"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "400601"
+                },
+                {
+                  "key": "pickup_date",
+                  "value": "2026-07-20"
+                },
+                {
+                  "key": "service_type_id",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Available delivery dates for a pickup date + pincode."
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "name": "Get User Address",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/address",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "address"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Create order",
+      "item": [
+        {
+          "name": "1. Create Order (Draft)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"service_id\": 1,\r\n    \"clothes_count\": 10\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order"
+              ]
+            },
+            "description": "Creates/updates a draft. Clothes count must be 10–25. Uses the user’s selected default address. Saves {{orderId}} on success."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const id = json.id || (json.data && json.data.id);",
+                  "  if (id) pm.collectionVariables.set(\"orderId\", String(id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Update Service Type",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"service_type_id\": 1\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/service-type",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "service-type"
+              ]
+            },
+            "description": "Step-by-step path. Skip this if you use Complete Order instead."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Update Pickup",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"pickup_date\": \"2026-03-19\",\r\n  \"pickup_slot_id\": 2\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/pickup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "pickup"
+              ]
+            },
+            "description": "Step-by-step path. Skip this if you use Complete Order instead."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update Delivery",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"delivery_date\": \"2026-03-22\",\r\n  \"delivery_slot_id\": 2\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/delivery",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "delivery"
+              ]
+            },
+            "description": "Step-by-step path. Skip this if you use Complete Order instead."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Update Instructions",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickup_special_instruction\": \"Leave at gate\",\n  \"delivery_special_instruction\": \"Call on arrival\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/instructions",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "instructions"
+              ]
+            },
+            "description": "Save pickup/delivery special instructions.\n\nBody (at least one required):\n- pickup_special_instruction\n- delivery_special_instruction"
+          },
+          "response": []
+        },
+        {
+          "name": "6. Complete Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"service_type_id\": 1,\r\n  \"pickup_date\": \"2026-06-05\",\r\n  \"pickup_slot_id\": 2\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/complete-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "complete-order"
+              ]
+            },
+            "description": "One-shot: service type + pickup + auto delivery (+3 days) + finalize. Preferred over steps 2–4 + Finalize."
+          },
+          "response": []
+        },
+        {
+          "name": "6b. Finalize (if not using Complete Order)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/finalize",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "finalize"
+              ]
+            },
+            "description": "Use only if you set service type, pickup, and delivery yourself instead of Complete Order."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Review Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/review",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "review"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8. Apply Coupon",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "applyCoupon"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9. Remove Coupon",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/removeCoupon",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "removeCoupon"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Payment",
+      "item": [
+        {
+          "name": "Create Razorpay Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/create-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "create-order"
+              ]
+            },
+            "description": "Create Razorpay order for payment. Path param: order `id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Razorpay Payment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/verify",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "verify"
+              ]
+            },
+            "description": "Verify Razorpay payment for an order.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"\",\n  \"razorpay_payment_id\": \"\",\n  \"razorpay_signature\": \"\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dummy Pay",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/pay",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "pay"
+              ]
+            },
+            "description": "Local/test payment without Razorpay."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Order details",
+      "item": [
+        {
+          "name": "Get User Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/getUserOrder",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "getUserOrder"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "all",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "booked",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "picked_up",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "in_process",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "delivered",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "cancelled",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "time",
+                  "value": "anytime",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "time",
+                  "value": "last_7_days",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "time",
+                  "value": "last_30_days",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "time",
+                  "value": "last_6_months",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "time",
+                  "value": "last_year",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "Single order by {{orderId}}."
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. After booking",
+      "item": [
+        {
+          "name": "Reschedule Pickup",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"pickup_date\": \"2026-03-20\",\r\n  \"pickup_slot_id\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/rescheduleOrderPickup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "rescheduleOrderPickup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Delivery",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"delivery_date\": \"2026-03-03\",\r\n  \"delivery_slot_id\": 2\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/rescheduleOrderDelivery",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "rescheduleOrderDelivery"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"reason_type\": \"changed_mind\",\r\n  \"reason_description\": null\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/cancelService",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "cancelService"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Report Order",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"order_id\": 5,\r\n  \"issue_type\": \"rider_issue\",\r\n  \"issue_reason\": \"Could not reach rider\",\r\n  \"description\": \"Rider was not responding to calls\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/report-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "report-order"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4001/"
+    },
+    {
+      "key": "mobile",
+      "value": "9004186460"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": "1"
+    }
+  ]
+}

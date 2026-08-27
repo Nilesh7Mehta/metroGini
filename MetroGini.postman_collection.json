@@ -1057,6 +1057,34 @@
           "response": []
         },
         {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mobile\": \"9004186460\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/resend-otp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "resend-otp"
+              ]
+            },
+            "description": "Resend login/register OTP to the same mobile. Same body as login-or-register."
+          },
+          "response": []
+        },
+        {
           "name": "Get Profile",
           "request": {
             "auth": {
@@ -1398,6 +1426,146 @@
             "description": "Remove FCM token on logout."
           },
           "response": []
+        },
+        {
+          "name": "Notifications",
+          "item": [
+            {
+              "name": "Get Notifications",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/notifications?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "notifications"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "category",
+                      "value": "orders",
+                      "disabled": true,
+                      "description": "Optional: all | orders | auth"
+                    }
+                  ]
+                },
+                "description": "In-app inbox. Mark as read deletes the row from notifications."
+              },
+              "response": []
+            },
+            {
+              "name": "Unread Count",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/notifications/unread-count",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "notifications",
+                    "unread-count"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Mark One Read",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/notifications/1/read",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "notifications",
+                    "1",
+                    "read"
+                  ]
+                },
+                "description": "Deletes that notification from the table."
+              },
+              "response": []
+            },
+            {
+              "name": "Mark All Read",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/notifications/read-all",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "notifications",
+                    "read-all"
+                  ]
+                },
+                "description": "Deletes all in-app notifications for this user."
+              },
+              "response": []
+            }
+          ]
         }
       ]
     },
@@ -1769,6 +1937,572 @@
           ]
         },
         {
+          "name": "Know About Us",
+          "item": [
+            {
+              "name": "Get Know About Us (Admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/know-about-us",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "know-about-us"
+                  ]
+                },
+                "description": "List all Know About Us items (including inactive). Ordered by sequence ASC."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Know About Us by Id",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/know-about-us/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "know-about-us",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add Know About Us",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Wash By Kilo",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "No complicated pricing. Just give us your daily laundry and we'll handle it based on weight.",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "status",
+                      "value": "true",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sequence",
+                      "value": "1",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addKnowAboutUs",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addKnowAboutUs"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Know About Us",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Wash By Kilo",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "No complicated pricing. Just give us your daily laundry and we'll handle it based on weight.",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "status",
+                      "value": "true",
+                      "type": "text"
+                    },
+                    {
+                      "key": "sequence",
+                      "value": "1",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateKnowAboutUs/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateKnowAboutUs",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Know About Us",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/deleteKnowAboutUs/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "deleteKnowAboutUs",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "How We Work",
+          "item": [
+            {
+              "name": "Get How We Work (Admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/how-we-work",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "how-we-work"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get How We Work by Id",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/how-we-work/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "how-we-work",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add How We Work",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "heading",
+                      "value": "Book Your Pickup in Seconds",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "status",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addHowWeWork",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addHowWeWork"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update How We Work",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "heading",
+                      "value": "Book Your Pickup in Seconds",
+                      "type": "text"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": []
+                    },
+                    {
+                      "key": "status",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateHowWeWork/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateHowWeWork",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete How We Work",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/deleteHowWeWork/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "deleteHowWeWork",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "FAQs",
+          "item": [
+            {
+              "name": "Get FAQs (Admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/faqs",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "faqs"
+                  ]
+                },
+                "description": "Admin list of all FAQs including inactive. Ordered by sequence ASC."
+              },
+              "response": []
+            },
+            {
+              "name": "Get FAQ by Id",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/faqs/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "faqs",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add FAQ",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"How do I place an order for Wash by Kilo?\",\n  \"answer\": \"Download the MetroGini app, register with your PIN code, address and phone number, select garments, pickup slot, and pay the advance.\",\n  \"status\": true,\n  \"sequence\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addFaq",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addFaq"
+                  ]
+                },
+                "description": "Required: question, answer. Optional: status (default true), sequence."
+              },
+              "response": []
+            },
+            {
+              "name": "Update FAQ",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"How do I place an order for Wash by Kilo?\",\n  \"answer\": \"Updated answer.\",\n  \"status\": true,\n  \"sequence\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateFaq/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateFaq",
+                    "1"
+                  ]
+                },
+                "description": "All fields optional except route :id."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete FAQ",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/deleteFaq/1",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "deleteFaq",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Cities",
           "item": [
             {
@@ -2087,6 +2821,155 @@
                   ]
                 },
                 "description": "Update a service by id. All fields optional except route `:id`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Service Zone Prices",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/services/1/zone-prices",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "1",
+                    "zone-prices"
+                  ]
+                },
+                "description": "List per-zone ₹/kg prices for a service. Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
+              "name": "Add Service Zone Prices",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"prices\": [\r\n    {\r\n      \"pincode_group_id\": 1,\r\n      \"base_price_per_kg\": 70\r\n    },\r\n    {\r\n      \"pincode_group_id\": 2,\r\n      \"base_price_per_kg\": 80\r\n    }\r\n  ]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/services/1/zone-prices",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "1",
+                    "zone-prices"
+                  ]
+                },
+                "description": "Upsert zone prices for a service. Body: `prices` array of `{ pincode_group_id, base_price_per_kg }`. Also accepts `zone_prices`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Service Zone Prices",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"prices\": [\r\n    {\r\n      \"pincode_group_id\": 1,\r\n      \"base_price_per_kg\": 75\r\n    }\r\n  ]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/services/1/zone-prices",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "services",
+                    "1",
+                    "zone-prices"
+                  ]
+                },
+                "description": "Same upsert as POST. Requires admin Bearer token."
+              },
+              "response": []
+            },
+            {
+              "name": "Add Service Zone Price (legacy)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"service_id\": 1,\r\n  \"prices\": [\r\n    {\r\n      \"pincode_group_id\": 1,\r\n      \"base_price_per_kg\": 70\r\n    }\r\n  ]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/addServiceZonePrice",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "addServiceZonePrice"
+                  ]
+                },
+                "description": "Legacy alias of POST /api/admin/services/:id/zone-prices. Pass `service_id` in the body instead of the URL."
               },
               "response": []
             }
@@ -4148,6 +5031,50 @@
               "response": []
             }
           ]
+        },
+        {
+          "name": "Partner Leads",
+          "item": [
+            {
+              "name": "Get Partner Leads",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/partner-leads?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "partner-leads"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                },
+                "description": "List website partner-with-us leads, newest first. Requires admin Bearer token. Query: page, limit."
+              },
+              "response": []
+            }
+          ]
         }
       ]
     },
@@ -4262,6 +5189,44 @@
           "response": []
         },
         {
+          "name": "Get Know About Us",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/know-about-us",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "know-about-us"
+              ]
+            },
+            "description": "Public list. Only status=true, ordered by sequence ASC."
+          },
+          "response": []
+        },
+        {
+          "name": "Get How We Work",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/how-we-work",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "how-we-work"
+              ]
+            },
+            "description": "Public list. Only status=true."
+          },
+          "response": []
+        },
+        {
           "name": "Services",
           "request": {
             "auth": {
@@ -4346,6 +5311,25 @@
           "response": []
         },
         {
+          "name": "Get FAQs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/faq",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "faq"
+              ]
+            },
+            "description": "Public FAQ list. Only status=true, ordered by sequence ASC."
+          },
+          "response": []
+        },
+        {
           "name": "user FAQ",
           "request": {
             "method": "GET",
@@ -4360,7 +5344,7 @@
                 "userfaq"
               ]
             },
-            "description": "Public user FAQ list (GET /api/common/userfaq)."
+            "description": "Same as GET /api/common/faq (legacy path)."
           },
           "response": []
         },
@@ -4507,7 +5491,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"group_code\": \"MUM_WEST\",\r\n  \"name\": \"Mumbai West\",\r\n  \"status\": \"ACTIVE\"\r\n}",
+                  "raw": "{\r\n  \"group_code\": \"MUM_WEST\",\r\n  \"name\": \"Mumbai West\",\r\n  \"city_id\": 1,\r\n  \"status\": \"ACTIVE\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5001,6 +5985,34 @@
               ]
             },
             "description": "Send test push to logged-in user. Requires FCM token registered via PUT /api/user/fcm-token and push notifications enabled."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Partner Lead",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Rahul Sharma\",\r\n  \"email\": \"rahul@example.com\",\r\n  \"phone\": \"9876543210\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/common/partnerLead",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "partnerLead"
+              ]
+            },
+            "description": "Public partner-with-us form. Required: name, email, phone (10 digits). No auth."
           },
           "response": []
         }
