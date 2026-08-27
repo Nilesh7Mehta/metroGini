@@ -6858,6 +6858,35 @@
           "response": []
         },
         {
+          "name": "Get Roster",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/rider/roster",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "rider",
+                "roster"
+              ]
+            },
+            "description": "Weekly roster for the logged-in rider. One item per working day. Same day can have Morning and Evening vendors if the rider is allocated to both shifts."
+          },
+          "response": []
+        },
+        {
           "name": "need help",
           "request": {
             "auth": {

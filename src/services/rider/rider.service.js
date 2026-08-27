@@ -5,6 +5,7 @@ import { getImageUrl } from "../../utils/getImageUrl.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
+import { DAY_LABELS } from "../common/laundryGroupShiftSchedule.service.js";
 // import { generateOTP } from "../../utils/otp.js";
 
 
@@ -238,5 +239,62 @@ export const getProfileService = async (rider_id, req) => {
   const rider = rows[0];
   rider.image = getImageUrl(req, rider.image);
   return rider;
+};
+
+export const getRosterService = async (rider_id) => {
+  const { rows } = await sql.query(
+    `SELECT
+       rgss.day_of_week,
+       TO_CHAR(
+         CURRENT_DATE + (rgss.day_of_week - EXTRACT(ISODOW FROM CURRENT_DATE)::int),
+         'YYYY-MM-DD'
+       ) AS roster_date,
+       rgss.shift_id,
+       s.shift_name,
+       v.id AS vendor_id,
+       v.laundry_shop_name AS vendor_name,
+       v.shop_address,
+       v.mobile_number
+     FROM rider_group_shift_schedule rgss
+     JOIN shifts s ON s.id = rgss.shift_id
+     JOIN laundry_group_shift_schedule lgss
+       ON lgss.pincode_group_id = rgss.pincode_group_id
+      AND lgss.day_of_week = rgss.day_of_week
+      AND lgss.shift_id = rgss.shift_id
+     JOIN vendors v ON v.id = lgss.laundry_id
+     WHERE rgss.rider_id = $1
+     ORDER BY rgss.day_of_week ASC, s.start_time ASC, v.laundry_shop_name ASC`,
+    [rider_id],
+  );
+
+  const byDay = new Map();
+
+  for (const row of rows) {
+    if (!row.vendor_id) continue;
+
+    const dayOfWeek = Number(row.day_of_week);
+    if (!byDay.has(dayOfWeek)) {
+      byDay.set(dayOfWeek, {
+        date: row.roster_date,
+        day: DAY_LABELS[dayOfWeek] || null,
+        vendors: [],
+        _keys: new Set(),
+      });
+    }
+
+    const entry = byDay.get(dayOfWeek);
+    const key = `${row.shift_id}:${row.vendor_id}`;
+    if (entry._keys.has(key)) continue;
+    entry._keys.add(key);
+
+    entry.vendors.push({
+      shift: row.shift_name,
+      vendor_name: row.vendor_name,
+      shop_address: row.shop_address,
+      mobile_number: row.mobile_number,
+    });
+  }
+
+  return [...byDay.values()].map(({ _keys, ...day }) => day);
 };
 

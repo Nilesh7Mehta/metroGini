@@ -16,6 +16,7 @@ router.post('/goActive' , authenticate, riderController.goActive);
 router.post('/terms-and-conditions' , authenticate , riderController.acceptTerms);
 router.post('/updateProfile' , authenticate , riderUpload.single("image"), riderController.updateProfile);
 router.get('/getProfile' , authenticate , riderController.getProfile);
+router.get('/roster' , authenticate , riderController.getRoster);
 
 router.post('/needRiderHelp' ,authenticate ,  helplineController.needHelpAsRider);
 

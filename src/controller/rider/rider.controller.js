@@ -6,6 +6,7 @@ import {
   acceptTermsService,
   updateProfileService,
   getProfileService,
+  getRosterService,
 } from "../../services/rider/rider.service.js";
 
 export const loginOrVerify = async (req, res, next) => {
@@ -120,6 +121,25 @@ export const getProfile = async (req, res, next) => {
     res
       .status(200)
       .json({ success: true, message: "Profile fetched successfully", data });
+  } catch (error) {
+    if (error.status)
+      return res
+        .status(error.status)
+        .json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+export const getRoster = async (req, res, next) => {
+  try {
+    if (!req.user.rider_id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    const data = await getRosterService(req.user.rider_id);
+    res.status(200).json({
+      success: true,
+      message: "Roster retrieved successfully",
+      data,
+    });
   } catch (error) {
     if (error.status)
       return res
