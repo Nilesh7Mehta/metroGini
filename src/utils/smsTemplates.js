@@ -20,7 +20,7 @@ export const SMS_TEMPLATES = {
   },
   OTP_DELIVERY: {
     template_id: "1077568550002243080",
-    text: "Your freshly washed and ironed clothes are at your doorstep! Please share OTP {#var#} with the rider to confirm delivery. MetroGini (Wash by Kilo)",
+    text: "Your freshly washed & Ironed clothes are at your doorstep! Please share OTP {#var#} with the rider to confirm delivery. MetroGini (Wash By Kilo)",
     variables: ["otp"],
   },
   DELIVERY_SUCCESS: {
@@ -29,8 +29,8 @@ export const SMS_TEMPLATES = {
     variables: [],
   },
   ORDER_RECEIVED: {
-    template_id: "107717518000307384",
-    text: "We've received your order! Track your order status on the MetroGini App or check WhatsApp for further updates.",
+    template_id: "1077175180003007384",
+    text: "We\u2019ve received your order! Track your order status on the MetroGini App or check your WhatsApp for further updates.",
     variables: [],
   },
   OTP_PICKUP: {
