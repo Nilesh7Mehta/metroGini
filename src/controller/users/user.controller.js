@@ -21,6 +21,7 @@ export const verifyOTP = async (req, res, next) => {
     const { statusCode, body } = await userAuthService.verifyOTP({
       mobile: req.body.mobile,
       otp: req.body.otp,
+      terms_and_condition: req.body.terms_and_condition,
     });
 
     return res.status(statusCode).json(body);

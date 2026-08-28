@@ -74,6 +74,7 @@ export const loginOrRegister = async ({ mobile }) => {
         mobile: user.mobile,
         otp, // remove in production
         profile_completed: user.profile_completed,
+        terms_and_condition: Boolean(user.terms_and_condition),
       },
     },
   };
@@ -147,11 +148,24 @@ export const resendOtp = async ({ mobile }) => {
   };
 };
 
-export const verifyOTP = async ({ mobile, otp }) => {
+export const verifyOTP = async ({ mobile, otp, terms_and_condition }) => {
   if (!mobile || !otp) {
     return {
       statusCode: 400,
       body: { success: false, message: "Mobile and OTP are required" },
+    };
+  }
+
+  if (
+    terms_and_condition !== undefined &&
+    typeof terms_and_condition !== "boolean"
+  ) {
+    return {
+      statusCode: 400,
+      body: {
+        success: false,
+        message: "terms_and_condition must be true or false",
+      },
     };
   }
 
@@ -174,6 +188,15 @@ export const verifyOTP = async ({ mobile, otp }) => {
       statusCode: 400,
       body: { success: false, message: "Invalid OTP" },
     };
+  }
+
+  let acceptedTerms = Boolean(user.terms_and_condition);
+  if (terms_and_condition === true) {
+    await sql.query(
+      `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
+      [user.id],
+    );
+    acceptedTerms = true;
   }
 
   // ✅ Access Token (short expiry)
@@ -203,6 +226,8 @@ export const verifyOTP = async ({ mobile, otp }) => {
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: process.env.JWT_EXPIRES_IN || "15m",
+        profile_completed: user.profile_completed,
+        terms_and_condition: acceptedTerms,
       },
     },
   };

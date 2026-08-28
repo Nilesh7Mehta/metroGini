@@ -33,7 +33,7 @@
                 "login-or-register"
               ]
             },
-            "description": "Sends OTP to the mobile. OTP is currently 1234."
+            "description": "Sends OTP to the mobile. OTP is currently 1234. Response includes profile_completed and terms_and_condition."
           },
           "response": []
         },
@@ -88,7 +88,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"otp\": \"1234\"\r\n}",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"otp\": \"1234\",\r\n    \"terms_and_condition\": true\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -105,7 +105,7 @@
                 "verify-otp"
               ]
             },
-            "description": "Saves access token to {{token}} and refresh token to {{refreshToken}}."
+            "description": "Send terms_and_condition: true when user accepts T&C. Saves token to {{token}} and {{refreshToken}}. Returns profile_completed and terms_and_condition."
           },
           "response": []
         },
