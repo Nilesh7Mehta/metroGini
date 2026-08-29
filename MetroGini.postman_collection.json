@@ -1037,7 +1037,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"mobile\": \"9004186460\",\r\n    \"otp\":\"1234\",\r\n    \"terms_and_condition\": true\r\n\r\n}\r\n\r\n",
+              "raw": "{\r\n    \"mobile\": \"9004186460\",\r\n    \"otp\":\"1234\"\r\n\r\n}\r\n\r\n",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1054,7 +1054,7 @@
                 "verify-otp"
               ]
             },
-            "description": "Send terms_and_condition: true when user accepts T&C. Saves it on verify — no separate PUT needed. Returns access_token, refresh_token, profile_completed, and terms_and_condition."
+            "description": "OTP verify saves terms_and_condition as true automatically. Returns access_token, refresh_token, profile_completed, and terms_and_condition."
           },
           "response": []
         },

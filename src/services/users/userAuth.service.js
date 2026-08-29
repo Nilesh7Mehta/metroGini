@@ -26,8 +26,8 @@ export const loginOrRegister = async ({ mobile }) => {
   }
 
   // Fixed OTP for now (same as vendor/rider) — replace with generateOTP() in production
-  const otp = 1234;
-  // const otp = generateOTP();
+  //const otp = 1234;
+   const otp = generateOTP();
 
   // Update OTP and expiry (template: valid 10 minutes)
   await sql.query(
@@ -98,8 +98,8 @@ export const resendOtp = async ({ mobile }) => {
   }
 
   // Fixed OTP for now (same as loginOrRegister) — replace with generateOTP() in production
-  // const otp = generateOTP();
-  const otp = 1234;
+   const otp = generateOTP();
+  //const otp = 1234;
 
   await sql.query(
     `UPDATE users
@@ -148,24 +148,11 @@ export const resendOtp = async ({ mobile }) => {
   };
 };
 
-export const verifyOTP = async ({ mobile, otp, terms_and_condition }) => {
+export const verifyOTP = async ({ mobile, otp }) => {
   if (!mobile || !otp) {
     return {
       statusCode: 400,
       body: { success: false, message: "Mobile and OTP are required" },
-    };
-  }
-
-  if (
-    terms_and_condition !== undefined &&
-    typeof terms_and_condition !== "boolean"
-  ) {
-    return {
-      statusCode: 400,
-      body: {
-        success: false,
-        message: "terms_and_condition must be true or false",
-      },
     };
   }
 
@@ -190,14 +177,10 @@ export const verifyOTP = async ({ mobile, otp, terms_and_condition }) => {
     };
   }
 
-  let acceptedTerms = Boolean(user.terms_and_condition);
-  if (terms_and_condition === true) {
-    await sql.query(
-      `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
-      [user.id],
-    );
-    acceptedTerms = true;
-  }
+  await sql.query(
+    `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
+    [user.id],
+  );
 
   // ✅ Access Token (short expiry)
   const accessToken = jwt.sign(
@@ -227,7 +210,7 @@ export const verifyOTP = async ({ mobile, otp, terms_and_condition }) => {
         refresh_token: refreshToken,
         expires_in: process.env.JWT_EXPIRES_IN || "15m",
         profile_completed: user.profile_completed,
-        terms_and_condition: acceptedTerms,
+        terms_and_condition: true,
       },
     },
   };

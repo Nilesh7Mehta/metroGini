@@ -88,7 +88,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"otp\": \"1234\",\r\n    \"terms_and_condition\": true\r\n}",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"otp\": \"1234\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -105,7 +105,7 @@
                 "verify-otp"
               ]
             },
-            "description": "Send terms_and_condition: true when user accepts T&C. Saves token to {{token}} and {{refreshToken}}. Returns profile_completed and terms_and_condition."
+            "description": "Saves token to {{token}} and {{refreshToken}}. terms_and_condition is set true automatically on verify."
           },
           "response": []
         },
