@@ -1,0 +1,261 @@
+METROGINI BACKEND APIs
+Two Priority Flows: Create Order + Weight & Payment
+Base URL: https://api.metrogini.com
+
+Payment rule (current product): NO advance at booking. Customer pays the FULL bill
+only after the laundry weighs the clothes (Razorpay).
+
+================================================================================
+FLOW 1 — USER CREATE ORDER
+================================================================================
+Journey: login → address → services/pricing → pickup slot → create order → finalize
+          → assign vendor/rider (no payment)
+
+--------------------------------------------------------------------------------
+AUTH
+--------------------------------------------------------------------------------
+[EXISTS] POST /api/user/login-or-register
+Request:  { "mobile": "9004186460" }
+
+[EXISTS] POST /api/user/verify-otp
+Request:  { "mobile": "9004186460", "otp": "1234" }
+Response data: access_token, refresh_token, profile_completed, terms_and_condition (auto true)
+
+--------------------------------------------------------------------------------
+PRICING & CONTENT (public)
+--------------------------------------------------------------------------------
+[EXISTS] GET /api/common/services?pincode=400602
+[EXISTS] GET /api/common/faq
+[EXISTS] GET /api/common/how-we-work
+[EXISTS] GET /api/common/know-about-us
+
+--------------------------------------------------------------------------------
+ADDRESS (user token)
+--------------------------------------------------------------------------------
+[EXISTS] POST /api/user/address
+Request:
+{
+  "address_type": "home",
+  "complete_address": "A-204, Lotus Residency, Andheri West",
+  "floor": "204",
+  "landmark": "Near station",
+  "receiver_name": "Karthik",
+  "contact_number": "9004186460",
+  "latitude": "19.1234",
+  "longitude": "72.5678",
+  "pincode": "400058"
+}
+
+[EXISTS] PUT /api/user/address/default/:id
+[EXISTS] GET /api/user/address
+
+--------------------------------------------------------------------------------
+PICKUP SLOTS (public)
+--------------------------------------------------------------------------------
+[EXISTS] GET /api/common/slots/availability?pincodeGroupId=1&days=7
+Returns: date, day, slots[] with shiftId, shiftName, laundryId, available, remaining
+
+--------------------------------------------------------------------------------
+CREATE & CONFIRM ORDER (user token)
+--------------------------------------------------------------------------------
+[EXISTS] POST /api/user/order/
+Request: { "service_id": 1, "clothes_count": 15 }
+Rule: clothes_count 10–25
+Response: id (internal), order_id (display code e.g. MG24571)
+
+[EXISTS] POST /api/user/order/:id/complete-order
+Request:
+{
+  "service_type_id": 1,
+  "pickup_date": "2026-09-02",
+  "pickup_slot_id": 1,
+  "next_delivery_date": "2026-09-06"
+}
+
+[EXISTS] POST /api/user/order/:id/finalize
+→ status booked, ORDER_RECEIVED SMS sent
+→ payment_status stays pending (no money collected)
+
+[EXISTS] GET /api/user/order/:id/review
+[EXISTS] GET /api/user/order/:id/Orderdetail
+[EXISTS] PUT /api/user/order/:id/instructions
+[EXISTS] POST /api/user/order/:id/cancelService
+
+Alternative step-by-step (instead of complete-order):
+[EXISTS] PUT /api/user/order/:id/service-type
+[EXISTS] PUT /api/user/order/:id/pickup
+[EXISTS] PUT /api/user/order/:id/delivery
+[EXISTS] POST /api/user/order/:id/finalize
+
+--------------------------------------------------------------------------------
+ASSIGN VENDOR + RIDER AT BOOKING (no payment)
+--------------------------------------------------------------------------------
+finalize does NOT assign vendor/rider. App uses this next step (₹0):
+
+[EXISTS] POST /api/user/order/payment/:id/pay
+Request:
+{
+  "group_code": "MUM_WEST",
+  "shift_id": 1,
+  "day_of_week": 2
+}
+(day_of_week: 1=Monday … 7=Sunday — match pickup_date)
+
+→ assigns vendor_id + assigned_rider_id, reserves slot capacity
+→ amount charged: ₹0 (ADVANCE_AMOUNT = 0 in backend)
+→ sets payment_status to partially_paid (internal flag only — nothing was paid)
+
+Response:
+{
+  "message": "Payment successful. Order booked.",
+  "order_id": 24571,
+  "assigned_vendor": 12,
+  "assigned_rider": 5,
+  "advance_paid": 0
+}
+
+--------------------------------------------------------------------------------
+FLOW 1 SEQUENCE (current backend)
+--------------------------------------------------------------------------------
+1. POST /api/user/login-or-register
+2. POST /api/user/verify-otp
+3. GET  /api/common/services?pincode=...
+4. POST /api/user/address
+5. PUT  /api/user/address/default/:id
+6. GET  /api/common/slots/availability?pincodeGroupId=...
+7. POST /api/user/order/
+8. POST /api/user/order/:id/complete-order
+9. POST /api/user/order/:id/finalize
+10. POST /api/user/order/payment/:id/pay   (vendor/rider — no Razorpay, ₹0)
+11. GET /api/user/order/:id/Orderdetail
+
+
+================================================================================
+FLOW 2 — WEIGHT CONFIRMATION + FULL PAYMENT
+================================================================================
+Journey: vendor weighs → bill generated → customer pays FULL amount via Razorpay
+
+--------------------------------------------------------------------------------
+VENDOR — CREATE BILL (vendor token)
+--------------------------------------------------------------------------------
+[EXISTS] POST /api/vendor/order/:order_id/confirm-clothes
+Confirm garment count before weight (vendor prerequisite)
+
+[EXISTS] POST /api/vendor/order/:order_id/confirm-weight
+Body (form-data):
+  actual_weight = 6.8
+  is_stained = 0
+With stain: is_stained = 1, vendor_request_amount, image files
+
+Sets: actual_weight, final_total, remaining_amount (= final_total − amount_paid),
+       GST 18%
+
+[EXISTS] POST /api/vendor/order/:order_id/finalize
+→ status order_finalized, user notified "laundry has been weighed"
+
+--------------------------------------------------------------------------------
+USER — READ BILL (user token)
+--------------------------------------------------------------------------------
+[EXISTS] GET /api/user/order/:id/Orderdetail
+
+Use in message:
+  actual_weight      → weight in kg
+  final_total        → total laundry charges (incl. GST)
+  remaining_amount   → full amount to pay (equals final_total when no advance)
+  amount_paid        → 0 until Razorpay succeeds
+  payment_status     → partially_paid until paid, then paid
+
+--------------------------------------------------------------------------------
+USER — PAY FULL AMOUNT (user token)
+--------------------------------------------------------------------------------
+[EXISTS] POST /api/user/order/payment/:id/create-order
+Request:
+{
+  "amount": 1185.04,
+  "payment_type": "remaining"
+}
+Rule: payment_status must be partially_paid (set at booking via /pay step)
+      amount = remaining_amount from Orderdetail (= full bill when amount_paid is 0)
+
+Response:
+{
+  "key_id": "rzp_...",
+  "order_id": "razorpay_order_id",
+  "amount": 118504,
+  "currency": "INR",
+  "payment_type": "remaining"
+}
+
+[EXISTS] POST /api/user/order/payment/:id/verify
+Request:
+{
+  "razorpay_order_id": "...",
+  "razorpay_payment_id": "...",
+  "razorpay_signature": "..."
+}
+
+[EXISTS] POST /api/user/order/payment/razorpay/webhook
+(Razorpay → MetroGini, server-side)
+
+Note: payment_type is "remaining" in the API even though the customer pays the
+full bill — there is no separate "full" type. Legacy "advance" path exists in
+code but ADVANCE_AMOUNT = 0 and is not used for booking.
+
+--------------------------------------------------------------------------------
+FLOW 2 SEQUENCE (current backend)
+--------------------------------------------------------------------------------
+Vendor side:
+1. POST /api/vendor/order/:order_id/confirm-clothes
+2. POST /api/vendor/order/:order_id/confirm-weight
+3. POST /api/vendor/order/:order_id/finalize
+
+User / payment side:
+4. GET  /api/user/order/:id/Orderdetail          (read bill + remaining_amount)
+5. POST /api/user/order/payment/:id/create-order (payment_type: remaining, full amount)
+6. POST /api/user/order/payment/:id/verify       (after Razorpay checkout)
+
+
+================================================================================
+ALL ENDPOINTS — SUMMARY
+================================================================================
+
+EXISTS — PUBLIC
+  GET  /api/common/services?pincode=
+  GET  /api/common/slots/availability?pincodeGroupId=&days=7
+  GET  /api/common/faq
+  GET  /api/common/how-we-work
+  GET  /api/common/know-about-us
+
+EXISTS — USER AUTH
+  POST /api/user/login-or-register
+  POST /api/user/verify-otp
+
+EXISTS — USER ADDRESS
+  GET  /api/user/address
+  POST /api/user/address
+  PUT  /api/user/address/default/:id
+
+EXISTS — USER ORDER (BOOKING)
+  POST /api/user/order/
+  POST /api/user/order/:id/complete-order
+  POST /api/user/order/:id/finalize
+  GET  /api/user/order/:id/review
+  GET  /api/user/order/:id/Orderdetail
+  PUT  /api/user/order/:id/instructions
+  POST /api/user/order/:id/cancelService
+  PUT  /api/user/order/:id/service-type
+  PUT  /api/user/order/:id/pickup
+  PUT  /api/user/order/:id/delivery
+
+EXISTS — BOOKING ASSIGNMENT (no payment)
+  POST /api/user/order/payment/:id/pay   (₹0 — assigns vendor + rider)
+
+EXISTS — USER PAYMENT (after weigh — full amount)
+  POST /api/user/order/payment/:id/create-order   (payment_type: remaining)
+  POST /api/user/order/payment/:id/verify
+  POST /api/user/order/payment/razorpay/webhook
+
+EXISTS — VENDOR (WEIGHT)
+  POST /api/vendor/order/:order_id/confirm-clothes
+  POST /api/vendor/order/:order_id/confirm-weight
+  POST /api/vendor/order/:order_id/finalize

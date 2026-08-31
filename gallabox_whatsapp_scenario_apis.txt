@@ -1,0 +1,353 @@
+METROGINI × GALLABOX
+WhatsApp Scenario → Backend API Mapping
+Base URL: https://api.metrogini.com
+Auth: Bearer JWT (user) unless marked Public / Vendor / System
+
+Legend
+[EXISTS]   — already live in MetroGini backend
+[MISSING]  — must be built for Gallabox / WhatsApp
+[PARTIAL]  — exists but needs WhatsApp-specific adapter / webhook
+
+IMPORTANT BUSINESS NOTE
+Master WhatsApp doc: NO advance payment at booking; pay full amount after weigh.
+Current app APIs still support ADVANCE payment on booking.
+For WhatsApp booking, confirm with product: either skip advance or keep it.
+If skip advance → booking confirmation APIs may need a WhatsApp-specific path.
+
+Source flows: whatasppFlow.txt (Scenarios 1–15) + MetroGini Master WhatsApp AI Workflow.pdf
+
+================================================================================
+SHARED APIs (used by many scenarios)
+================================================================================
+
+1) Identify customer by WhatsApp mobile
+[MISSING]
+POST /api/whatsapp/customer/lookup
+Request:
+  { "mobile": "9004186460" }
+Response:
+  {
+    "success": true,
+    "data": {
+      "exists": true,
+      "user_id": 12,
+      "full_name": "Karthik",
+      "customer_code": "MG-10482",
+      "profile_completed": true,
+      "has_app": true,
+      "total_orders": 1,
+      "active_order_id": 24571,
+      "default_address": { "id": 3, "complete_address": "...", "pincode": "400058" }
+    }
+  }
+
+2) Auth for WhatsApp session (if Gallabox needs MetroGini JWT)
+[EXISTS]
+POST /api/user/login-or-register   { "mobile": "..." }
+POST /api/user/verify-otp          { "mobile": "...", "otp": "..." }
+  → returns access_token, refresh_token, profile_completed, terms_and_condition
+
+3) Outbound events MetroGini → Gallabox (order status pushes)
+[MISSING]
+POST {GALLABOX_WEBHOOK_URL}   (MetroGini calls Gallabox)
+OR
+POST /api/whatsapp/events/subscribe + MetroGini emits on status change
+
+Suggested event payload:
+  {
+    "event": "order.weight_confirmed",
+    "order_id": 24571,
+    "mobile": "9004186460",
+    "data": { "actual_weight": 6.8, "final_total": 1685.04, "remaining_amount": 1185.04 }
+  }
+
+Events needed: booking_confirmed, pickup_day_reminder, rider_assigned,
+pickup_completed, vendor_received, weight_confirmed, payment_received,
+out_for_delivery, delivered, delayed, cancelled
+
+================================================================================
+SCENARIO 1 — Promotion / New Customer → Booking
+================================================================================
+Flow: Hi → Book → garments → address → pincode → date → confirm
+
+APIs to use:
+[EXISTS] GET  /api/common/faq
+[EXISTS] GET  /api/common/how-we-work
+[EXISTS] GET  /api/common/know-about-us
+[EXISTS] GET  /api/common/services?pincode=XXXXXX
+[EXISTS] GET  /api/common/pincodes?pincode=XXXXXX   (or list + filter)
+[PARTIAL] Pincode serviceability — logic exists in backend; recommend dedicated public check:
+[MISSING] GET /api/common/pincode-check?pincode=400058
+  Response: { "success": true, "data": { "serviceable": true, "pincode_group_id": 1, "message": null } }
+
+[EXISTS] POST /api/user/address
+  Body: address_type, complete_address, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode
+
+[EXISTS] GET  /api/common/slots/availability?pincodeGroupId=1&days=7
+
+[EXISTS] Booking chain (user JWT):
+  POST /api/user/order/                          → create draft
+  POST /api/user/order/:id/complete-order        → service + pickup + delivery + finalize
+  OR step-by-step: PUT service-type, PUT pickup, PUT delivery, POST finalize
+  GET  /api/user/order/:id/review
+  GET  /api/user/order/:id/Orderdetail
+
+[EXISTS] Cancel: POST /api/user/order/:id/cancelService
+
+[MISSING] WhatsApp garment-band pricing helper (10–13 / 14–18 / etc.)
+GET /api/whatsapp/pricing-bands
+Response:
+  {
+    "success": true,
+    "data": [
+      { "band": "10-13", "kg": "3-5", "amount_min": 630, "amount_max": 1050, "gst_extra": true },
+      { "band": "14-18", "kg": "5-7", "amount_min": 1050, "amount_max": 1470, "gst_extra": true }
+    ],
+    "offers": { "first_order_percent": 15, "bulk_per_kg_off": 15 }
+  }
+(Can be static in Gallabox initially; FAQ content also has this text.)
+
+[PARTIAL] Advance payment after booking (app flow):
+  POST /api/user/order/payment/:id/create-order
+  POST /api/user/order/payment/:id/verify
+If WhatsApp = NO advance → [MISSING] POST /api/whatsapp/orders/confirm-without-advance
+
+================================================================================
+SCENARIO 2 — App downloaded, no activity → re-engage
+================================================================================
+[MISSING] Segment / trigger: users with app install + zero orders (24–48 hrs)
+GET /api/whatsapp/crm/inactive-app-users?hours=48
+
+Reuse Scenario 1 booking APIs after user replies Book.
+
+[EXISTS] lookup / profile once user known:
+  GET /api/user/profile   (needs JWT)
+
+================================================================================
+SCENARIO 3 — Browsed / cart / prior chat, no booking
+================================================================================
+[MISSING] Abandoned booking / cart resume
+GET /api/whatsapp/customer/:mobile/abandoned-booking
+Response:
+  {
+    "success": true,
+    "data": {
+      "has_draft": true,
+      "order_id": 99,
+      "clothes_band": "14-18",
+      "estimated_kg": "5-7",
+      "amount_range": "1050-1470"
+    }
+  }
+
+Continue: existing draft update APIs under /api/user/order/:id/*
+
+================================================================================
+SCENARIO 4 — Retention win-back (1 order, inactive 30 days)
+================================================================================
+[MISSING] Win-back list / eligibility
+GET /api/whatsapp/crm/winback?days=30&total_orders=1
+Response item: { mobile, full_name, last_order_date, default_address }
+
+Then Scenario 1 booking APIs + saved address:
+[EXISTS] GET /api/user/address
+
+[MISSING] Offer attach / coupon for WhatsApp
+POST /api/whatsapp/offers/apply  { "mobile", "offer_code": "WINBACK10" }
+(Or use existing) POST /api/user/order/:id/applyCoupon
+
+================================================================================
+SCENARIO 5 — Day of pickup reminder + rider assigned
+================================================================================
+TRIGGER side (MetroGini → Gallabox): [MISSING] outbound events
+  event: pickup_day_reminder
+  event: rider_assigned
+
+READ APIs Gallabox can call:
+[EXISTS] GET /api/user/order/:id/Orderdetail
+  → pickup_date, slot, status, assigned rider fields (if exposed)
+
+[PARTIAL] Rider contact / track link may be incomplete on Orderdetail
+[MISSING] GET /api/whatsapp/orders/:id/rider
+Response:
+  { "rider_name": "Suresh K.", "mobile": "9xxxxxxxxx", "track_url": "https://..." }
+
+================================================================================
+SCENARIO 6 — Pickup successful
+================================================================================
+TRIGGER: [MISSING] event pickup_completed (when rider verifies pickup OTP)
+
+READ:
+[EXISTS] GET /api/user/order/:id/Orderdetail
+  status: picked_up / in_process
+
+================================================================================
+SCENARIO 7 — Weight confirmation + Payment (PRIMARY)
+================================================================================
+VENDOR creates bill (not Gallabox):
+[EXISTS] POST /api/vendor/order/:order_id/confirm-weight
+[EXISTS] POST /api/vendor/order/:order_id/finalize
+
+TRIGGER to WhatsApp:
+[MISSING] event order.weight_confirmed / order.finalized
+  payload: actual_weight, final_total, remaining_amount, amount_paid, gst, rate_per_kg
+
+GALLABOX / USER APIs:
+[EXISTS] GET  /api/user/order/:id/Orderdetail
+  Use: actual_weight, final_total, remaining_amount, amount_paid, payment_status
+
+[EXISTS] POST /api/user/order/payment/:id/create-order
+  Request: { "amount": <remaining_amount>, "payment_type": "remaining" }
+  Response: Razorpay order_id, amount, currency, key → build Pay Now link
+
+[EXISTS] POST /api/user/order/payment/:id/verify
+  Request: { "razorpay_order_id", "razorpay_payment_id", "razorpay_signature" }
+
+[EXISTS] POST /api/user/order/payment/razorpay/webhook   (Razorpay → MetroGini)
+
+Bill dispute → human agent only (no negotiate API). See Scenario 14.
+
+================================================================================
+SCENARIO 8 — New / organic customer says Hi
+================================================================================
+[MISSING] POST /api/whatsapp/customer/lookup   (same as Shared #1)
+If new → generic welcome
+If known name from lead → personalised
+
+Then Scenario 1 menus / APIs.
+
+================================================================================
+SCENARIO 9 — Existing customer + live order status
+================================================================================
+[MISSING] lookup by mobile
+
+[EXISTS] GET /api/user/order/getUserOrder
+[EXISTS] GET /api/user/order/:id/Orderdetail
+
+Map order.status to WhatsApp stage copy:
+  booked / out_for_pickup / pickup_in_progress / picked_up /
+  in_process / order_finalized / ready_for_delivery /
+  out_for_delivery / delivered / cancelled
+
+[MISSING] GET /api/whatsapp/orders/active-by-mobile?mobile=...
+  Convenience: returns latest active order + stage label for bot
+
+================================================================================
+SCENARIO 10 — Delayed pickup / delivery inquiry
+================================================================================
+[EXISTS] GET /api/user/order/:id/Orderdetail
+
+[MISSING] Delay / ETA API
+GET /api/whatsapp/orders/:id/delay-status
+Response:
+  {
+    "is_delayed": true,
+    "type": "pickup",
+    "reason": "traffic",
+    "new_eta": "2026-08-29T13:15:00+05:30",
+    "rider": { "name": "Suresh K.", "mobile": "..." },
+    "track_url": "..."
+  }
+
+If no ETA → escalate Scenario 14.
+
+================================================================================
+SCENARIO 11 — Damaged / missing / wrong garment
+================================================================================
+[EXISTS] POST /api/user/order/report-order
+  Body: order_id, issue_type, issue_reason, description
+  NOTE: currently restricted (e.g. partially_paid) — may need to allow post-delivery
+
+[EXISTS] POST /api/user/needHelp
+  Body: report_issue, message
+
+[MISSING] Complaint with photo + ticket id
+POST /api/whatsapp/complaints
+Request (multipart):
+  order_id, category=missing|damaged|wrong|other, description, images[]
+Response:
+  { "success": true, "data": { "complaint_id": "CMP-3391", "sla_hours": 24 } }
+
+================================================================================
+SCENARIO 12 — Payment failed / double charged
+================================================================================
+[EXISTS] Retry pay: POST /api/user/order/payment/:id/create-order
+
+[MISSING] Payment dispute ticket
+POST /api/whatsapp/payment-disputes
+Request:
+  {
+    "order_id": 24571,
+    "type": "failed_but_deducted" | "double_charged",
+    "transaction_ids": ["pay_xxx", "pay_yyy"],
+    "screenshots": []
+  }
+Response:
+  { "ticket_id": "PAY-8820", "message": "..." }
+
+================================================================================
+SCENARIO 13 — Negative feedback (1–2 stars)
+================================================================================
+[MISSING] Submit rating
+POST /api/whatsapp/orders/:id/rating
+Request: { "stars": 2, "reason": "delay" | "quality" | "damage" | "rider" | "other", "comment": "..." }
+Response: { "success": true, "escalated": true }
+
+FCM rating request already exists after delivery; no public submit API found.
+
+================================================================================
+SCENARIO 14 — Human agent handoff
+================================================================================
+[EXISTS] POST /api/user/needHelp  { "report_issue", "message" }
+
+[MISSING] Gallabox handoff package
+POST /api/whatsapp/agent-handoff
+Request:
+  {
+    "mobile": "...",
+    "order_id": 24571,
+    "reason": "customer_requested_agent",
+    "last_messages": ["...", "..."]
+  }
+Response: { "ticket_id": "...", "eta_minutes": 15 }
+
+================================================================================
+SCENARIO 15 — Fallback / unrecognized
+================================================================================
+No MetroGini API required (Gallabox menu logic).
+After 2 fails → Scenario 14 handoff API.
+
+================================================================================
+PRIORITY BUILD LIST FOR GALLABOX (recommended order)
+================================================================================
+P0  Outbound order events webhook MetroGini → Gallabox
+P0  GET/POST customer lookup by mobile
+P0  Scenario 7: weight_confirmed event + Orderdetail + create-order payment
+P1  Public pincode-check
+P1  Active order by mobile + status stage label
+P1  Confirm booking without advance (if product confirms no advance)
+P2  CRM segments (inactive app, winback)
+P2  Complaints + payment disputes + rating APIs
+P2  Rider track / delay ETA API
+
+================================================================================
+SCENARIO 7 — READY-TO-SHARE SHORT CARD FOR GALLABOX
+================================================================================
+1. Vendor confirms weight (internal):
+   POST /api/vendor/order/{order_id}/confirm-weight
+   POST /api/vendor/order/{order_id}/finalize
+
+2. Notify WhatsApp (TO BUILD):
+   Event: order.weight_confirmed
+   Data: actual_weight, final_total, remaining_amount
+
+3. Show bill (EXISTS):
+   GET /api/user/order/{id}/Orderdetail
+   Auth: user Bearer
+
+4. Pay Now (EXISTS):
+   POST /api/user/order/payment/{id}/create-order
+   Body: { "amount": remaining_amount, "payment_type": "remaining" }
+
+5. After Razorpay:
+   POST /api/user/order/payment/{id}/verify

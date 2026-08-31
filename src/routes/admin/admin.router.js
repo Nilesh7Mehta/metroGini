@@ -22,6 +22,7 @@ import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAbo
 import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
 import * as adminFaqController from '../../controller/admin/adminFaq.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
+import * as appVersionController from '../../controller/common/appVersion.controller.js';
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { isAdmin } from '../../middleware/checkRole.middleware.js';
@@ -129,5 +130,6 @@ router.delete('/deleteFaq/:id', authenticate, isAdmin, adminFaqController.delete
 router.post('/addVendor', authenticate, vendorUpload.single('image'), adminvendorController.addVendor);
 router.put('/updateVendor/:id', authenticate, vendorUpload.single('image'), adminvendorController.updateVendor);
 router.put('/updateConfig/:id', authenticate, configController.updateConfig);
+router.put('/app-versions', authenticate, isAdmin, appVersionController.updateAppVersionInfo);
 
 export default router;

@@ -3171,6 +3171,49 @@
           ]
         },
         {
+          "name": "App Versions",
+          "item": [
+            {
+              "name": "Update App Version",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"app_for\": \"user\",\n  \"type\": \"android\",\n  \"version\": \"1.0.0\",\n  \"app_url\": \"https://play.google.com/store/apps/details?id=com.metrogini.user\",\n  \"status\": \"optional\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/app-versions",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "app-versions"
+                  ]
+                },
+                "description": "Update version, app_url, or status for app_for + type. app_for: user|rider. type: android|ios. status: optional|force."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
           "name": "Vendor",
           "item": [
             {
@@ -5347,6 +5390,32 @@
               ]
             },
             "description": "Same as GET /api/common/faq (legacy path)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get App Versions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/app-versions?app_for=user",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "app-versions"
+              ],
+              "query": [
+                {
+                  "key": "app_for",
+                  "value": "user",
+                  "description": "user | rider (optional)"
+                }
+              ]
+            },
+            "description": "Public app version check for mobile apps. Returns grouped android/ios version, app_url, and status (optional | force)."
           },
           "response": []
         },

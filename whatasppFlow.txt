@@ -1,0 +1,362 @@
+METROGINI
+WhatsApp AI Chatbot — Conversation Flows
+Scenarios 1–9: Full Customer Journey Design
+Prepared for Metrogini Marketing & Product
+ 
+Scenario 1 — Promotion / New Customer
+Meta Ad → WhatsApp → AI Conversation → Booking → Payment → Pickup → App Download (optional, later)
+
+🙋 Customer:  Hi
+🤖 Metrogini AI:  Welcome to MetroGini (Wash by Kilo)
+Mumbai's most professional online garment care platform.
+How can we help you?
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+If Customer selects 1 — Wash by Kilo
+🤖 Metrogini AI:  Appx how many garments do you have?
+1. 10 to 13 garments (Appx 3–5 kg): *₹630 to ₹1050
+2. 14 to 18 garments (Appx 5–7 kg): *₹1050 to ₹1470
+3. 19 to 25 garments (Appx 8–11 kg): *₹1680 to ₹2310
+4. More garments (Appx above 11 kg)
+
+(Minimum order is 10 garments)  *GST extra
+🎁 15% off on first order   |   ₹15 off per kg on orders over 15 garments
+
+🤖 Metrogini AI:  Perfect.
+Where would you like us to collect your laundry?
+🙋 Customer:  [Enters address]
+🤖 Metrogini AI:  Thanks! Now please enter your pincode.
+🙋 Customer:  [Enters pincode]
+🤖 Metrogini AI:  Thanks!
+When should our pickup executive visit?
+1. Tomorrow
+2. Day after tomorrow
+3. Or any other day
+
+🤖 Metrogini AI:  Excellent. Your laundry will be processed within 72 hours, and you will receive the exact weight of the clothes and balance payable once our laundry has weighed them.
+Estimated pickup: Tuesday, 17th August
+Estimated delivery: Saturday, 22nd August
+Your booking at MetroGini is confirmed for 15 garments on 17th August 2026.
+You'll receive rider details on the morning of 17th August.
+To cancel your order, press C
+⚙ Logic note: If customer presses C → 'Your booking at MetroGini is cancelled. Please feel free to connect with us anytime for hassle-free garment care.'
+
+If Customer selects 2 — Know more about MetroGini
+MetroGini is garment care technology platform which eases your washing to streamline doorstep pickups, processing, and prompt deliveries. It gives you an effortless, reliable way to manage their everyday garment care
+
+1. How MetroGini Works
+2. View Pricing
+3. Download App
+⚙ Logic note: Options 1–3 open the FAQ, Pricing, and App-download content
+ 
+Scenario 2 — Promotion: New Customer (App Downloaded, No Movement)
+Meta Ad → App Downloaded (no activity) → WhatsApp Nudge → AI Conversation → Booking → Pickup → Payment
+Context: Customer clicked the Meta ad, downloaded the Metrogini app, but never opened/used it. We re-engage them on WhatsApp — either because they message us first, or via a proactive nudge.
+
+2A — Proactive re-engagement (AI-initiated, WhatsApp template message)
+⚙ Logic note: Trigger: 24–48 hrs after app install with zero in-app activity (no booking, no cart).
+🤖 Metrogini AI:  Hi 👋 Welcome to MetroGini (Wash by Kilo)!
+Thanks for downloading our app — looks like you haven't booked your first wash yet.
+Get 15% off your first order when you book today 🎉
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Not right now
+⚙ Logic note: If '3. Not right now' → AI: 'No worries! We'll be here whenever you're ready. Reply HI anytime to start.' (Suppress further nudges for 7 days.)
+
+2B — Customer messages 'Hi' on WhatsApp themselves
+🙋 Customer:  Hi
+🤖 Metrogini AI:  Welcome to MetroGini (Wash by Kilo)
+Thank you for downloading our MetroGini app!
+Your Customer ID is: MG-10482
+Meanwhile, would you like to:
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+⚙ Logic note: Customer ID is pulled from the app-install record and referenced so the customer feels recognised, even though they haven't transacted yet.
+
+If Customer selects 1 — Wash by Kilo
+Same booking flow as Scenario 1: garment-count pricing → address → pincode → pickup date → confirmation.
+⚙ Logic note: Since the app is already installed, the confirmation message adds: 'Track this booking live anytime in your MetroGini app.'
+
+If Customer selects 2 or 3
+Routes to the same 'How it Works / Pricing / Existing Booking' content blocks as Scenario 1.
+ 
+Scenario 3 — Promotion: New Customer (Browsed / Cart / Chatted Before, No Booking)
+Meta Ad → App Browsed / Added to Cart / Prior WhatsApp Chat (no completed booking) → Returns → AI Conversation → Booking
+Context: Customer has shown intent — browsed the app, added a wash to cart, or previously chatted on WhatsApp — but dropped off before booking. When they say 'Hi' again, the AI should pick up the thread instead of starting from zero.
+
+🙋 Customer:  Hi
+🤖 Metrogini AI:  Welcome back to MetroGini (Wash by Kilo) 👋
+Looks like you were checking out a Wash by Kilo booking earlier — 14 to 18 garments (Appx 5–7 kg).
+Would you like to pick up where you left off?
+1. Continue my booking
+2. Start a new booking
+3. Know more about MetroGini
+⚙ Logic note: CRM/session data (cart contents, last-viewed garment tier, or last WhatsApp message) is fetched to personalise the greeting. If no specific cart item exists but only a prior chat/browse session, the AI instead says: 'Welcome back! Ready to book your first wash with us?'
+
+If Customer selects 1 — Continue my booking
+🤖 Metrogini AI:  Great! Confirming your selection:
+14 to 18 garments (Appx 5–7 kg) : ₹1050 to ₹1470 (+GST)
+🎁 Your 15% first-order discount is still valid.
+Flow continues directly into address → pincode → pickup date → confirmation (same as Scenario 1), skipping the garment-count question since it's already known.
+
+If Customer selects 2 — Start a new booking
+Runs the full standard booking flow from Scenario 1 (garment count → address → pincode → date → confirmation).
+
+ 
+Scenario 4 — Retention: One-Time Customer, No Repeat Order
+(Notification, AI-initiated) Customer placed exactly one order in the past → No activity since → Win-back Nudge → AI Conversation → Booking
+Context: Customer completed one full order but hasn't booked again after a defined inactivity window (e.g., 21–30 days). This is a proactive retention/win-back message, not a customer-initiated chat.
+
+⚙ Logic note: Trigger: last_order_date > 30 days ago AND total_orders = 1. Personalise with first name where available.
+🤖 Metrogini AI:  Hi Karthik 👋
+It's been a while since your last wash with MetroGini — we miss you! 🧺
+Here's 10% off your next order, valid for the next 3 days.
+1. Book Now
+2. View Offers
+3. Not interested
+
+If Customer selects 1 — Book Now
+🤖 Metrogini AI:  Welcome back! Should we collect from your saved address?
+📍 A-204, Lotus Residency, Andheri West, Mumbai – 400058
+1. Yes, use this address
+⚙ Logic note: Known customers skip straight to garment-count pricing, then straight to address confirmation (saved address) → pickup date → confirmation, cutting the flow roughly in half vs. a fresh lead.
+
+If Customer selects 2 — View Offers
+Opens the Offers & Referral content block (current promotions, referral program).
+
+If Customer selects 3 — Not interested
+🤖 Metrogini AI:  No problem! We're here whenever you need us. Reply HI anytime to book, or STOP to opt out of offers.
+⚙ Logic note: Log 'declined win-back' — suppress promotional (not transactional) messages for 30 days.
+ 
+Scenario 5 — Notification: Day of Pickup
+(Notification, AI-initiated) Booking confirmed earlier → Pickup day arrives → Reminder + Rider Assignment Update
+Context: Purely transactional, sent automatically on the scheduled pickup date for an existing confirmed booking.
+
+5A — Morning reminder
+🤖 Metrogini AI:  Good morning Karthik 🌞
+Today's the day! Your MetroGini pickup is scheduled.
+Booking ID: MG24571
+Pickup window: 11:00 AM – 1:00 PM
+1. Confirm I'll be available
+2. Need help
+.
+
+5B — Rider assigned (closer to pickup window)
+🤖 Metrogini AI:  🚴 Your Rider has been assigned!
+Rider: Suresh K.  |  Contact: +91-9xxxxxxxxx
+Track live: [tracking link]
+ 
+Scenario 6 — Notification: Pickup Successful
+(Notification, AI-initiated) Rider collects the laundry → Confirmation sent instantly
+
+🤖 Metrogini AI:  ✅ Pickup Successful!
+Your clothes have been collected by Suresh K.
+We'll notify you once they reach our laundry facility for weighing.
+1. When will my clothes be delivered ?
+2. Need help
+⚙ Logic note: Purely transactional status update; no menu branching needed beyond quick-reply tracking/help buttons.
+ 
+Scenario 7 — Notification: Weight Confirmation & Payment Gateway
+(Notification, AI-initiated) Clothes reach laundry → Inspected, sorted & weighed → Final bill generated → Payment requested
+
+🤖 Metrogini AI:  🏭 Clothes Reached Laundry
+Your clothes have reached our laundry. Our team has inspected, sorted and weighed them.
+
+🤖 Metrogini AI:  ⚖️ Weight Confirmed: 6.8 kg
+Laundry Charges (6.8 kg × ₹210/kg + 18% GST): ₹1,685.04
+Balance Payable: ₹1,185.04
+Pay Now (via Razorpay)
+Have a question about this bill?
+⚙ Logic note: If customer disputes the weight/amount → route to human agent with order ID pre-attached; do not let the AI negotiate pricing.
+ 
+Scenario 8 — New Customer Reaches Out
+Customer messages first (organic / referral / unknown source) → AI Conversation
+
+8A — No prior data on this customer
+🙋 Customer:  hi
+🤖 Metrogini AI:  Welcome to MetroGini (Wash by Kilo)
+Mumbai's most professional online garment care platform.
+How can we help you?
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+⚙ Logic note: No name/lead data exists yet, so the greeting stays generic. First name is captured during the booking flow (address step) and saved for future personalisation.
+
+8B — Name and details already known (e.g., captured via Meta lead form, but no app/WhatsApp activity yet)
+🙋 Customer:  hi
+🤖 Metrogini AI:  Hello Karthik 👋
+Welcome to MetroGini (Wash by Kilo)
+Mumbai's most professional online garment care platform.
+How can we help you?
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+⚙ Logic note: Name is pulled from the lead-capture record (Meta Lead Ads form / prior enquiry) and used to personalise the greeting, even though this is technically their first WhatsApp interaction.
+ 
+Scenario 9 — Existing Customer Reaches Out
+Returning customer messages 'Hi' → Personalised greeting → AI Conversation → (optional) Live Order Status
+Context: A customer with at least one completed or active order messages the bot. Greeting is personalised by name, and 'Know about Existing Booking' now returns real order data instead of generic FAQ content.
+
+🙋 Customer:  hi
+🤖 Metrogini AI:  Hello Karthik 👋
+Welcome to MetroGini (Wash by Kilo)
+Mumbai's most professional online garment care platform.
+How can we help you?
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+
+If Customer selects 1 — Book for Wash by Kilo
+Runs the standard booking flow, but pre-fills the saved address and offers a loyalty-style nudge (e.g. 'Rs 15 off per kg on garments over 15 and more') instead of the first-order 15% discount.
+
+If Customer selects 3 — Know about Existing Booking
+AI pulls the live status of the customer's most recent/active order and displays the current stage. The full possible stage sequence is:
+
+🤖 Metrogini AI:  🎉 Booking Confirmed
+Booking ID: MG24571
+Pickup: Tomorrow, 11:00 AM
+Delivery: Saturday
+We'll keep you updated on WhatsApp.
+🤖 Metrogini AI:  🚴 Your Rider has been assigned
+🤖 Metrogini AI:  ✅ Your clothes have been collected
+🤖 Metrogini AI:  🏭 Clothes Reached Laundry
+Our team has inspected, sorted and weighed them.
+🤖 Metrogini AI:  ⚖️ Weight Confirmed: 6.8 kg
+Laundry Charges (6.8 kg × ₹210/kg + 18% GST): ₹1,685.04
+Balance Payable: ₹1,185.04
+Pay Now (Razorpay)
+🤖 Metrogini AI:  ✅ Payment Received
+(Receipt emailed and sent to your app)
+Thank you. Your clothes are now being washed.
+Expected delivery: Saturday
+🤖 Metrogini AI:  🚚 Rider Out For Delivery
+Great news! Your clothes are on the way.
+🤖 Metrogini AI:  📦 Delivery Completed
+Thank you for choosing Metrogini.
+How was your experience? ⭐⭐⭐⭐⭐
+⚙ Logic note: Only the ONE status matching the order's current real-time stage is shown to the customer at any given moment — the block above lists every possible stage for design reference. Each stage also fires automatically as a standalone push notification the moment it happens (this is where Scenarios 5–8 come from).
+
+
+ 
+Scenario 10 — Delayed Pickup / Delivery Inquiry
+Customer has an active booking → Pickup or delivery is running late → Customer messages to check status
+Context: Can happen at any point after booking confirmation — before pickup, or after 'out for delivery'. AI checks the live order record before replying.
+
+If an active order is found
+🙋 Customer:  Where is my pickup? It's already 12:30 and no one has come.
+🤖 Metrogini AI:  Hi Karthik, sorry for the delay! 🙏
+Your rider Suresh K. is on the way — slightly delayed due to traffic.
+New expected arrival: 1:15 PM
+1. Track live
+2. Talk to an agent
+⚙ Logic note: Delay reasons and revised ETA are pulled from the rider-tracking system, not guessed by the AI. If no updated ETA is available, respond with an apology + immediate escalation instead of a made-up time.
+
+If delivery (not pickup) is delayed
+🤖 Metrogini AI:  Hi Karthik, apologies for the wait! 🙏
+Your order MG24571 is out for delivery and slightly behind schedule.
+New expected delivery: today by 7:00 PM
+1. Track live
+2. Talk to an agent
+
+If no active order is found for this number
+🤖 Metrogini AI:  I don't see an active order linked to this number. Could you share your Booking ID so I can check for you?
+⚙ Logic note: If customer can't provide a Booking ID, or the delay exceeds a defined threshold (e.g., 2+ hours past window), auto-escalate to a human agent rather than looping on tracking questions.
+ 
+Scenario 11 — Damaged, Missing, or Wrong Garment Complaint
+Delivery completed → Customer reports an issue with the order → AI triages → Escalates to human care team
+Context: Post-delivery complaint. The AI's job here is to acknowledge, categorise, and hand off — never to promise compensation or negotiate refunds itself.
+
+🙋 Customer:  One of my shirts is missing from the delivery
+🤖 Metrogini AI:  I'm really sorry to hear that, Karthik. Let's get this sorted quickly.
+What's the issue with your order MG24571?
+1. Missing item
+2. Damaged item
+3. Wrong item received
+4. Something else
+
+After category is selected
+🤖 Metrogini AI:  Got it. Could you share:
+• A short description of the item
+• A photo, if you have one (for damaged/wrong item)
+🙋 Customer:  [Sends description / photo]
+🤖 Metrogini AI:  Thank you — I've logged this as Complaint #CMP-3391 against Booking ID MG24571.
+Our care team will personally review this and reach out within 24 hours.
+⚙ Logic note: AI must NOT quote compensation amounts, refund percentages, or resolution timelines beyond the standard SLA. This always routes to a human agent/complaints queue with the booking ID, category, and any photos attached.
+ 
+Scenario 12 — Payment Failed / Double Charged
+Customer attempts payment → Payment fails or is charged twice → Customer reaches out → AI triages → Resolution or escalation
+
+Payment failed but amount deducted
+🙋 Customer:  My payment failed but the amount got deducted from my account
+🤖 Metrogini AI:  Sorry for the trouble, Karthik! Let me check this for you.
+Could you share your Booking ID or the payment reference/transaction ID?
+🙋 Customer:  [Shares transaction ID]
+🤖 Metrogini AI:  Thanks. Failed payments that show as deducted are usually auto-reversed by your bank within 5–7 business days.
+If it isn't reflected by then, we'll escalate this immediately on your behalf.
+1. Retry payment now
+2. Talk to support
+3. I'll wait for the auto-reversal
+
+Charged twice for the same order
+🙋 Customer:  I was charged twice for the same booking
+🤖 Metrogini AI:  I'm sorry about that! This needs a closer look from our support team.
+Could you share both transaction IDs or screenshots?
+🙋 Customer:  [Shares screenshots]
+🤖 Metrogini AI:  Thank you. I've raised this as Ticket #PAY-8820.
+Our team will verify and refund any duplicate charge within 3–5 business days.
+⚙ Logic note: Double-charge and unresolved failed-payment cases always escalate to a human/finance queue — the AI collects evidence (IDs/screenshots) but does not process refunds itself.
+ 
+Scenario 13 — Negative Feedback Follow-Up
+Delivery completed → Customer rates the order 1–2 stars → AI follow-up → Categorise issue → Escalate / make it right
+Context: Triggered by the star-rating prompt sent at the end of Scenario 9's delivery-completed notification.
+
+🙋 Customer:  ⭐⭐ (2 stars)
+🤖 Metrogini AI:  We're sorry your experience wasn't great, Karthik 😞
+Could you tell us what went wrong?
+1. Quality of wash
+2. Delay in pickup/delivery
+3. Damaged or missing item
+4. Rider behaviour
+5. Something else
+
+Routing based on selection
+Damaged/missing item → routes into Scenario 11 (Complaint flow)
+Delay → routes into Scenario 10 acknowledgement + logged for ops review
+Quality/Rider behaviour/Other → logged and escalated to human care team
+🤖 Metrogini AI:  Thank you for letting us know — this helps us improve.
+Our team will personally reach out within 24 hours to make this right.
+⚙ Logic note: The AI should never offer a discount/refund/rewash on its own authority in response to negative feedback; it acknowledges, categorises, and escalates. Any goodwill gesture is issued by a human agent.
+ 
+Scenario 14 — Human Agent Handoff / General Complaint
+Customer explicitly asks for a person, or the situation needs human judgement → AI hands off with full context
+Context: Catch-all trigger — customer types 'agent', 'talk to someone', 'complaint', 'this is not resolved', or selects 'Talk to an agent' / 'Need help' from any other scenario.
+
+🙋 Customer:  I want to talk to a real person
+🤖 Metrogini AI:  Of course! Connecting you to a MetroGini care specialist now 🙌
+Typical response time: 10–15 minutes (9 AM – 9 PM).
+⚙ Logic note: The handoff carries forward customer name, booking ID (if any), and the last 2–3 messages of context, so the customer never has to repeat themselves to the human agent.
+
+🤖 Metrogini AI:  While you wait, is there anything quick I can help with?
+1. Track my order
+2. View my booking details
+3. No, I'll wait for an agent
+ 
+Scenario 15 — Unrecognized Input / Fallback
+Customer sends free text that doesn't match any menu option, keyword, or expected input → AI recovers gracefully
+
+🙋 Customer:  can u wash my sofa cover also lol
+🤖 Metrogini AI:  Sorry, I didn't quite get that 🤔
+Here's what I can help you with:
+1. Book for Wash by Kilo
+2. Know more about MetroGini
+3. Know about Existing Booking
+4. Talk to an agent
+⚙ Logic note: First fallback: re-show the relevant menu for wherever the customer is in the flow (not always the main menu — e.g., mid-booking it should re-show that step's options).
+
+If it happens twice in a row
+🤖 Metrogini AI:  I want to make sure you get the right help — let me connect you to a care specialist.
+⚙ Logic note: Two consecutive unrecognized inputs auto-escalate to a human agent (Scenario 14) instead of looping the customer through menus repeatedly.
+ 
+
