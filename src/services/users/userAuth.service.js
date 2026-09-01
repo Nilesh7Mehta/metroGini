@@ -7,7 +7,7 @@ import { sendPushSafe } from "../common/push.service.js";
 import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
-import { generateOTP } from "../../utils/otp.js";
+import { resolveAuthOtpForMobile } from "../../utils/otp.js";
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
@@ -25,9 +25,7 @@ export const loginOrRegister = async ({ mobile }) => {
     message = "User found. OTP sent for login.";
   }
 
-  // Fixed OTP for now (same as vendor/rider) — replace with generateOTP() in production
-  //const otp = 1234;
-   const otp = generateOTP();
+  const otp = resolveAuthOtpForMobile(mobile);
 
   // Update OTP and expiry (template: valid 10 minutes)
   await sql.query(
@@ -97,9 +95,7 @@ export const resendOtp = async ({ mobile }) => {
     };
   }
 
-  // Fixed OTP for now (same as loginOrRegister) — replace with generateOTP() in production
-   const otp = generateOTP();
-  //const otp = 1234;
+  const otp = resolveAuthOtpForMobile(mobile);
 
   await sql.query(
     `UPDATE users

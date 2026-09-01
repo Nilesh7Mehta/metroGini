@@ -6,7 +6,7 @@ import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { DAY_LABELS } from "../common/laundryGroupShiftSchedule.service.js";
-import { generateOTP } from "../../utils/otp.js";
+import { resolveAuthOtpForMobile } from "../../utils/otp.js";
 
 
 export const loginOrVerifyService = async (mobile_number) => {
@@ -29,9 +29,7 @@ export const loginOrVerifyService = async (mobile_number) => {
             )
           ).rows[0];
 
-    // Fixed OTP for now (same as user/vendor) — replace with generateOTP() in production
-    // const otp = 1234;
-     const otp = generateOTP();
+    const otp = resolveAuthOtpForMobile(mobile_number);
 
     await client.query(
       `UPDATE riders SET otp = $2, otp_expires_at = NOW() + INTERVAL '2 minutes', otp_attempts = 0 WHERE id = $1`,
