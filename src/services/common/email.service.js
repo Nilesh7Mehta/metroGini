@@ -671,7 +671,6 @@ export const sendOrderCancelledEmail = async ({
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
       <p style="margin:0 0 12px;">Your laundry order <strong>${safeOrderRef}</strong> has been cancelled successfully.</p>
       <p style="margin:0 0 12px;">Pickup and delivery for this order will no longer take place.</p>
-      <p style="margin:0 0 12px;">A ₹500 coupon has been added to your account. You can use it on your next MetroGini booking.</p>
       <p style="margin:0;">We hope to serve you again soon.</p>
     `,
     footerTagline: "Laundry · Order Cancelled",

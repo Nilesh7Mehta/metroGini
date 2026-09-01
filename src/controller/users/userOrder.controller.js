@@ -321,7 +321,7 @@ export const cancelService = async (req, res, next) => {
       ...req.body,
     });
     return res.status(200).json({
-      message: "Order cancelled successfully. ₹500 coupon added.",
+      message: "Order cancelled successfully.",
       data,
     });
   } catch (error) {

@@ -1169,7 +1169,7 @@ export const cancelServiceService = async ({
       identity_id: user_id,
       role: 'user',
       title: 'Order Cancelled',
-      message: `Your order ${formatOrderDisplayId(order_id)} has been cancelled. A ₹500 coupon has been added to your account.`,
+      message: `Your order ${formatOrderDisplayId(order_id)} has been cancelled.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
