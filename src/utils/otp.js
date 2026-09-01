@@ -1,6 +1,9 @@
 export const DUMMY_AUTH_MOBILE = "9999988888";
 export const DUMMY_AUTH_OTP = "1234";
 
+export const isDummyAuthMobile = (mobile) =>
+  String(mobile || "").trim() === DUMMY_AUTH_MOBILE;
+
 export const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };

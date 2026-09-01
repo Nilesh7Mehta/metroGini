@@ -7,7 +7,7 @@ import { sendPushSafe } from "../common/push.service.js";
 import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
-import { resolveAuthOtpForMobile } from "../../utils/otp.js";
+import { resolveAuthOtpForMobile, isDummyAuthMobile } from "../../utils/otp.js";
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
@@ -26,6 +26,7 @@ export const loginOrRegister = async ({ mobile }) => {
   }
 
   const otp = resolveAuthOtpForMobile(mobile);
+  const skipOtpDelivery = isDummyAuthMobile(mobile);
 
   // Update OTP and expiry (template: valid 10 minutes)
   await sql.query(
@@ -37,40 +38,45 @@ export const loginOrRegister = async ({ mobile }) => {
     [user.id, otp],
   );
 
-  // Push only (do not clutter in-app notification inbox with OTPs)
-  const otpPush = accountOtpTemplate({ otp });
-  sendPushSafe(user.id, {
-    title: otpPush.title,
-    body: otpPush.message,
-    reference_type: "auth",
-    reference_id: user.id,
-    data: otpPush.data,
-  });
-
-  if (user.email) {
-    sendEmailSafe(sendOtpEmail, {
-      email: user.email,
-      name: user.full_name,
-      otp,
+  if (!skipOtpDelivery) {
+    const otpPush = accountOtpTemplate({ otp });
+    sendPushSafe(user.id, {
+      title: otpPush.title,
+      body: otpPush.message,
+      reference_type: "auth",
+      reference_id: user.id,
+      data: otpPush.data,
     });
-  }
 
-  sendSmsSafe(
-    SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-    user.mobile,
-    { otp },
-    { reference_type: "auth", reference_id: user.id },
-  );
+    if (user.email) {
+      sendEmailSafe(sendOtpEmail, {
+        email: user.email,
+        name: user.full_name,
+        otp,
+      });
+    }
+
+    sendSmsSafe(
+      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+      user.mobile,
+      { otp },
+      { reference_type: "auth", reference_id: user.id },
+    );
+  }
 
   return {
     statusCode: 200,
     body: {
       success: true,
-      message,
+      message: skipOtpDelivery
+        ? message.includes("registered")
+          ? "User registered successfully."
+          : "User found. Ready for login."
+        : message,
       data: {
         id: user.id,
         mobile: user.mobile,
-        otp, // remove in production
+        otp: skipOtpDelivery ? undefined : otp,
         profile_completed: user.profile_completed,
         terms_and_condition: Boolean(user.terms_and_condition),
       },
@@ -96,6 +102,7 @@ export const resendOtp = async ({ mobile }) => {
   }
 
   const otp = resolveAuthOtpForMobile(mobile);
+  const skipOtpDelivery = isDummyAuthMobile(mobile);
 
   await sql.query(
     `UPDATE users
@@ -106,39 +113,41 @@ export const resendOtp = async ({ mobile }) => {
     [user.id, otp],
   );
 
-  const otpPush = accountOtpTemplate({ otp });
-  sendPushSafe(user.id, {
-    title: otpPush.title,
-    body: otpPush.message,
-    reference_type: "auth",
-    reference_id: user.id,
-    data: otpPush.data,
-  });
-
-  if (user.email) {
-    sendEmailSafe(sendOtpEmail, {
-      email: user.email,
-      name: user.full_name,
-      otp,
+  if (!skipOtpDelivery) {
+    const otpPush = accountOtpTemplate({ otp });
+    sendPushSafe(user.id, {
+      title: otpPush.title,
+      body: otpPush.message,
+      reference_type: "auth",
+      reference_id: user.id,
+      data: otpPush.data,
     });
-  }
 
-  sendSmsSafe(
-    SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-    user.mobile,
-    { otp },
-    { reference_type: "auth", reference_id: user.id },
-  );
+    if (user.email) {
+      sendEmailSafe(sendOtpEmail, {
+        email: user.email,
+        name: user.full_name,
+        otp,
+      });
+    }
+
+    sendSmsSafe(
+      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+      user.mobile,
+      { otp },
+      { reference_type: "auth", reference_id: user.id },
+    );
+  }
 
   return {
     statusCode: 200,
     body: {
       success: true,
-      message: "OTP resent successfully",
+      message: skipOtpDelivery ? "OTP ready. Use 1234 to verify." : "OTP resent successfully",
       data: {
         id: user.id,
         mobile: user.mobile,
-        otp, // remove in production
+        otp: skipOtpDelivery ? undefined : otp,
       },
     },
   };

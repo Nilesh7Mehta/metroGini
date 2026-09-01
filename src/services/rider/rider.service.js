@@ -6,7 +6,7 @@ import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { DAY_LABELS } from "../common/laundryGroupShiftSchedule.service.js";
-import { resolveAuthOtpForMobile } from "../../utils/otp.js";
+import { resolveAuthOtpForMobile, isDummyAuthMobile } from "../../utils/otp.js";
 
 
 export const loginOrVerifyService = async (mobile_number) => {
@@ -38,14 +38,20 @@ export const loginOrVerifyService = async (mobile_number) => {
 
     await client.query("COMMIT");
 
-    sendSmsSafe(
-      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-      mobile_number,
-      { otp },
-      { reference_type: "auth", reference_id: rider.id },
-    );
+    if (!isDummyAuthMobile(mobile_number)) {
+      sendSmsSafe(
+        SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+        mobile_number,
+        { otp },
+        { reference_type: "auth", reference_id: rider.id },
+      );
+    }
 
-    return { rider_id: rider.id, mobile_number, otp };
+    return {
+      rider_id: rider.id,
+      mobile_number,
+      otp: isDummyAuthMobile(mobile_number) ? undefined : otp,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
