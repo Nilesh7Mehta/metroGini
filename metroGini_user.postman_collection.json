@@ -994,69 +994,21 @@
               "query": [
                 {
                   "key": "status",
-                  "value": "all",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "booked",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "picked_up",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "in_process",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "delivered",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "cancelled",
-                  "type": "text",
-                  "disabled": true
+                  "value": "out_for_pickup",
+                  "description": "all | booked | out_for_pickup | pickup_in_progress | picked_up | in_process | order_finalized | ready_for_delivery | out_for_delivery | delivered | cancelled"
                 },
                 {
                   "key": "time",
                   "value": "anytime",
-                  "type": "text",
-                  "disabled": true
+                  "description": "anytime | last_7_days | last_30_days | last_6_months | last_year"
                 },
                 {
-                  "key": "time",
-                  "value": "last_7_days",
-                  "type": "text",
-                  "disabled": true
+                  "key": "page",
+                  "value": "1"
                 },
                 {
-                  "key": "time",
-                  "value": "last_30_days",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "time",
-                  "value": "last_6_months",
-                  "type": "text",
-                  "disabled": true
-                },
-                {
-                  "key": "time",
-                  "value": "last_year",
-                  "type": "text",
-                  "disabled": true
+                  "key": "limit",
+                  "value": "10"
                 }
               ]
             }

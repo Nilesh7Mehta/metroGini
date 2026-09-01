@@ -1,5 +1,25 @@
 import { buildOrderTimestamps } from "./datetime.util.js";
 
+/** Normalizes app filter values: "BOOKED", "OUT FOR PICKUP", "LAST 7 DAYS" → snake_case lowercase */
+export const normalizeOrderListFilter = (value) => {
+  if (value == null || value === "") return value;
+  return String(value).trim().toLowerCase().replace(/\s+/g, "_");
+};
+
+/** Allowed `status` query values for GET /api/user/order/getUserOrder */
+export const USER_ORDER_FILTER_STATUSES = [
+  "booked",
+  "out_for_pickup",
+  "pickup_in_progress",
+  "picked_up",
+  "in_process",
+  "order_finalized",
+  "ready_for_delivery",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+];
+
 export const formatUserOrder = (order) => ({
   order_id: order.id,
   status: order.status,

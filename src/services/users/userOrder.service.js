@@ -13,6 +13,7 @@ import { resolveBasePricePerKg } from "../common/serviceZonePrice.service.js";
 import { assertPincodeServiceable } from "../common/pincode.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { orderReceivedTemplate, formatOrderDisplayId } from "../../utils/userNotificationTemplates.js";
+import { normalizeOrderListFilter, USER_ORDER_FILTER_STATUSES } from "../../utils/userOrder.util.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -780,36 +781,31 @@ export const getUserOrdersService = async ({
   time,
 }) => {
   const offset = (page - 1) * limit;
+  const normalizedStatus = normalizeOrderListFilter(status);
+  const normalizedTime = normalizeOrderListFilter(time);
+
   let whereConditions = [`o.user_id = $1 and o.status != 'draft'`];
   let values = [user_id];
   let paramIndex = 2;
 
-  if (status && status !== "all") {
-    const statusMap = {
-      booked: "confirmed",
-      picked_up: "picked_up",
-      in_process: "in_process",
-      delivered: "delivered",
-      cancelled: "cancelled",
-    };
-    const dbStatus = statusMap[status];
-    if (dbStatus) {
+  if (normalizedStatus && normalizedStatus !== "all") {
+    if (USER_ORDER_FILTER_STATUSES.includes(normalizedStatus)) {
       whereConditions.push(`o.status = $${paramIndex}`);
-      values.push(dbStatus);
+      values.push(normalizedStatus);
       paramIndex++;
     }
   }
 
-  if (time && time !== "anytime") {
+  if (normalizedTime && normalizedTime !== "anytime") {
     const intervalMap = {
       last_7_days: "7 days",
       last_30_days: "30 days",
       last_6_months: "6 months",
       last_year: "1 year",
     };
-    if (intervalMap[time]) {
+    if (intervalMap[normalizedTime]) {
       whereConditions.push(
-        `o.created_at >= NOW() - INTERVAL '${intervalMap[time]}'`,
+        `o.created_at >= NOW() - INTERVAL '${intervalMap[normalizedTime]}'`,
       );
     }
   }
