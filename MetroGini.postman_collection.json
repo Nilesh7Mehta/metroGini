@@ -29,7 +29,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n    \"address_type\": \"work\",\r\n    \"complete_address\": \"2108/B , Padmavati Nagar\",\r\n    \"floor\":\"2108\",\r\n    \"landmark\":\"Dadar\",\r\n    \"receiver_name\": \"Dablu\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "raw": "{\r\n    \"name\": \"Dablu\",\r\n    \"email\": \"dablu@example.com\",\r\n    \"address_type\": \"work\",\r\n    \"complete_address\": \"2108/B , Padmavati Nagar\",\r\n    \"floor\":\"2108\",\r\n    \"landmark\":\"Dadar\",\r\n    \"receiver_name\": \"Dablu\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -73,7 +73,8 @@
                     "user",
                     "address"
                   ]
-                }
+                },
+                "description": "Returns user profile name/email (from users table) once + all addresses. Use name/email to prefill add/edit forms when adding a 2nd address."
               },
               "response": []
             },
@@ -94,7 +95,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n    \"address_type\": \"home\",\r\n    \"complete_address\": \"2108/B , Mahavir Nagar\",\r\n    \"floor\":\"208\",\r\n    \"landmark\":\"Mumbai\",\r\n    \"receiver_name\": \"Babli\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "raw": "{\r\n    \"name\": \"Babli\",\r\n    \"email\": \"babli@example.com\",\r\n    \"address_type\": \"home\",\r\n    \"complete_address\": \"2108/B , Mahavir Nagar\",\r\n    \"floor\":\"208\",\r\n    \"landmark\":\"Mumbai\",\r\n    \"receiver_name\": \"Babli\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
