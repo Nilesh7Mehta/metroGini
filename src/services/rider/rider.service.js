@@ -92,6 +92,28 @@ export const verifyOtpService = async (mobile_number, otp) => {
       throw { status: 400, message: "Invalid OTP" };
     }
 
+    const DEFAULT_SHIFT_ID = 1;
+
+    const shiftCheck = await client.query(
+      `SELECT id FROM shifts WHERE id = $1`,
+      [DEFAULT_SHIFT_ID],
+    );
+    if (shiftCheck.rows.length === 0) {
+      throw { status: 500, message: "Default shift (id=1) is not configured" };
+    }
+
+    // On successful OTP login: mark rider active and assign default shift
+    await client.query(
+      `UPDATE riders
+       SET is_active = TRUE,
+           shift_id = $2,
+           shift_started_at = NOW(),
+           otp = NULL,
+           otp_attempts = 0
+       WHERE id = $1`,
+      [rider.id, DEFAULT_SHIFT_ID],
+    );
+
     const access_token = jwt.sign(
       { rider_id: rider.id, mobile_number },
       process.env.JWT_SECRET,
@@ -104,6 +126,8 @@ export const verifyOtpService = async (mobile_number, otp) => {
       rider_id: rider.id,
       mobile_number,
       profile_completed: rider.profile_completed,
+      is_active: true,
+      shift_id: DEFAULT_SHIFT_ID,
     };
   } catch (error) {
     await client.query("ROLLBACK");
