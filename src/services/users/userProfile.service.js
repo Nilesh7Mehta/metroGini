@@ -77,16 +77,29 @@ export const getProfile = async ({ req, userId }) => {
 export const updateProfile = async ({ userId, body, file }) => {
   const { full_name, email, gender, alternate_phone } = body;
 
-  if (!full_name || !email || !gender || !alternate_phone) {
+  if (!full_name?.trim()) {
     return {
       statusCode: 400,
-      body: { success: false, message: "All fields are required" },
+      body: { success: false, message: "full_name is required" },
+    };
+  }
+
+  if (!email?.trim()) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "email is required" },
+    };
+  }
+
+  if (!gender?.trim()) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "gender is required" },
     };
   }
 
   const allowedGenders = ["male", "female", "other"];
-
-  const normalizedGender = gender.toLowerCase();
+  const normalizedGender = String(gender).trim().toLowerCase();
 
   if (!allowedGenders.includes(normalizedGender)) {
     return {
@@ -94,6 +107,11 @@ export const updateProfile = async ({ userId, body, file }) => {
       body: { success: false, message: "Invalid gender value" },
     };
   }
+
+  const resolvedAlternatePhone =
+    alternate_phone != null && String(alternate_phone).trim() !== ""
+      ? String(alternate_phone).trim()
+      : null;
 
   // 1️⃣ Get existing image + profile state
   const oldUser = await sql.query(
@@ -134,7 +152,14 @@ export const updateProfile = async ({ userId, body, file }) => {
                alternate_phone, profile_image,
                profile_completed,
                terms_and_condition`,
-    [full_name, email, normalizedGender, alternate_phone, imagePath, userId],
+    [
+      String(full_name).trim(),
+      String(email).trim(),
+      normalizedGender,
+      resolvedAlternatePhone,
+      imagePath,
+      userId,
+    ],
   );
 
   if (wasProfileIncomplete) {
