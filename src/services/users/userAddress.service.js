@@ -4,7 +4,8 @@ import { assertPincodeServiceable } from "../common/pincode.service.js";
 // get Address
 export const getAddress = async ({ userId }) => {
   const { rows } = await sql.query(
-    `Select id, address_type , complete_address, floor , landmark , receiver_name , contact_number , latitude , longitude , is_selected
+    `SELECT id, address_type, complete_address, floor, landmark, receiver_name,
+            contact_number, latitude, longitude, pincode, is_selected
      FROM user_address_details
      WHERE user_id = $1
      ORDER BY id DESC`,

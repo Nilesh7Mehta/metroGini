@@ -28,9 +28,8 @@ const mapProfileRow = (row) => ({
     : null,
 });
 
-// GET USER PROFILE
-export const getProfile = async ({ req, userId }) => {
-  const result = await sql.query(
+const fetchProfileRow = async (userId) => {
+  const { rows } = await sql.query(
     `SELECT u.id, u.mobile, u.full_name, u.email, u.gender,
             u.alternate_phone, u.profile_completed,
             u.profile_image,
@@ -42,22 +41,33 @@ export const getProfile = async ({ req, userId }) => {
             pg.name AS pincode_group_name,
             pg.status AS pincode_group_status
      FROM users u
-     LEFT JOIN user_address_details ua
-       ON ua.user_id = u.id AND ua.is_selected = TRUE
+     LEFT JOIN LATERAL (
+       SELECT pincode
+       FROM user_address_details
+       WHERE user_id = u.id
+       ORDER BY is_selected DESC NULLS LAST, id DESC
+       LIMIT 1
+     ) ua ON TRUE
      LEFT JOIN pincodes p ON p.pincode = ua.pincode
      LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
      WHERE u.id = $1`,
     [userId],
   );
-  // Check if user exists first before processing
-  if (result.rows.length === 0) {
+  return rows[0] || null;
+};
+
+// GET USER PROFILE
+export const getProfile = async ({ req, userId }) => {
+  const row = await fetchProfileRow(userId);
+
+  if (!row) {
     return {
       statusCode: 404,
       body: { success: false, message: "User not found" },
     };
   }
 
-  const user = mapProfileRow(result.rows[0]);
+  const user = mapProfileRow(row);
   const currentOrders = await getCurrentUserOrdersService({ user_id: userId });
 
   return {
@@ -139,7 +149,7 @@ export const updateProfile = async ({ userId, body, file }) => {
   const wasProfileIncomplete = !oldUser.rows[0].profile_completed;
 
   // 3️⃣ Update profile
-  const result = await sql.query(
+  await sql.query(
     `UPDATE users
      SET full_name = $1,
          email = $2,
@@ -147,11 +157,7 @@ export const updateProfile = async ({ userId, body, file }) => {
          alternate_phone = $4,
          profile_image = $5,
          profile_completed = TRUE
-     WHERE id = $6
-     RETURNING id, mobile, full_name, email, gender,
-               alternate_phone, profile_image,
-               profile_completed,
-               terms_and_condition`,
+     WHERE id = $6`,
     [
       String(full_name).trim(),
       String(email).trim(),
@@ -177,13 +183,14 @@ export const updateProfile = async ({ userId, body, file }) => {
     ]);
   }
 
+  const profileRow = await fetchProfileRow(userId);
+
   return {
     statusCode: 200,
     body: {
       success: true,
       message: "Profile updated successfully",
-      data: result.rows[0],
+      data: mapProfileRow(profileRow),
     },
   };
 };
-
