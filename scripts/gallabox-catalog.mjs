@@ -1,26 +1,22 @@
 /**
- * Shared Gallabox catalog from gallabox_whatsapp_scenario_apis.txt
- * Used by Postman + single Excel generators.
+ * Catalog from Whatsapp scenarios -updated.docx (11 scenarios only).
+ * Used by Postman + Excel generators (one sheet per scenario).
  */
 export const BASE = "https://api.metrogini.com";
 
 export const SCENARIO_NAMES = {
   shared: "SHARED APIs (used by many scenarios)",
-  1: "SCENARIO 1 — Promotion / New Customer → Booking",
-  2: "SCENARIO 2 — App downloaded, no activity → re-engage",
-  3: "SCENARIO 3 — Browsed / cart / prior chat, no booking",
-  4: "SCENARIO 4 — Retention win-back (1 order, inactive 30 days)",
-  5: "SCENARIO 5 — Day of pickup reminder + rider assigned",
-  6: "SCENARIO 6 — Pickup successful",
-  7: "SCENARIO 7 — Weight confirmation + Payment (PRIMARY)",
-  8: "SCENARIO 8 — New / organic customer says Hi",
-  9: "SCENARIO 9 — Existing customer + live order status",
-  10: "SCENARIO 10 — Delayed pickup / delivery inquiry",
-  11: "SCENARIO 11 — Damaged / missing / wrong garment",
-  12: "SCENARIO 12 — Payment failed / double charged",
-  13: "SCENARIO 13 — Negative feedback (1–2 stars)",
-  14: "SCENARIO 14 — Human agent handoff",
-  15: "SCENARIO 15 — Fallback / unrecognized",
+  1: "Scenario 1 — Promotion / New Customer(Send)",
+  2: "Scenario 2 — Promotion: App Downloaded (push)",
+  3: "Scenario 3— Cust reaches out(Send)—registered customer",
+  4: "Scenario 4 — Draft: New Customer (No Booking) (Push)",
+  5: "Scenario 5 — Retention: One-Time Customer, No Repeat Order",
+  6: "Scenario 6 — Notification: Day of Pickup",
+  7: "Scenario 7 — Notification: Pickup Successful",
+  8: "Scenario 8 — Notification: Weight Confirmation & Payment Gateway",
+  9: "Scenario 9 — New Customer Reaches Out",
+  10: "Scenario 10 — Existing Customer Reaches Out",
+  11: "Scenario 11 — Delayed Pickup / Delivery Inquiry",
 };
 
 const j = (obj) => JSON.stringify(obj, null, 2);
@@ -500,8 +496,100 @@ export const CATALOG = [
     postmanAuth: "user",
   }),
 
-  // —— S3 ——
+  // —— Scenario 3 — registered customer says Hi ——
   api(SCENARIO_NAMES[3], {
+    name: "Session (Customer ID MG-{id})",
+    method: "POST",
+    path: "/api/whatsapp/session",
+    token: "Gallabox secret",
+    request:
+      j({ mobile: "9004186460" }) +
+      "\n\nRequired: mobile\nOptional: none\nShow data.customer_id (e.g. MG-12) in welcome copy.",
+    response: j(sessionRes),
+    postmanAuth: "whatsapp",
+    body: { mobile: "{{mobile}}" },
+    saveToken: true,
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "Customer lookup (optional)",
+    method: "POST",
+    path: "/api/whatsapp/customer/lookup",
+    token: "Gallabox secret",
+    request: j({ mobile: "9004186460" }) + "\n\nRequired: mobile\nOptional: none",
+    response: j(lookupRes),
+    postmanAuth: "whatsapp",
+    body: { mobile: "{{mobile}}" },
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "List saved addresses (Book)",
+    method: "GET",
+    path: "/api/user/address",
+    token: "Yes (user Bearer)",
+    request:
+      "No body. Optional: none\nBook = Scenario 1 garment → pickup → confirm. Registered user usually has an address.",
+    response: j({
+      success: true,
+      data: { addresses: [{ id: 3, pincode: "400058", is_selected: true }] },
+    }),
+    postmanAuth: "user",
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "FAQ (Know more)",
+    method: "GET",
+    path: "/api/common/faq",
+    token: "No",
+    request: "No body. Optional: none. Same Know more as Scenario 1.",
+    response: j({ success: true, data: [{ id: 1, question: "...", answer: "..." }] }),
+    postmanAuth: "none",
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "How we work (Know more)",
+    method: "GET",
+    path: "/api/common/how-we-work",
+    token: "No",
+    request: "No body. Optional: none",
+    response: j({ success: true, data: [{ id: 1, heading: "Pickup", image: "https://..." }] }),
+    postmanAuth: "none",
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "Know about us / View pricing",
+    method: "GET",
+    path: "/api/common/know-about-us",
+    token: "No",
+    request: "No body. Optional: none",
+    response: j({ success: true, data: [{ id: 1, title: "Wash by Kilo" }] }),
+    postmanAuth: "none",
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "Existing booking — list orders",
+    method: "GET",
+    path: "/api/user/order/getUserOrder",
+    token: "Yes (user Bearer)",
+    request:
+      "Query optional: status, time, page, limit",
+    response: j({
+      status: 200,
+      data: [{ order_id: 74, status: "booked" }],
+    }),
+    postmanAuth: "user",
+    query: [
+      { key: "status", value: "booked", description: "Optional filter", disabled: true },
+      { key: "page", value: "1", description: "Optional", disabled: true },
+      { key: "limit", value: "10", description: "Optional", disabled: true },
+    ],
+  }),
+  api(SCENARIO_NAMES[3], {
+    name: "Existing booking — order detail",
+    method: "GET",
+    path: "/api/user/order/:id/Orderdetail",
+    token: "Yes (user Bearer)",
+    request: "Path required: id\nOptional: none",
+    response: j({ status: 200, data: { order_id: 74, status: "booked" } }),
+    postmanAuth: "user",
+  }),
+
+  // —— Scenario 4 — draft / abandoned (Push) ——
+  api(SCENARIO_NAMES[4], {
     name: "Abandoned booking / cart resume",
     method: "GET",
     path: "/api/whatsapp/customer/:mobile/abandoned-booking",
@@ -514,7 +602,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     pathVars: { mobile: "{{mobile}}" },
   }),
-  api(SCENARIO_NAMES[3], {
+  api(SCENARIO_NAMES[4], {
     name: "Session",
     method: "POST",
     path: "/api/whatsapp/session",
@@ -525,7 +613,7 @@ export const CATALOG = [
     body: { mobile: "{{mobile}}" },
     saveToken: true,
   }),
-  api(SCENARIO_NAMES[3], {
+  api(SCENARIO_NAMES[4], {
     name: "Continue — review draft",
     method: "GET",
     path: "/api/user/order/:id/review",
@@ -535,7 +623,7 @@ export const CATALOG = [
     postmanAuth: "user",
     useDraftId: true,
   }),
-  api(SCENARIO_NAMES[3], {
+  api(SCENARIO_NAMES[4], {
     name: "Continue — complete-order if pickup missing",
     method: "POST",
     path: "/api/user/order/:id/complete-order",
@@ -557,7 +645,7 @@ export const CATALOG = [
     },
     useDraftId: true,
   }),
-  api(SCENARIO_NAMES[3], {
+  api(SCENARIO_NAMES[4], {
     name: "Confirm booking pay ₹0",
     method: "POST",
     path: "/api/user/order/payment/:id/pay",
@@ -572,7 +660,7 @@ export const CATALOG = [
   }),
 
   // —— S4 ——
-  api(SCENARIO_NAMES[4], {
+  api(SCENARIO_NAMES[5], {
     name: "CRM win-back list",
     method: "GET",
     path: "/api/whatsapp/crm/winback",
@@ -597,7 +685,7 @@ export const CATALOG = [
       { key: "limit", value: "100", description: "Optional", disabled: true },
     ],
   }),
-  api(SCENARIO_NAMES[4], {
+  api(SCENARIO_NAMES[5], {
     name: "Session",
     method: "POST",
     path: "/api/whatsapp/session",
@@ -608,7 +696,7 @@ export const CATALOG = [
     body: { mobile: "{{mobile}}" },
     saveToken: true,
   }),
-  api(SCENARIO_NAMES[4], {
+  api(SCENARIO_NAMES[5], {
     name: "List saved addresses",
     method: "GET",
     path: "/api/user/address",
@@ -620,7 +708,7 @@ export const CATALOG = [
     }),
     postmanAuth: "user",
   }),
-  api(SCENARIO_NAMES[4], {
+  api(SCENARIO_NAMES[5], {
     name: "Apply coupon (VALUED10 / win-back)",
     method: "POST",
     path: "/api/user/order/:id/applyCoupon",
@@ -635,7 +723,7 @@ export const CATALOG = [
   }),
 
   // —— S5 ——
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Emit pickup_day_reminder",
     method: "POST",
     path: "/api/whatsapp/events/emit",
@@ -647,7 +735,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { event: "pickup_day_reminder", order_id: "{{orderId}}" },
   }),
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Emit rider_assigned",
     method: "POST",
     path: "/api/whatsapp/events/emit",
@@ -659,7 +747,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { event: "rider_assigned", order_id: "{{orderId}}" },
   }),
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Order detail",
     method: "GET",
     path: "/api/user/order/:id/Orderdetail",
@@ -668,7 +756,7 @@ export const CATALOG = [
     response: j({ status: 200, data: { order_id: 74, status: "booked" } }),
     postmanAuth: "user",
   }),
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Rider contact",
     method: "GET",
     path: "/api/whatsapp/orders/:id/rider",
@@ -680,7 +768,7 @@ export const CATALOG = [
     }),
     postmanAuth: "whatsapp",
   }),
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Reschedule pickup",
     method: "PUT",
     path: "/api/user/order/:id/rescheduleOrderPickup",
@@ -692,7 +780,7 @@ export const CATALOG = [
     postmanAuth: "user",
     body: { pickup_date: "2026-09-11", pickup_slot_id: 1 },
   }),
-  api(SCENARIO_NAMES[5], {
+  api(SCENARIO_NAMES[6], {
     name: "Cancel booking",
     method: "POST",
     path: "/api/user/order/:id/cancelService",
@@ -706,7 +794,7 @@ export const CATALOG = [
   }),
 
   // —— S6 ——
-  api(SCENARIO_NAMES[6], {
+  api(SCENARIO_NAMES[7], {
     name: "Emit pickup_completed",
     method: "POST",
     path: "/api/whatsapp/events/emit",
@@ -718,7 +806,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { event: "pickup_completed", order_id: "{{orderId}}" },
   }),
-  api(SCENARIO_NAMES[6], {
+  api(SCENARIO_NAMES[7], {
     name: "Order detail",
     method: "GET",
     path: "/api/user/order/:id/Orderdetail",
@@ -729,7 +817,7 @@ export const CATALOG = [
   }),
 
   // —— S7 ——
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Vendor confirm-weight (internal)",
     method: "POST",
     path: "/api/vendor/order/:order_id/confirm-weight",
@@ -743,7 +831,7 @@ export const CATALOG = [
     postmanAuth: "vendor",
     skipBodyJson: true,
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Vendor finalize (internal)",
     method: "POST",
     path: "/api/vendor/order/:order_id/finalize",
@@ -752,7 +840,7 @@ export const CATALOG = [
     response: j({ success: true, data: { status: "order_finalized" } }),
     postmanAuth: "vendor",
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Emit order.weight_confirmed",
     method: "POST",
     path: "/api/whatsapp/events/emit",
@@ -764,7 +852,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { event: "order.weight_confirmed", order_id: "{{orderId}}" },
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Order detail (bill)",
     method: "GET",
     path: "/api/user/order/:id/Orderdetail",
@@ -780,7 +868,7 @@ export const CATALOG = [
     }),
     postmanAuth: "user",
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Create Razorpay order (Pay Now)",
     method: "POST",
     path: "/api/user/order/payment/:id/create-order",
@@ -797,7 +885,7 @@ export const CATALOG = [
     postmanAuth: "user",
     body: { amount: 1185.04, payment_type: "remaining" },
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Verify Razorpay payment",
     method: "POST",
     path: "/api/user/order/payment/:id/verify",
@@ -817,7 +905,7 @@ export const CATALOG = [
       razorpay_signature: "sig_xxx",
     },
   }),
-  api(SCENARIO_NAMES[7], {
+  api(SCENARIO_NAMES[8], {
     name: "Razorpay webhook",
     method: "POST",
     path: "/api/user/order/payment/razorpay/webhook",
@@ -828,7 +916,7 @@ export const CATALOG = [
   }),
 
   // —— S8 ——
-  api(SCENARIO_NAMES[8], {
+  api(SCENARIO_NAMES[9], {
     name: "Customer lookup",
     method: "POST",
     path: "/api/whatsapp/customer/lookup",
@@ -838,7 +926,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { mobile: "{{mobile}}" },
   }),
-  api(SCENARIO_NAMES[8], {
+  api(SCENARIO_NAMES[9], {
     name: "Session",
     method: "POST",
     path: "/api/whatsapp/session",
@@ -851,7 +939,7 @@ export const CATALOG = [
   }),
 
   // —— S9 ——
-  api(SCENARIO_NAMES[9], {
+  api(SCENARIO_NAMES[10], {
     name: "Customer lookup",
     method: "POST",
     path: "/api/whatsapp/customer/lookup",
@@ -861,7 +949,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     body: { mobile: "{{mobile}}" },
   }),
-  api(SCENARIO_NAMES[9], {
+  api(SCENARIO_NAMES[10], {
     name: "Session",
     method: "POST",
     path: "/api/whatsapp/session",
@@ -872,7 +960,7 @@ export const CATALOG = [
     body: { mobile: "{{mobile}}" },
     saveToken: true,
   }),
-  api(SCENARIO_NAMES[9], {
+  api(SCENARIO_NAMES[10], {
     name: "List user orders",
     method: "GET",
     path: "/api/user/order/getUserOrder",
@@ -890,7 +978,7 @@ export const CATALOG = [
       { key: "limit", value: "10", description: "Optional", disabled: true },
     ],
   }),
-  api(SCENARIO_NAMES[9], {
+  api(SCENARIO_NAMES[10], {
     name: "Order detail",
     method: "GET",
     path: "/api/user/order/:id/Orderdetail",
@@ -899,7 +987,7 @@ export const CATALOG = [
     response: j({ status: 200, data: { order_id: 74, status: "booked" } }),
     postmanAuth: "user",
   }),
-  api(SCENARIO_NAMES[9], {
+  api(SCENARIO_NAMES[10], {
     name: "Active order by mobile",
     method: "GET",
     path: "/api/whatsapp/orders/active-by-mobile",
@@ -914,7 +1002,7 @@ export const CATALOG = [
   }),
 
   // —— S10 ——
-  api(SCENARIO_NAMES[10], {
+  api(SCENARIO_NAMES[11], {
     name: "Session",
     method: "POST",
     path: "/api/whatsapp/session",
@@ -925,7 +1013,7 @@ export const CATALOG = [
     body: { mobile: "{{mobile}}" },
     saveToken: true,
   }),
-  api(SCENARIO_NAMES[10], {
+  api(SCENARIO_NAMES[11], {
     name: "Active order by mobile",
     method: "GET",
     path: "/api/whatsapp/orders/active-by-mobile",
@@ -935,7 +1023,7 @@ export const CATALOG = [
     postmanAuth: "whatsapp",
     query: [{ key: "mobile", value: "{{mobile}}", description: "Required" }],
   }),
-  api(SCENARIO_NAMES[10], {
+  api(SCENARIO_NAMES[11], {
     name: "Order detail",
     method: "GET",
     path: "/api/user/order/:id/Orderdetail",
@@ -944,7 +1032,7 @@ export const CATALOG = [
     response: j({ status: 200, data: { order_id: 74, status: "out_for_pickup" } }),
     postmanAuth: "user",
   }),
-  api(SCENARIO_NAMES[10], {
+  api(SCENARIO_NAMES[11], {
     name: "Delay status",
     method: "GET",
     path: "/api/whatsapp/orders/:id/delay-status",
@@ -956,7 +1044,7 @@ export const CATALOG = [
     }),
     postmanAuth: "whatsapp",
   }),
-  api(SCENARIO_NAMES[10], {
+  api(SCENARIO_NAMES[11], {
     name: "Need help / escalate",
     method: "POST",
     path: "/api/user/needHelp",
@@ -968,157 +1056,5 @@ export const CATALOG = [
     postmanAuth: "user",
     body: { report_issue: "delay", message: "Pickup delayed" },
     descriptionExtra: "OPTIONAL: report_issue. Required: message",
-  }),
-
-  // —— S11 ——
-  api(SCENARIO_NAMES[11], {
-    name: "Session",
-    method: "POST",
-    path: "/api/whatsapp/session",
-    token: "Gallabox secret",
-    request: j({ mobile: "9004186460" }) + "\n\nRequired: mobile\nOptional: none",
-    response: j(sessionRes),
-    postmanAuth: "whatsapp",
-    body: { mobile: "{{mobile}}" },
-    saveToken: true,
-  }),
-  api(SCENARIO_NAMES[11], {
-    name: "Report order issue",
-    method: "POST",
-    path: "/api/user/order/report-order",
-    token: "Yes (user Bearer)",
-    request:
-      j({
-        order_id: 74,
-        issue_type: "missing",
-        issue_reason: "shirt_missing",
-        description: "One shirt missing from delivery",
-      }) +
-      "\n\nRequired: order_id, issue_type, issue_reason\nOptional: description",
-    response: j({ success: true }),
-    postmanAuth: "user",
-    body: {
-      order_id: "{{orderId}}",
-      issue_type: "missing",
-      issue_reason: "shirt_missing",
-      description: "One shirt missing from delivery",
-    },
-    descriptionExtra: "OPTIONAL: description. Required: order_id, issue_type, issue_reason",
-  }),
-  api(SCENARIO_NAMES[11], {
-    name: "Need help",
-    method: "POST",
-    path: "/api/user/needHelp",
-    token: "Yes (user Bearer)",
-    request:
-      j({ report_issue: "missing_item", message: "Shirt missing" }) +
-      "\n\nRequired: message\nOptional: report_issue",
-    response: j({ success: true, message: "Support request submitted successfully" }),
-    postmanAuth: "user",
-    body: { report_issue: "missing_item", message: "Shirt missing" },
-  }),
-
-  // —— S12 ——
-  api(SCENARIO_NAMES[12], {
-    name: "Retry create Razorpay order",
-    method: "POST",
-    path: "/api/user/order/payment/:id/create-order",
-    token: "Yes (user Bearer)",
-    request:
-      j({ amount: 1185.04, payment_type: "remaining" }) +
-      "\n\nRequired: amount, payment_type\nOptional: none",
-    response: j({ key_id: "rzp_xxx", order_id: "order_xxx", amount: 118504 }),
-    postmanAuth: "user",
-    body: { amount: 1185.04, payment_type: "remaining" },
-  }),
-  api(SCENARIO_NAMES[12], {
-    name: "Need help (payment dispute fallback)",
-    method: "POST",
-    path: "/api/user/needHelp",
-    token: "Yes (user Bearer)",
-    request:
-      j({
-        report_issue: "payment_issue",
-        message: "Payment failed but amount deducted / double charged",
-      }) +
-      "\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/payment-disputes is NOT built.",
-    response: j({ success: true }),
-    postmanAuth: "user",
-    body: {
-      report_issue: "payment_issue",
-      message: "Payment failed but amount deducted",
-    },
-  }),
-
-  // —— S13 ——
-  api(SCENARIO_NAMES[13], {
-    name: "Need help (negative feedback)",
-    method: "POST",
-    path: "/api/user/needHelp",
-    token: "Yes (user Bearer)",
-    request:
-      j({ report_issue: "negative_feedback", message: "2-star: delay" }) +
-      "\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/orders/:id/rating is NOT built.",
-    response: j({ success: true }),
-    postmanAuth: "user",
-    body: { report_issue: "negative_feedback", message: "2-star: delay" },
-  }),
-
-  // —— S14 ——
-  api(SCENARIO_NAMES[14], {
-    name: "Need help (agent request)",
-    method: "POST",
-    path: "/api/user/needHelp",
-    token: "Yes (user Bearer)",
-    request:
-      j({
-        report_issue: "agent_request",
-        message: "Customer requested live agent from WhatsApp",
-      }) +
-      "\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/agent-handoff is NOT built — use Gallabox native handoff + this.",
-    response: j({ success: true }),
-    postmanAuth: "user",
-    body: {
-      report_issue: "agent_request",
-      message: "Customer requested live agent from WhatsApp",
-    },
-  }),
-  api(SCENARIO_NAMES[14], {
-    name: "Order detail while waiting",
-    method: "GET",
-    path: "/api/user/order/:id/Orderdetail",
-    token: "Yes (user Bearer)",
-    request: "Optional if customer picks Track. Path required: id",
-    response: j({ status: 200, data: { order_id: 74, status: "booked" } }),
-    postmanAuth: "user",
-  }),
-
-  // —— S15 ——
-  api(SCENARIO_NAMES[15], {
-    name: "Unrecognized — re-show menu",
-    method: "—",
-    path: "Gallabox menu only (no MetroGini API)",
-    token: "No",
-    request: "Optional: none. First fallback: re-show current-step menu.",
-    response: "No API",
-    postmanAuth: "skip",
-  }),
-  api(SCENARIO_NAMES[15], {
-    name: "Second fail — needHelp",
-    method: "POST",
-    path: "/api/user/needHelp",
-    token: "Yes (user Bearer)",
-    request:
-      j({
-        report_issue: "unrecognized_input",
-        message: "Two consecutive unrecognized WhatsApp messages",
-      }) +
-      "\n\nRequired: message\nOptional: report_issue",
-    response: j({ success: true }),
-    postmanAuth: "user",
-    body: {
-      report_issue: "unrecognized_input",
-      message: "Two consecutive unrecognized WhatsApp messages",
-    },
   }),
 ];

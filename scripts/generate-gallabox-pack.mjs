@@ -153,7 +153,7 @@ const toPostmanItem = (row) => {
 
 const folderOrder = [
   SCENARIO_NAMES.shared,
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
     (n) => SCENARIO_NAMES[n],
   ),
 ];
@@ -168,8 +168,8 @@ const collection = {
     _postman_id: "gallabox-whatsapp-from-txt-001",
     name: "Gallabox WhatsApp Scenarios",
     description:
-      "Generated from gallabox_whatsapp_scenario_apis.txt\n\n" +
-      "Folder names match the txt file.\n" +
+      "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\n" +
+      "Folder names match the updated document.\n" +
       "Optional query params are unchecked (disabled) in Postman.\n" +
       "Optional body fields are listed in each request Description.\n" +
       "Easy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\n" +
@@ -201,7 +201,7 @@ const postmanPath = join(
 writeFileSync(postmanPath, JSON.stringify(collection, null, 2));
 console.log("Postman:", postmanPath);
 
-const excelRows = CATALOG.map((r) => ({
+const toExcelRow = (r) => ({
   Scenario: r.scenario,
   Name: r.name,
   Endpoint: r.method === "—" ? r.path : `${r.method} ${BASE}${r.path}`,
@@ -209,12 +209,10 @@ const excelRows = CATALOG.map((r) => ({
   Response:
     typeof r.response === "string" ? r.response : JSON.stringify(r.response, null, 2),
   Token: r.token,
-}));
-
-const ws = XLSX.utils.json_to_sheet(excelRows, {
-  header: ["Scenario", "Name", "Endpoint", "Request", "Response", "Token"],
 });
-ws["!cols"] = [
+
+const excelHeaders = ["Scenario", "Name", "Endpoint", "Request", "Response", "Token"];
+const excelCols = [
   { wch: 58 },
   { wch: 42 },
   { wch: 72 },
@@ -223,17 +221,36 @@ ws["!cols"] = [
   { wch: 28 },
 ];
 
+const makeSheet = (rows) => {
+  const ws = XLSX.utils.json_to_sheet(rows, { header: excelHeaders });
+  ws["!cols"] = excelCols;
+  return ws;
+};
+
 const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "All scenarios");
+XLSX.utils.book_append_sheet(
+  wb,
+  makeSheet(CATALOG.filter((r) => r.scenario === SCENARIO_NAMES.shared).map(toExcelRow)),
+  "Shared",
+);
+for (let n = 1; n <= 11; n++) {
+  XLSX.utils.book_append_sheet(
+    wb,
+    makeSheet(CATALOG.filter((r) => r.scenario === SCENARIO_NAMES[n]).map(toExcelRow)),
+    `Scenario ${n}`,
+  );
+}
 
 const excelPath = join(__dirname, "..", "gallabox_scenarios.xlsx");
 try {
   XLSX.writeFile(wb, excelPath);
-  console.log("Excel (1 sheet):", excelPath, "rows=", excelRows.length);
+  console.log("Excel (12 sheets: Shared + Scenario 1–11):", excelPath);
 } catch (err) {
   if (err.code === "EBUSY") {
-    console.error("Close gallabox_scenarios.xlsx and run again.");
-    process.exit(1);
+    const alt = join(__dirname, "..", "gallabox_scenarios_updated.xlsx");
+    XLSX.writeFile(wb, alt);
+    console.log("Excel was open. Wrote 12 sheets to:", alt);
+    process.exit(0);
   }
   throw err;
 }
