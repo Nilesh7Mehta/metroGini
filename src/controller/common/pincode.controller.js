@@ -4,6 +4,7 @@ import {
   getPincodeById,
   updatePincode,
   deletePincode,
+  checkPincodeBookable,
 } from "../../services/common/pincode.service.js";
 
 const handleError = (res, err, next) => {
@@ -20,6 +21,34 @@ const handleError = (res, err, next) => {
     });
   }
   next(err);
+};
+
+/**
+ * Public bookable check for app / WhatsApp.
+ * GET /api/common/pincode-check?pincode=400058
+ * Always 200 for valid 6-digit pins (serviceable true|false in data).
+ */
+export const checkPincode = async (req, res, next) => {
+  try {
+    const pincode = req.query.pincode;
+    if (pincode == null || String(pincode).trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "pincode is required",
+      });
+    }
+
+    const data = await checkPincodeBookable(pincode);
+    return res.status(200).json({
+      success: true,
+      message: data.serviceable
+        ? "Pincode is serviceable"
+        : data.message || "Pincode is not serviceable",
+      data,
+    });
+  } catch (err) {
+    handleError(res, err, next);
+  }
 };
 
 export const addPincode = async (req, res, next) => {

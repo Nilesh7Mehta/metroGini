@@ -1,5 +1,5 @@
 import sql from "../../config/db.js";
-import { assertPincodeServiceable } from "../common/pincode.service.js";
+import { assertPincodeBookable } from "../common/pincode.service.js";
 
 const ALLOWED_ADDRESS_TYPES = ["home", "work", "institute"];
 
@@ -166,7 +166,7 @@ export const addAddress = async ({ userId, body }) => {
   const payload = validated.data;
 
   try {
-    await assertPincodeServiceable(payload.pincode);
+    await assertPincodeBookable(payload.pincode);
   } catch (error) {
     if (error.status) {
       return {
@@ -245,7 +245,7 @@ export const updateAddress = async ({ userId, addressId, body }) => {
   const payload = validated.data;
 
   try {
-    await assertPincodeServiceable(payload.pincode);
+    await assertPincodeBookable(payload.pincode);
   } catch (error) {
     if (error.status) {
       return {
@@ -367,7 +367,7 @@ export const setDefaultAddress = async ({ userId, addressId }) => {
   }
 
   try {
-    await assertPincodeServiceable(existing.rows[0].pincode);
+    await assertPincodeBookable(existing.rows[0].pincode);
   } catch (error) {
     if (error.status) {
       return {

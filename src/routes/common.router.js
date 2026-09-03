@@ -46,6 +46,9 @@ router.post('/pincode-groups', authenticate, isAdmin, pincodeGroupController.add
 router.put('/pincode-groups/:id', authenticate, isAdmin, pincodeGroupController.editPincodeGroup);
 router.delete('/pincode-groups/:id', authenticate, isAdmin, pincodeGroupController.removePincodeGroup);
 
+// Pincode bookable check (public) — pin + ACTIVE group + vendor/rider slots
+router.get('/pincode-check', pincodeController.checkPincode);
+
 // Pincodes
 router.get('/pincodes', pincodeController.listPincodes);
 router.get('/pincodes/:id', pincodeController.getPincode);

@@ -1896,6 +1896,16 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     reference_id: order_id,
   }]);
 
+  try {
+    const { emitWhatsappOrderEventSafe } = await import(
+      '../whatsapp/whatsappEvents.service.js'
+    );
+    emitWhatsappOrderEventSafe('order.weight_confirmed', order_id);
+    emitWhatsappOrderEventSafe('order.finalized', order_id);
+  } catch (_) {
+    /* ignore */
+  }
+
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
     order_id: parseInt(order_id, 10),

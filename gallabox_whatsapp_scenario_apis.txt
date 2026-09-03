@@ -75,10 +75,23 @@ APIs to use:
 [EXISTS] GET  /api/common/how-we-work
 [EXISTS] GET  /api/common/know-about-us
 [EXISTS] GET  /api/common/services?pincode=XXXXXX
+[EXISTS] GET /api/common/pincode-check?pincode=400058
+  Response: {
+    "success": true,
+    "data": {
+      "serviceable": true|false,
+      "pincode": "400058",
+      "pincode_group_id": 1,
+      "group_code": "MUM_WEST",
+      "has_vendor_slots": true,
+      "has_rider_slots": true,
+      "message": null
+    }
+  }
+  Rules: pin exists + serviceable + ACTIVE group + overlapping vendor&rider slots in next 7 days.
+  Same rules enforced on POST/PUT user address and set-default address.
+
 [EXISTS] GET  /api/common/pincodes?pincode=XXXXXX   (or list + filter)
-[PARTIAL] Pincode serviceability — logic exists in backend; recommend dedicated public check:
-[MISSING] GET /api/common/pincode-check?pincode=400058
-  Response: { "success": true, "data": { "serviceable": true, "pincode_group_id": 1, "message": null } }
 
 [EXISTS] POST /api/user/address
   Body: address_type, complete_address, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode
@@ -323,7 +336,6 @@ PRIORITY BUILD LIST FOR GALLABOX (recommended order)
 P0  Outbound order events webhook MetroGini → Gallabox
 P0  GET/POST customer lookup by mobile
 P0  Scenario 7: weight_confirmed event + Orderdetail + create-order payment
-P1  Public pincode-check
 P1  Active order by mobile + status stage label
 P1  Confirm booking without advance (if product confirms no advance)
 P2  CRM segments (inactive app, winback)

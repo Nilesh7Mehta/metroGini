@@ -239,6 +239,15 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
     }]);
   }
 
+  try {
+    const { emitWhatsappOrderEventSafe } = await import(
+      "../whatsapp/whatsappEvents.service.js"
+    );
+    emitWhatsappOrderEventSafe("pickup_completed", order_id);
+  } catch (_) {
+    /* ignore */
+  }
+
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {
     order_id: parseInt(order_id, 10),

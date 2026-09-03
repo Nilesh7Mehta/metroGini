@@ -337,6 +337,32 @@
           "response": []
         },
         {
+          "name": "Check Pincode (bookable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}api/common/pincode-check?pincode=400058",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "pincode-check"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "400058",
+                  "description": "Required. Pin + ACTIVE group + vendor&rider overlapping slots."
+                }
+              ]
+            },
+            "description": "Public. data.serviceable true|false. Same rules as add-address."
+          },
+          "response": []
+        },
+        {
           "name": "Slot Availability",
           "request": {
             "method": "GET",

@@ -5689,6 +5689,32 @@
           "name": "Pincodes",
           "item": [
             {
+              "name": "Check Pincode (bookable)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/common/pincode-check?pincode=400058",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "common",
+                    "pincode-check"
+                  ],
+                  "query": [
+                    {
+                      "key": "pincode",
+                      "value": "400058",
+                      "description": "Required 6-digit pincode. Checks: pin exists + serviceable + ACTIVE group + vendor&rider overlapping slots in next 7 days."
+                    }
+                  ]
+                },
+                "description": "Public. Returns data.serviceable true|false. Same rules as stricter add-address. No Bearer required."
+              },
+              "response": []
+            },
+            {
               "name": "List Pincodes",
               "request": {
                 "method": "GET",

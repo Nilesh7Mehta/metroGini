@@ -165,6 +165,22 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
       });
     }
 
+    try {
+      const { emitWhatsappOrderEventSafe } = await import(
+        "../../whatsapp/whatsappEvents.service.js"
+      );
+      emitWhatsappOrderEventSafe("booking_confirmed", orderId, {
+        assigned_vendor: result.vendor_id,
+        assigned_rider: result.rider_id,
+        advance_paid: result.paidAmount,
+      });
+      emitWhatsappOrderEventSafe("rider_assigned", orderId, {
+        assigned_rider: result.rider_id,
+      });
+    } catch (_) {
+      /* never block booking on WhatsApp webhook */
+    }
+
     return {
       message: "Payment successful. Order booked.",
       order_id: orderId,

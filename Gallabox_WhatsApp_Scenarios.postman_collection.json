@@ -1,0 +1,3139 @@
+{
+  "info": {
+    "_postman_id": "gallabox-whatsapp-from-txt-001",
+    "name": "Gallabox WhatsApp Scenarios",
+    "description": "Generated from gallabox_whatsapp_scenario_apis.txt\n\nFolder names match the txt file.\nOptional query params are unchecked (disabled) in Postman.\nOptional body fields are listed in each request Description.\nEasy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\nSet vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.metrogini.com/"
+    },
+    {
+      "key": "whatsappSecret",
+      "value": "change-me-gallabox-secret"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "vendorToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "mobile",
+      "value": "9004186460"
+    },
+    {
+      "key": "pincode",
+      "value": "400058"
+    },
+    {
+      "key": "groupCode",
+      "value": "MUM_WEST"
+    },
+    {
+      "key": "orderId",
+      "value": "1"
+    },
+    {
+      "key": "draftOrderId",
+      "value": "1"
+    },
+    {
+      "key": "addressId",
+      "value": "1"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "SHARED APIs (used by many scenarios)",
+      "item": [
+        {
+          "name": "WhatsApp session (no OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nUse WhatsApp sender number. Do not ask user to type phone.\n\nToken: Gallabox secret (X-Gallabox-Secret)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer lookup by mobile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/customer/lookup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "customer",
+                "lookup"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nAlso: GET /api/whatsapp/customer/lookup?mobile=\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login or register (OTP fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/login-or-register",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "login-or-register"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: No",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP (OTP fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/verify-otp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "verify-otp"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\",\n  \"otp\": \"1234\"\n}\n\nRequired: mobile, otp\nOptional: none\n\nToken: No",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"otp\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emit event to Gallabox (test outbound)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/events/emit",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "events",
+                "emit"
+              ]
+            },
+            "description": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74,\n  \"mobile\": \"9004186460\",\n  \"data\": {}\n}\n\nRequired: event\nOptional: order_id, mobile, data\nEvents: booking_confirmed, pickup_day_reminder, rider_assigned, pickup_completed, vendor_received, weight_confirmed, order.weight_confirmed, order.finalized, payment_received, out_for_delivery, delivered, delayed, cancelled\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": \"{{orderId}}\",\n  \"data\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 1 — Promotion / New Customer → Booking",
+      "item": [
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pincode check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/pincode-check?pincode={{pincode}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "pincode-check"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "{{pincode}}",
+                  "description": "Required. 6-digit pincode",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Query required: pincode\nOptional: none\nIf serviceable=false → coming soon; stop.\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "List pincodes (alternate lookup)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/pincodes?",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "pincodes"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "{{pincode}}",
+                  "description": "Optional. Exact pincode",
+                  "disabled": true
+                },
+                {
+                  "key": "pincode_group_id",
+                  "value": "1",
+                  "description": "Optional",
+                  "disabled": true
+                },
+                {
+                  "key": "serviceable",
+                  "value": "true",
+                  "description": "Optional: true | false",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query optional: pincode, pincode_group_id, serviceable (true/false)\nPrefer pincode-check for WhatsApp.\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "Services (pricing / service_id)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/services?pincode={{pincode}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "services"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "{{pincode}}",
+                  "description": "Optional",
+                  "disabled": false
+                },
+                {
+                  "key": "pincode_group_id",
+                  "value": "1",
+                  "description": "Optional",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query optional: pincode OR pincode_group_id (or zone_id)\nIf omitted, default service prices.\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "Service types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/service-types",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "service-types"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "Add address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/address",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "address"
+              ]
+            },
+            "description": "OPTIONAL body: complete_address, name, email. Required: address_type, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode.\n\n{\n  \"address_type\": \"home\",\n  \"floor\": \"204\",\n  \"landmark\": \"Near station\",\n  \"receiver_name\": \"Karthik\",\n  \"contact_number\": \"9004186460\",\n  \"latitude\": \"19.1197\",\n  \"longitude\": \"72.8468\",\n  \"pincode\": \"400058\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: address_type (home|work|institute), floor, landmark, receiver_name (or name), contact_number, latitude, longitude, pincode\nOptional: complete_address, name, email\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address_type\": \"home\",\n  \"floor\": \"204\",\n  \"landmark\": \"Near station\",\n  \"receiver_name\": \"Karthik\",\n  \"contact_number\": \"{{mobile}}\",\n  \"latitude\": \"19.1197\",\n  \"longitude\": \"72.8468\",\n  \"pincode\": \"{{pincode}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set default address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/address/default/{{addressId}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "address",
+                "default",
+                "{{addressId}}"
+              ]
+            },
+            "description": "No body.\nPath required: id = address_id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Slots availability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/slots/availability?pincode={{pincode}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "slots",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "pincode",
+                  "value": "{{pincode}}",
+                  "description": "Required unless pincodeGroupId",
+                  "disabled": false
+                },
+                {
+                  "key": "pincodeGroupId",
+                  "value": "1",
+                  "description": "Optional (use instead of pincode)",
+                  "disabled": true
+                },
+                {
+                  "key": "days",
+                  "value": "7",
+                  "description": "Optional. Default 7",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Required: pincode OR pincodeGroupId (or pincode_group_id)\nOptional: days (default 7)\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "Create draft order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order"
+              ]
+            },
+            "description": "{\n  \"service_id\": 1,\n  \"clothes_count\": 15\n}\n\nRequired: service_id, clothes_count (10–25)\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_id\": 1,\n  \"clothes_count\": 15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const id = json.id || json.order_id || (json.data && (json.data.order_id || json.data.id));",
+                  "  if (id) pm.collectionVariables.set('orderId', String(id));",
+                  "  if (json.data && json.data.address_id) pm.collectionVariables.set('addressId', String(json.data.address_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complete order (pickup + delivery)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/complete-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "complete-order"
+              ]
+            },
+            "description": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\nAlt step-by-step: PUT service-type, PUT pickup, PUT delivery, POST finalize\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/review",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "review"
+              ]
+            },
+            "description": "No body. Path required: id\nOptional: none. Loyalty coupon auto-applies.\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm booking (pay ₹0 — no advance)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/pay",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "pay"
+              ]
+            },
+            "description": "{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week (1=Mon…7=Sun)\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_code\": \"{{groupCode}}\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "No body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel order (press C)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/cancelService",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "cancelService"
+              ]
+            },
+            "description": "OPTIONAL: reason_description (required only when reason_type = other)\n\n{\n  \"reason_type\": \"changed_mind\",\n  \"reason_description\": \"Customer pressed C on WhatsApp\"\n}\n\nRequired: reason_type (pickup_schedule_issue | modify_order | service_charge_incorrect | changed_mind | other)\nOptional: reason_description (required only if reason_type=other)\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason_type\": \"changed_mind\",\n  \"reason_description\": \"Customer pressed C on WhatsApp\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "FAQ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/faq",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "faq"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "How we work",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/how-we-work",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "how-we-work"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: No"
+          },
+          "response": []
+        },
+        {
+          "name": "Know about us / View pricing",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/common/know-about-us",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "common",
+                "know-about-us"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: No"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 2 — App downloaded, no activity → re-engage",
+      "item": [
+        {
+          "name": "CRM inactive registered users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/crm/inactive-app-users?hours=48",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "crm",
+                "inactive-app-users"
+              ],
+              "query": [
+                {
+                  "key": "hours",
+                  "value": "48",
+                  "description": "Optional. Default 48",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Optional. Default 100",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query optional: hours (default 48), limit (default 100, max 500)\nUsers with 0 completed orders and created_at older than hours.\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Session after customer replies",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/profile",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 3 — Browsed / cart / prior chat, no booking",
+      "item": [
+        {
+          "name": "Abandoned booking / cart resume",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/customer/{{mobile}}/abandoned-booking",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "customer",
+                "{{mobile}}",
+                "abandoned-booking"
+              ]
+            },
+            "description": "Path required: mobile\nOptional: none\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Continue — review draft",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{draftOrderId}}/review",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{draftOrderId}}",
+                "review"
+              ]
+            },
+            "description": "Path: draft order_id from abandoned-booking\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Continue — complete-order if pickup missing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{draftOrderId}}/complete-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{draftOrderId}}",
+                "complete-order"
+              ]
+            },
+            "description": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm booking pay ₹0",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{draftOrderId}}/pay",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{draftOrderId}}",
+                "pay"
+              ]
+            },
+            "description": "{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_code\": \"{{groupCode}}\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 4 — Retention win-back (1 order, inactive 30 days)",
+      "item": [
+        {
+          "name": "CRM win-back list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/crm/winback?days=30&total_orders=1",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "crm",
+                "winback"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Optional. Default 30",
+                  "disabled": false
+                },
+                {
+                  "key": "total_orders",
+                  "value": "1",
+                  "description": "Optional. Default 1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Optional",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query optional: days (default 30), total_orders (default 1), limit (default 100)\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List saved addresses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/address",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "address"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply coupon (VALUED10 / win-back)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "applyCoupon"
+              ]
+            },
+            "description": "OPTIONAL: coupon_code. Empty body {} reapplies loyalty coupon.\n\n{\n  \"coupon_code\": \"VALUED10\"\n}\n\nOptional: coupon_code — omit or {} to reapply loyalty\nTxt also listed POST /api/whatsapp/offers/apply — not built; use this.\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coupon_code\": \"VALUED10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 5 — Day of pickup reminder + rider assigned",
+      "item": [
+        {
+          "name": "Emit pickup_day_reminder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/events/emit",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "events",
+                "emit"
+              ]
+            },
+            "description": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, mobile, data\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Emit rider_assigned",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/events/emit",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "events",
+                "emit"
+              ]
+            },
+            "description": "{\n  \"event\": \"rider_assigned\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"rider_assigned\",\n  \"order_id\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "No body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rider contact",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/orders/{{orderId}}/rider",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "orders",
+                "{{orderId}}",
+                "rider"
+              ]
+            },
+            "description": "Path required: id\nOptional: none\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule pickup",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/rescheduleOrderPickup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "rescheduleOrderPickup"
+              ]
+            },
+            "description": "{\n  \"pickup_date\": \"2026-09-11\",\n  \"pickup_slot_id\": 1\n}\n\nRequired: pickup_date, pickup_slot_id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickup_date\": \"2026-09-11\",\n  \"pickup_slot_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/cancelService",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "cancelService"
+              ]
+            },
+            "description": "{\n  \"reason_type\": \"pickup_schedule_issue\"\n}\n\nRequired: reason_type\nOptional: reason_description\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason_type\": \"pickup_schedule_issue\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 6 — Pickup successful",
+      "item": [
+        {
+          "name": "Emit pickup_completed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/events/emit",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "events",
+                "emit"
+              ]
+            },
+            "description": "{\n  \"event\": \"pickup_completed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"pickup_completed\",\n  \"order_id\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "No body. Optional: none. Expect status picked_up / in_process\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 7 — Weight confirmation + Payment (PRIMARY)",
+      "item": [
+        {
+          "name": "Vendor confirm-weight (internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/order/{{orderId}}/confirm-weight",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "order",
+                "{{orderId}}",
+                "confirm-weight"
+              ]
+            },
+            "description": "form-data Required: actual_weight\nOptional: is_stained, vendor_request_amount, stain images\n\nToken: Yes (vendor Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{vendorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Vendor finalize (internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/vendor/order/{{orderId}}/finalize",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "vendor",
+                "order",
+                "{{orderId}}",
+                "finalize"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: Yes (vendor Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{vendorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Emit order.weight_confirmed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/events/emit",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "events",
+                "emit"
+              ]
+            },
+            "description": "{\n  \"event\": \"order.weight_confirmed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"order.weight_confirmed\",\n  \"order_id\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail (bill)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Razorpay order (Pay Now)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/create-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "create-order"
+              ]
+            },
+            "description": "{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}\n\nRequired: amount, payment_type\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Razorpay payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/verify",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "verify"
+              ]
+            },
+            "description": "{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": \"pay_xxx\",\n  \"razorpay_signature\": \"sig_xxx\"\n}\n\nRequired: razorpay_order_id, razorpay_payment_id, razorpay_signature\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": \"pay_xxx\",\n  \"razorpay_signature\": \"sig_xxx\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Razorpay webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/razorpay/webhook",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "razorpay",
+                "webhook"
+              ]
+            },
+            "description": "Razorpay payment.captured payload. Optional: none (Razorpay-owned)\n\nToken: Razorpay signature (no user token)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 8 — New / organic customer says Hi",
+      "item": [
+        {
+          "name": "Customer lookup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/customer/lookup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "customer",
+                "lookup"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 9 — Existing customer + live order status",
+      "item": [
+        {
+          "name": "Customer lookup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/customer/lookup",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "customer",
+                "lookup"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List user orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/getUserOrder?",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "getUserOrder"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "booked",
+                  "description": "Optional filter",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Optional",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Optional",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query optional: status, time, page, limit\nstatus: booked | out_for_pickup | pickup_in_progress | picked_up | in_process | order_finalized | ready_for_delivery | out_for_delivery | delivered | cancelled\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Active order by mobile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/orders/active-by-mobile?mobile={{mobile}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "orders",
+                "active-by-mobile"
+              ],
+              "query": [
+                {
+                  "key": "mobile",
+                  "value": "{{mobile}}",
+                  "description": "Required",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Query required: mobile\nOptional: none\n\nToken: Gallabox secret"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 10 — Delayed pickup / delivery inquiry",
+      "item": [
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Active order by mobile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/orders/active-by-mobile?mobile={{mobile}}",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "orders",
+                "active-by-mobile"
+              ],
+              "query": [
+                {
+                  "key": "mobile",
+                  "value": "{{mobile}}",
+                  "description": "Required",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Query required: mobile\nOptional: none\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delay status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/orders/{{orderId}}/delay-status",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "orders",
+                "{{orderId}}",
+                "delay-status"
+              ]
+            },
+            "description": "Path required: id\nOptional: none\n\nToken: Gallabox secret"
+          },
+          "response": []
+        },
+        {
+          "name": "Need help / escalate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "OPTIONAL: report_issue. Required: message\n\n{\n  \"report_issue\": \"delay\",\n  \"message\": \"Pickup delayed\"\n}\n\nRequired: message\nOptional: report_issue\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"delay\",\n  \"message\": \"Pickup delayed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 11 — Damaged / missing / wrong garment",
+      "item": [
+        {
+          "name": "Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/session",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "session"
+              ]
+            },
+            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Report order issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/report-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "report-order"
+              ]
+            },
+            "description": "OPTIONAL: description. Required: order_id, issue_type, issue_reason\n\n{\n  \"order_id\": 74,\n  \"issue_type\": \"missing\",\n  \"issue_reason\": \"shirt_missing\",\n  \"description\": \"One shirt missing from delivery\"\n}\n\nRequired: order_id, issue_type, issue_reason\nOptional: description\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{orderId}}\",\n  \"issue_type\": \"missing\",\n  \"issue_reason\": \"shirt_missing\",\n  \"description\": \"One shirt missing from delivery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Need help",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "{\n  \"report_issue\": \"missing_item\",\n  \"message\": \"Shirt missing\"\n}\n\nRequired: message\nOptional: report_issue\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"missing_item\",\n  \"message\": \"Shirt missing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 12 — Payment failed / double charged",
+      "item": [
+        {
+          "name": "Retry create Razorpay order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/payment/{{orderId}}/create-order",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "payment",
+                "{{orderId}}",
+                "create-order"
+              ]
+            },
+            "description": "{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}\n\nRequired: amount, payment_type\nOptional: none\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Need help (payment dispute fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "{\n  \"report_issue\": \"payment_issue\",\n  \"message\": \"Payment failed but amount deducted / double charged\"\n}\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/payment-disputes is NOT built.\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"payment_issue\",\n  \"message\": \"Payment failed but amount deducted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 13 — Negative feedback (1–2 stars)",
+      "item": [
+        {
+          "name": "Need help (negative feedback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "{\n  \"report_issue\": \"negative_feedback\",\n  \"message\": \"2-star: delay\"\n}\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/orders/:id/rating is NOT built.\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"negative_feedback\",\n  \"message\": \"2-star: delay\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 14 — Human agent handoff",
+      "item": [
+        {
+          "name": "Need help (agent request)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "{\n  \"report_issue\": \"agent_request\",\n  \"message\": \"Customer requested live agent from WhatsApp\"\n}\n\nRequired: message\nOptional: report_issue\nPOST /api/whatsapp/agent-handoff is NOT built — use Gallabox native handoff + this.\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"agent_request\",\n  \"message\": \"Customer requested live agent from WhatsApp\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order detail while waiting",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/Orderdetail",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "Orderdetail"
+              ]
+            },
+            "description": "Optional if customer picks Track. Path required: id\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SCENARIO 15 — Fallback / unrecognized",
+      "item": [
+        {
+          "name": "Unrecognized — re-show menu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ]
+            },
+            "description": "Optional: none. First fallback: re-show current-step menu.\n\nNo MetroGini API — Gallabox menu only."
+          },
+          "response": []
+        },
+        {
+          "name": "Second fail — needHelp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/user/needHelp",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "needHelp"
+              ]
+            },
+            "description": "{\n  \"report_issue\": \"unrecognized_input\",\n  \"message\": \"Two consecutive unrecognized WhatsApp messages\"\n}\n\nRequired: message\nOptional: report_issue\n\nToken: Yes (user Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"report_issue\": \"unrecognized_input\",\n  \"message\": \"Two consecutive unrecognized WhatsApp messages\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
