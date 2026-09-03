@@ -14,6 +14,13 @@ import { assertPincodeServiceable } from "../common/pincode.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { orderReceivedTemplate, formatOrderDisplayId } from "../../utils/userNotificationTemplates.js";
 import { normalizeOrderListFilter, USER_ORDER_FILTER_STATUSES } from "../../utils/userOrder.util.js";
+import { PAYMENT_STATUS } from "../../utils/status.js";
+import { computeFinalTotalsFromOrder } from "../../utils/orderFinalBilling.util.js";
+import {
+  assertLoyaltyCouponAllowedForCount,
+  getCompletedOrderCount,
+  resolveLoyaltyCoupon,
+} from "../../utils/loyaltyCoupon.util.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -547,8 +554,224 @@ export const completeOrderService = async ({
   }
 };
 
-export const reviewOrderService = async ({ order_id, user_id }) => {
-  const result = await sql.query(
+const loadOrderForCouponMutation = async (client, orderId, userId) => {
+  const { rows } = await client.query(
+    `SELECT o.id, o.user_id, o.status, o.payment_status, o.service_id, o.address_id,
+            o.applied_coupon_id, o.auto_coupon_dismissed,
+            o.estimated_weight_min, o.estimated_weight_max, o.actual_weight,
+            o.estimated_total, o.final_total, o.amount_paid, o.discount_price,
+            o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee, o.peak_extra_charge,
+            o.is_stained, o.vendor_request_amount, o.vendor_request_markup,
+            st.extra_price_per_kg AS service_type_extra_price_per_kg,
+            st.flat_fee AS service_type_flat_fee,
+            ts.is_peak AS slot_is_peak,
+            ts.peak_extra_charge AS slot_peak_extra_charge,
+            c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value,
+            c.minimum_amount_value, c.maximum_amount_value
+     FROM orders o
+     LEFT JOIN service_types st ON o.service_type_id = st.id
+     LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
+     LEFT JOIN coupons c ON o.applied_coupon_id = c.id
+     WHERE o.id = $1 AND o.user_id = $2
+     FOR UPDATE OF o`,
+    [orderId, userId],
+  );
+  return rows[0] || null;
+};
+
+const assertCouponMutable = (order) => {
+  if (!order) throw { status: 404, message: "Order not found" };
+  if (order.status === "cancelled") {
+    throw { status: 400, message: "Cannot modify coupon on a cancelled order" };
+  }
+  if (order.payment_status === PAYMENT_STATUS.PAID) {
+    throw { status: 400, message: "Cannot modify coupon after payment is completed" };
+  }
+
+  const isDraft = order.status === "draft";
+  const isPostWeigh =
+    order.actual_weight != null && Number(order.actual_weight) > 0;
+
+  if (!isDraft && !isPostWeigh) {
+    throw {
+      status: 400,
+      message:
+        "Coupon can be changed on draft orders or after final weight is confirmed",
+    };
+  }
+
+  return { isDraft, isPostWeigh };
+};
+
+const resolveDraftGrossAmount = async (client, orderRow) => {
+  const resolvedBasePrice =
+    orderRow.base_price_per_kg != null
+      ? Number(orderRow.base_price_per_kg)
+      : await resolveBasePricePerKg(client, {
+          serviceId: orderRow.service_id,
+          addressId: orderRow.address_id,
+        });
+
+  const pricingOrder = {
+    estimated_weight_min: orderRow.estimated_weight_min,
+    estimated_weight_max: orderRow.estimated_weight_max,
+    base_price_per_kg: resolvedBasePrice,
+    extra_price_per_kg:
+      orderRow.extra_price_per_kg ?? orderRow.service_type_extra_price_per_kg,
+    flat_fee: orderRow.flat_fee ?? orderRow.service_type_flat_fee,
+    is_peak: orderRow.slot_is_peak,
+    peak_extra_charge:
+      orderRow.peak_extra_charge ?? orderRow.slot_peak_extra_charge,
+  };
+
+  const { gross_total: calculatedAmount } = calculateOrderPricing(pricingOrder);
+  const orderAmount =
+    orderRow.estimated_total != null
+      ? Number(orderRow.estimated_total)
+      : calculatedAmount;
+
+  if (!orderAmount || Number.isNaN(orderAmount) || orderAmount <= 0) {
+    throw {
+      status: 400,
+      message:
+        "Complete service type and pickup details before applying a coupon",
+    };
+  }
+
+  return {
+    orderAmount,
+    pricingOrder: {
+      ...pricingOrder,
+      estimated_weight_min: orderRow.estimated_weight_min,
+      estimated_weight_max: orderRow.estimated_weight_max,
+    },
+  };
+};
+
+const validateCouponForUser = async (client, coupon, userId, orderAmount) => {
+  const minAmount = Number(coupon.minimum_amount_value || 0);
+  if (orderAmount < minAmount) {
+    throw {
+      status: 400,
+      message: `Coupon requires a minimum order amount of ₹${minAmount}`,
+    };
+  }
+
+  if (
+    coupon.maximum_amount_value != null &&
+    orderAmount > Number(coupon.maximum_amount_value)
+  ) {
+    throw {
+      status: 400,
+      message: `Coupon is valid only for orders up to ₹${Number(coupon.maximum_amount_value)}`,
+    };
+  }
+
+  if (coupon.coupon_code === "CANCEL500") {
+    const eligibilityCheck = await client.query(
+      `SELECT id FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=FALSE AND expiry_date >= CURRENT_TIMESTAMP`,
+      [coupon.id, userId],
+    );
+    if (eligibilityCheck.rows.length === 0) {
+      throw {
+        status: 400,
+        message: "You are not eligible to use this coupon",
+      };
+    }
+  }
+
+  if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
+    throw { status: 400, message: "Coupon usage limit exceeded" };
+  }
+
+  if (coupon.per_user_limit !== null) {
+    const usageCheck = await client.query(
+      `SELECT COUNT(*) FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=TRUE`,
+      [coupon.id, userId],
+    );
+    if (Number(usageCheck.rows[0].count) >= coupon.per_user_limit) {
+      throw { status: 400, message: "You have already used this coupon" };
+    }
+  }
+};
+
+const persistCouponOnOrder = async (
+  client,
+  { order, coupon, isPostWeigh },
+) => {
+  if (isPostWeigh) {
+    const totals = computeFinalTotalsFromOrder({
+      ...order,
+      applied_coupon_id: coupon.id,
+      coupon_id: coupon.id,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      minimum_amount_value: coupon.minimum_amount_value,
+      maximum_amount_value: coupon.maximum_amount_value,
+    });
+
+    await client.query(
+      `UPDATE orders
+       SET applied_coupon_id = $1,
+           discount_price = $2,
+           final_total = $3,
+           remaining_amount = $4,
+           auto_coupon_dismissed = false,
+           updated_at = NOW()
+       WHERE id = $5`,
+      [
+        coupon.id,
+        totals.discount,
+        totals.final_total,
+        totals.remaining_amount,
+        order.id,
+      ],
+    );
+
+    return {
+      discount_price: totals.discount,
+      discount: totals.discount,
+      approx_total: totals.final_total,
+      final_total: totals.final_total,
+      remaining_amount: totals.remaining_amount,
+    };
+  }
+
+  const { orderAmount, pricingOrder } = await resolveDraftGrossAmount(
+    client,
+    order,
+  );
+  await validateCouponForUser(client, coupon, order.user_id, orderAmount);
+
+  const { discount, net_total } = applyCouponDiscount(orderAmount, {
+    applied_coupon_id: coupon.id,
+    discount_type: coupon.discount_type,
+    discount_value: coupon.discount_value,
+    minimum_amount_value: coupon.minimum_amount_value,
+    maximum_amount_value: coupon.maximum_amount_value,
+    estimated_weight_min: pricingOrder.estimated_weight_min,
+    estimated_weight_max: pricingOrder.estimated_weight_max,
+  });
+
+  await client.query(
+    `UPDATE orders
+     SET applied_coupon_id = $1,
+         discount_price = $2,
+         auto_coupon_dismissed = false,
+         updated_at = NOW()
+     WHERE id = $3`,
+    [coupon.id, discount, order.id],
+  );
+
+  return {
+    discount_price: discount,
+    discount,
+    approx_total: net_total,
+  };
+};
+
+const fetchReviewOrderRow = async (db, orderId, userId) => {
+  const result = await db.query(
     `SELECT o.*, s.name AS service_name,
             st.name AS service_type_name, st.extra_price_per_kg, st.flat_fee,
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
@@ -568,21 +791,70 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
      LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
      WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'`,
-    [order_id, user_id],
+    [orderId, userId],
   );
+  return result.rows[0] || null;
+};
 
-  if (result.rows.length === 0)
-    throw { status: 404, message: "Created order not found" };
+export const reviewOrderService = async ({ order_id, user_id }) => {
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
 
-  const order = result.rows[0];
-  if (order.base_price_per_kg == null) {
-    order.base_price_per_kg = await resolveBasePricePerKg(sql, {
-      serviceId: order.service_id,
-      addressId: order.address_id,
-    });
+    let order = await fetchReviewOrderRow(client, order_id, user_id);
+    if (!order) throw { status: 404, message: "Created order not found" };
+
+    if (!order.applied_coupon_id && !order.auto_coupon_dismissed) {
+      const completedCount = await getCompletedOrderCount(
+        client,
+        user_id,
+        order_id,
+      );
+      const loyaltyCoupon = await resolveLoyaltyCoupon(client, completedCount);
+
+      if (loyaltyCoupon) {
+        await client.query("SAVEPOINT loyalty_auto_apply");
+        try {
+          const { orderAmount } = await resolveDraftGrossAmount(client, {
+            ...order,
+            user_id,
+          });
+          await validateCouponForUser(
+            client,
+            loyaltyCoupon,
+            user_id,
+            orderAmount,
+          );
+          await persistCouponOnOrder(client, {
+            order: { ...order, user_id },
+            coupon: loyaltyCoupon,
+            isPostWeigh: false,
+          });
+          order = await fetchReviewOrderRow(client, order_id, user_id);
+          await client.query("RELEASE SAVEPOINT loyalty_auto_apply");
+        } catch (autoErr) {
+          await client.query("ROLLBACK TO SAVEPOINT loyalty_auto_apply");
+          if (!autoErr?.status || autoErr.status >= 500) throw autoErr;
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+
+    if (order.base_price_per_kg == null) {
+      order.base_price_per_kg = await resolveBasePricePerKg(sql, {
+        serviceId: order.service_id,
+        addressId: order.address_id,
+      });
+    }
+    const pricing = calculateOrderPricing(order);
+    return { order, pricing };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-  const pricing = calculateOrderPricing(order);
-  return { order, pricing };
 };
 
 export const applyCouponService = async ({
@@ -590,150 +862,72 @@ export const applyCouponService = async ({
   user_id,
   coupon_code,
 }) => {
-  if (!coupon_code) throw { status: 400, message: "Coupon code is required" };
-
   const client = await sql.connect();
   try {
     await client.query("BEGIN");
 
-    const orderResult = await client.query(
-      `SELECT o.id, o.service_id, o.address_id, o.applied_coupon_id,
-              o.estimated_weight_min, o.estimated_weight_max,
-              o.estimated_total,
-              o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee,
-              o.peak_extra_charge,
-              st.extra_price_per_kg AS service_type_extra_price_per_kg,
-              st.flat_fee AS service_type_flat_fee,
-              ts.is_peak AS slot_is_peak,
-              ts.peak_extra_charge AS slot_peak_extra_charge
-       FROM orders o
-       LEFT JOIN service_types st ON o.service_type_id = st.id
-       LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
-       WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'
-       FOR UPDATE OF o`,
-      [order_id, user_id],
+    const order = await loadOrderForCouponMutation(client, order_id, user_id);
+    const { isPostWeigh } = assertCouponMutable(order);
+
+    const completedCount = await getCompletedOrderCount(
+      client,
+      user_id,
+      order_id,
     );
-    if (orderResult.rows.length === 0)
-      throw { status: 404, message: "Order not found" };
 
-    const orderRow = orderResult.rows[0];
+    let coupon;
+    const code =
+      coupon_code != null && String(coupon_code).trim() !== ""
+        ? String(coupon_code).trim()
+        : null;
 
-    const resolvedBasePrice =
-      orderRow.base_price_per_kg != null
-        ? Number(orderRow.base_price_per_kg)
-        : await resolveBasePricePerKg(client, {
-            serviceId: orderRow.service_id,
-            addressId: orderRow.address_id,
-          });
-
-    const pricingOrder = {
-      estimated_weight_min: orderRow.estimated_weight_min,
-      estimated_weight_max: orderRow.estimated_weight_max,
-      base_price_per_kg: resolvedBasePrice,
-      extra_price_per_kg:
-        orderRow.extra_price_per_kg ?? orderRow.service_type_extra_price_per_kg,
-      flat_fee: orderRow.flat_fee ?? orderRow.service_type_flat_fee,
-      is_peak: orderRow.slot_is_peak,
-      peak_extra_charge:
-        orderRow.peak_extra_charge ?? orderRow.slot_peak_extra_charge,
-    };
-
-    const { gross_total: calculatedAmount } =
-      calculateOrderPricing(pricingOrder);
-
-    const orderAmount =
-      orderRow.estimated_total != null
-        ? Number(orderRow.estimated_total)
-        : calculatedAmount;
-
-    if (!orderAmount || Number.isNaN(orderAmount) || orderAmount <= 0) {
-      throw {
-        status: 400,
-        message:
-          "Complete service type and pickup details before applying a coupon",
-      };
-    }
-
-    const couponResult = await client.query(
-      `SELECT * FROM coupons WHERE UPPER(coupon_code)=UPPER($1) AND is_active=true
-       AND start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP`,
-      [coupon_code],
-    );
-    if (couponResult.rows.length === 0)
-      throw { status: 400, message: "Invalid or expired coupon" };
-
-    const coupon = couponResult.rows[0];
-
-    const minAmount = Number(coupon.minimum_amount_value || 0);
-    if (orderAmount < minAmount) {
-      throw {
-        status: 400,
-        message: `Coupon requires a minimum order amount of ₹${minAmount}`,
-      };
-    }
-
-    if (
-      coupon.maximum_amount_value != null &&
-      orderAmount > Number(coupon.maximum_amount_value)
-    ) {
-      throw {
-        status: 400,
-        message: `Coupon is valid only for orders up to ₹${Number(coupon.maximum_amount_value)}`,
-      };
-    }
-
-    if (coupon.coupon_code === "CANCEL500") {
-      const eligibilityCheck = await client.query(
-        `SELECT id FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=FALSE AND expiry_date >= CURRENT_TIMESTAMP`,
-        [coupon.id, user_id],
-      );
-      if (eligibilityCheck.rows.length === 0)
+    if (!code) {
+      coupon = await resolveLoyaltyCoupon(client, completedCount);
+      if (!coupon) {
         throw {
           status: 400,
-          message: "You are not eligible to use this coupon",
+          message: "No loyalty coupon available for this order",
         };
-    }
-
-    if (
-      coupon.usage_limit !== null &&
-      coupon.used_count >= coupon.usage_limit
-    ) {
-      throw { status: 400, message: "Coupon usage limit exceeded" };
-    }
-
-    if (coupon.per_user_limit !== null) {
-      const usageCheck = await client.query(
-        `SELECT COUNT(*) FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=TRUE`,
-        [coupon.id, user_id],
-      );
-      if (Number(usageCheck.rows[0].count) >= coupon.per_user_limit) {
-        throw { status: 400, message: "You have already used this coupon" };
       }
+    } else {
+      const couponResult = await client.query(
+        `SELECT * FROM coupons WHERE UPPER(coupon_code)=UPPER($1) AND is_active=true
+         AND start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP`,
+        [code],
+      );
+      if (couponResult.rows.length === 0) {
+        throw { status: 400, message: "Invalid or expired coupon" };
+      }
+      coupon = couponResult.rows[0];
+      assertLoyaltyCouponAllowedForCount(coupon, completedCount);
     }
 
-    const { discount, net_total } = applyCouponDiscount(orderAmount, {
-      applied_coupon_id: coupon.id,
-      discount_type: coupon.discount_type,
-      discount_value: coupon.discount_value,
-      minimum_amount_value: coupon.minimum_amount_value,
-      maximum_amount_value: coupon.maximum_amount_value,
+    if (isPostWeigh) {
+      const probe = computeFinalTotalsFromOrder({
+        ...order,
+        applied_coupon_id: coupon.id,
+        coupon_id: coupon.id,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        minimum_amount_value: coupon.minimum_amount_value,
+        maximum_amount_value: coupon.maximum_amount_value,
+      });
+      await validateCouponForUser(
+        client,
+        coupon,
+        user_id,
+        probe.gross_base_total,
+      );
+    }
+
+    const result = await persistCouponOnOrder(client, {
+      order,
+      coupon,
+      isPostWeigh,
     });
 
-    await client.query(
-      `UPDATE orders
-       SET applied_coupon_id=$1,
-           discount_price=$2,
-           updated_at=NOW()
-       WHERE id=$3`,
-      [coupon.id, discount, order_id],
-    );
     await client.query("COMMIT");
-
-    return {
-      discount_price: discount,
-      discount,
-      approx_total: net_total,
-    };
+    return result;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -747,24 +941,52 @@ export const removeCouponService = async ({ order_id, user_id }) => {
   try {
     await client.query("BEGIN");
 
-    const orderResult = await client.query(
-      `SELECT applied_coupon_id FROM orders WHERE id=$1 AND user_id=$2 AND status='draft' FOR UPDATE`,
-      [order_id, user_id],
-    );
-    if (orderResult.rows.length === 0)
-      throw { status: 404, message: "Order not found" };
-    if (!orderResult.rows[0].applied_coupon_id)
+    const order = await loadOrderForCouponMutation(client, order_id, user_id);
+    const { isPostWeigh } = assertCouponMutable(order);
+
+    if (!order.applied_coupon_id) {
       throw { status: 400, message: "No coupon applied to this order" };
+    }
+
+    if (isPostWeigh) {
+      const totals = computeFinalTotalsFromOrder({
+        ...order,
+        applied_coupon_id: null,
+        coupon_id: null,
+        discount_type: null,
+        discount_value: null,
+      });
+
+      await client.query(
+        `UPDATE orders
+         SET applied_coupon_id = NULL,
+             discount_price = NULL,
+             auto_coupon_dismissed = true,
+             final_total = $1,
+             remaining_amount = $2,
+             updated_at = NOW()
+         WHERE id = $3`,
+        [totals.final_total, totals.remaining_amount, order_id],
+      );
+
+      await client.query("COMMIT");
+      return {
+        final_total: totals.final_total,
+        remaining_amount: totals.remaining_amount,
+      };
+    }
 
     await client.query(
       `UPDATE orders
-       SET applied_coupon_id=NULL,
-           discount_price=NULL,
-           updated_at=NOW()
-       WHERE id=$1`,
+       SET applied_coupon_id = NULL,
+           discount_price = NULL,
+           auto_coupon_dismissed = true,
+           updated_at = NOW()
+       WHERE id = $1`,
       [order_id],
     );
     await client.query("COMMIT");
+    return {};
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

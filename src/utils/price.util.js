@@ -1,4 +1,16 @@
-export const applyCouponDiscount = (grossTotal, order) => {
+export const resolveCouponWeight = (order = {}) => {
+  if (order.actual_weight != null && order.actual_weight !== '') {
+    return Number(order.actual_weight);
+  }
+  const min = Number(order.estimated_weight_min || 0);
+  const max = Number(order.estimated_weight_max || 0);
+  if (min || max) {
+    return (min + max) / 2;
+  }
+  return 0;
+};
+
+export const applyCouponDiscount = (grossTotal, order = {}) => {
   const gross = Number(grossTotal);
   let discount = 0;
   const hasCoupon = order.coupon_id || order.applied_coupon_id;
@@ -14,6 +26,8 @@ export const applyCouponDiscount = (grossTotal, order) => {
       discount = (gross * Number(order.discount_value)) / 100;
     } else if (order.discount_type === 'flat') {
       discount = Number(order.discount_value);
+    } else if (order.discount_type === 'per_kg') {
+      discount = resolveCouponWeight(order) * Number(order.discount_value);
     }
   }
 
