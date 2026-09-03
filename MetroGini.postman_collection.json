@@ -426,6 +426,7 @@
                 },
                 "method": "GET",
                 "header": [],
+                "description": "Auto-applies existing loyalty coupon on estimate: 15% for 1st-2nd completed orders, Rs 15/kg for 3rd+. Skips if dismissed on this draft.",
                 "url": {
                   "raw": "{{baseUrl}}api/user/order/1/review",
                   "host": [
@@ -456,9 +457,50 @@
                 },
                 "method": "POST",
                 "header": [],
+                "description": "Draft or unpaid post-weigh. Omit coupon_code / send {} to reapply loyalty coupon for order count tier.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "applyCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Apply Loyalty Coupon (no code)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "description": "Reapply loyalty coupon without a code (15% for orders 1-2, Rs15/kg for 3+).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -495,6 +537,7 @@
                 },
                 "method": "POST",
                 "header": [],
+                "description": "Removes coupon and prevents auto-reapply on review. Rebuilds final_total if weight already confirmed.",
                 "body": {
                   "mode": "raw",
                   "raw": ""

@@ -3,7 +3,7 @@ import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../.
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
-import { applyCouponDiscount, applyGst } from '../../utils/price.util.js';
+import { computeFinalTotalsForConfirmWeight } from '../../utils/orderFinalBilling.util.js';
 import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
@@ -1741,27 +1741,17 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   const weight_max = Number(order.estimated_weight_max);
   const within_range = weight <= weight_max;
 
-  let gross_base_total;
   let extra_weight_charge = 0;
   let pricing_note;
 
   if (within_range) {
-    gross_base_total = Number(order.estimated_total);
     pricing_note = 'within_estimate';
   } else {
     const extra_kg = weight - weight_max;
     const rate_per_kg = Number(order.base_price_per_kg) + Number(order.extra_price_per_kg);
     extra_weight_charge = parseFloat((extra_kg * rate_per_kg).toFixed(2));
-    gross_base_total = parseFloat(
-      (Number(order.estimated_total) + extra_weight_charge).toFixed(2),
-    );
     pricing_note = 'exceeded_estimate';
   }
-
-  const { discount, net_total: base_total } = applyCouponDiscount(
-    gross_base_total,
-    order,
-  );
 
   const resolvedImages =
     stained === 1
@@ -1781,11 +1771,20 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
   const vendor_request_markup =
     stained === 1 ? parseFloat((resolvedAmount * 0.3).toFixed(2)) : null;
 
-  const subtotalBeforeGst = parseFloat(
-    (base_total + (resolvedAmount || 0) + (vendor_request_markup || 0)).toFixed(2),
-  );
-  const { gst, final_total } = applyGst(subtotalBeforeGst);
-  const remaining_amount = parseFloat(final_total - order.amount_paid);
+  const {
+    gross_base_total,
+    discount,
+    base_total,
+    subtotal_before_gst: subtotalBeforeGst,
+    final_total,
+    remaining_amount,
+  } = computeFinalTotalsForConfirmWeight({
+    order,
+    actualWeight: weight,
+    extraWeightCharge: extra_weight_charge,
+    vendorRequestAmount: resolvedAmount || 0,
+    vendorRequestMarkup: vendor_request_markup || 0,
+  });
 
   await sql.query(
     `UPDATE orders
@@ -1802,9 +1801,10 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
          is_damaged = $11,
          damage_count = $12,
          damage_images = $13,
+         discount_price = $14,
          status = 'in_process',
          updated_at = NOW()
-     WHERE id = $14`,
+     WHERE id = $15`,
     [
       weight,
       final_total,
@@ -1819,6 +1819,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
       damaged,
       resolvedDamageCount,
       resolvedDamageImages ? JSON.stringify(resolvedDamageImages) : null,
+      discount,
       order_id,
     ]
   );

@@ -134,6 +134,7 @@ export const insertCoupon = async (body) => {
     is_active,
     per_user_limit,
     usage_limit,
+    auto_apply_loyalty,
   } = body;
 
   if (
@@ -145,7 +146,7 @@ export const insertCoupon = async (body) => {
   )
     throw { status: 400, message: "Required fields are missing" };
 
-  if (!["percentage", "flat"].includes(discount_type))
+  if (!["percentage", "flat", "per_kg"].includes(discount_type))
     throw { status: 400, message: "Invalid discount type" };
 
   if (Number(discount_value) <= 0)
@@ -154,31 +155,62 @@ export const insertCoupon = async (body) => {
   if (new Date(start_date) >= new Date(end_date))
     throw { status: 400, message: "End date must be greater than start date" };
 
+  const loyaltyAuto = Boolean(auto_apply_loyalty);
+  if (loyaltyAuto && !["percentage", "per_kg"].includes(discount_type)) {
+    throw {
+      status: 400,
+      message: "auto_apply_loyalty is only allowed for percentage or per_kg coupons",
+    };
+  }
+
   const { minAmount, maxAmount } = resolveCouponAmountBounds(
     minimum_amount_value,
     maximum_amount_value,
   );
 
-  const { rows } = await sql.query(
-    `INSERT INTO coupons
-      (coupon_code, discount_type, discount_value, minimum_amount_value,
-       maximum_amount_value, start_date, end_date, is_active, per_user_limit, usage_limit)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     RETURNING *`,
-    [
-      coupon_code.trim().toUpperCase(),
-      discount_type,
-      discount_value,
-      minAmount,
-      maxAmount,
-      start_date,
-      end_date,
-      is_active ?? true,
-      per_user_limit ?? 1,
-      usage_limit ?? null,
-    ],
-  );
-  return rows[0];
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (loyaltyAuto) {
+      await client.query(
+        `UPDATE coupons
+         SET auto_apply_loyalty = false, updated_at = CURRENT_TIMESTAMP
+         WHERE auto_apply_loyalty = true AND discount_type = $1`,
+        [discount_type],
+      );
+    }
+
+    const { rows } = await client.query(
+      `INSERT INTO coupons
+        (coupon_code, discount_type, discount_value, minimum_amount_value,
+         maximum_amount_value, start_date, end_date, is_active, per_user_limit,
+         usage_limit, auto_apply_loyalty)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [
+        coupon_code.trim().toUpperCase(),
+        discount_type,
+        discount_value,
+        minAmount,
+        maxAmount,
+        start_date,
+        end_date,
+        is_active ?? true,
+        per_user_limit ?? 1,
+        usage_limit ?? null,
+        loyaltyAuto,
+      ],
+    );
+
+    await client.query("COMMIT");
+    return rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const editCoupon = async (id, body) => {
@@ -193,38 +225,105 @@ export const editCoupon = async (id, body) => {
     is_active,
     per_user_limit,
     usage_limit,
+    auto_apply_loyalty,
   } = body;
+
+  if (discount_type && !["percentage", "flat", "per_kg"].includes(discount_type)) {
+    throw { status: 400, message: "Invalid discount type" };
+  }
+
+  const loyaltyAuto =
+    auto_apply_loyalty !== undefined ? Boolean(auto_apply_loyalty) : undefined;
+
+  if (
+    loyaltyAuto === true &&
+    discount_type &&
+    !["percentage", "per_kg"].includes(discount_type)
+  ) {
+    throw {
+      status: 400,
+      message: "auto_apply_loyalty is only allowed for percentage or per_kg coupons",
+    };
+  }
 
   const { minAmount, maxAmount } = resolveCouponAmountBounds(
     minimum_amount_value,
     maximum_amount_value,
   );
 
-  const { rows } = await sql.query(
-    `UPDATE coupons
-     SET coupon_code = $1, discount_type = $2, discount_value = $3,
-         minimum_amount_value = $4, maximum_amount_value = $5,
-         start_date = $6, end_date = $7,
-         is_active = $8, per_user_limit = $9, usage_limit = $10,
-         updated_at = CURRENT_TIMESTAMP
-     WHERE id = $11
-     RETURNING *`,
-    [
-      coupon_code.trim().toUpperCase(),
-      discount_type,
-      discount_value,
-      minAmount,
-      maxAmount,
-      start_date,
-      end_date,
-      is_active,
-      per_user_limit,
-      usage_limit,
-      id,
-    ],
-  );
-  if (rows.length === 0) throw { status: 404, message: "Coupon not found" };
-  return rows[0];
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query(
+      `SELECT id, discount_type FROM coupons WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!existing.rows.length) {
+      throw { status: 404, message: "Coupon not found" };
+    }
+
+    const nextType = discount_type || existing.rows[0].discount_type;
+    const nextLoyalty =
+      loyaltyAuto !== undefined
+        ? loyaltyAuto
+        : (
+            await client.query(
+              `SELECT auto_apply_loyalty FROM coupons WHERE id = $1`,
+              [id],
+            )
+          ).rows[0].auto_apply_loyalty;
+
+    if (nextLoyalty && !["percentage", "per_kg"].includes(nextType)) {
+      throw {
+        status: 400,
+        message: "auto_apply_loyalty is only allowed for percentage or per_kg coupons",
+      };
+    }
+
+    if (nextLoyalty) {
+      await client.query(
+        `UPDATE coupons
+         SET auto_apply_loyalty = false, updated_at = CURRENT_TIMESTAMP
+         WHERE auto_apply_loyalty = true AND discount_type = $1 AND id <> $2`,
+        [nextType, id],
+      );
+    }
+
+    const { rows } = await client.query(
+      `UPDATE coupons
+       SET coupon_code = $1, discount_type = $2, discount_value = $3,
+           minimum_amount_value = $4, maximum_amount_value = $5,
+           start_date = $6, end_date = $7,
+           is_active = $8, per_user_limit = $9, usage_limit = $10,
+           auto_apply_loyalty = $11,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $12
+       RETURNING *`,
+      [
+        coupon_code.trim().toUpperCase(),
+        discount_type,
+        discount_value,
+        minAmount,
+        maxAmount,
+        start_date,
+        end_date,
+        is_active,
+        per_user_limit,
+        usage_limit,
+        Boolean(nextLoyalty),
+        id,
+      ],
+    );
+
+    await client.query("COMMIT");
+    return rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const getAllCoupons = async () => {

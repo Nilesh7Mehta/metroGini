@@ -215,6 +215,12 @@ export const applyCoupon = async (req, res, next) => {
       discount_price: pricing.discount_price,
       discount: pricing.discount,
       approx_total: pricing.approx_total,
+      ...(pricing.final_total != null
+        ? {
+            final_total: pricing.final_total,
+            remaining_amount: pricing.remaining_amount,
+          }
+        : {}),
     });
   } catch (error) {
     handleError(error, res, next);
@@ -223,11 +229,19 @@ export const applyCoupon = async (req, res, next) => {
 
 export const removeCoupon = async (req, res, next) => {
   try {
-    await removeCouponService({
+    const result = await removeCouponService({
       order_id: req.params.id,
       user_id: req.user.id,
     });
-    return res.status(200).json({ message: "Coupon removed successfully" });
+    return res.status(200).json({
+      message: "Coupon removed successfully",
+      ...(result?.final_total != null
+        ? {
+            final_total: result.final_total,
+            remaining_amount: result.remaining_amount,
+          }
+        : {}),
+    });
   } catch (error) {
     handleError(error, res, next);
   }
