@@ -189,12 +189,9 @@ export const reviewOrder = async (req, res, next) => {
             }
           : null,
         discount: pricing.discount.toFixed(2),
-        advance_payment: pricing.advance_payment.toFixed(2),
-        remaining_payment:
-          pricing.remaining_payment > 0
-            ? pricing.remaining_payment.toFixed(2)
-            : "0.00",
-        total_payable_now: pricing.advance_payment.toFixed(2),
+        advance_payment: "0.00",
+        remaining_payment: pricing.final_total.toFixed(2),
+        total_payable_now: "0.00",
         approx_total: pricing.final_total.toFixed(2),
       },
     });

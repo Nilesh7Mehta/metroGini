@@ -95,9 +95,9 @@ export const calculateOrderPricing = (order) => {
 
   const { discount, net_total: final_total } = applyCouponDiscount(gross_total, order);
 
-  // 💰 Advance Logic
-  const advance_payment = Math.min(500, final_total);
-  const remaining_payment = final_total - advance_payment;
+  // No advance at booking — keys kept for API compatibility
+  const advance_payment = 0;
+  const remaining_payment = final_total;
 
   return {
     avg_weight,
@@ -109,6 +109,6 @@ export const calculateOrderPricing = (order) => {
     discount,
     final_total,
     advance_payment,
-    remaining_payment
+    remaining_payment,
   };
 };
