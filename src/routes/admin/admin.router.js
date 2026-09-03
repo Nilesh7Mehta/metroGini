@@ -12,6 +12,7 @@ import * as adminIssueController from '../../controller/admin/adminIssue.control
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
 import * as adminPartnerLeadController from '../../controller/admin/adminPartnerLead.controller.js';
 import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
+import * as adminCustomerController from '../../controller/admin/adminCustomer.controller.js';
 import * as adminUserController from '../../controller/admin/adminUser.controller.js';
 import * as adminCityController from '../../controller/admin/adminCity.controller.js';
 import * as adminServiceController from '../../controller/admin/adminService.controller.js';
@@ -62,6 +63,7 @@ router.get('/help-support', authenticate, adminHelpSupportController.getAdminHel
 router.put('/help-support/:id', authenticate, adminHelpSupportController.updateAdminHelpSupport);
 router.get('/partner-leads', authenticate, isAdmin, adminPartnerLeadController.getAdminPartnerLeads);
 router.get('/marketing', authenticate, adminMarketingController.getAdminMarketing);
+router.get('/customers/:id', authenticate, isAdmin, adminCustomerController.getAdminCustomerDetails);
 router.post('/addCity', authenticate, cityUpload.single('image'), adminCityController.addCity);
 router.post('/updateCity/:id', authenticate, cityUpload.single('image'), adminCityController.updateCityById);
 router.post('/addService', authenticate, serviceUpload.single('image'), adminServiceController.addService);

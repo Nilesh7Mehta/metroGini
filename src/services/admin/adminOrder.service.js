@@ -137,6 +137,26 @@ const getAdminDisplayStatus = (status) => {
 
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
+const mapOrderAddress = (order) => {
+  if (!order.address_id) return null;
+
+  return {
+    id: Number(order.address_id),
+    address_type: order.address_type || null,
+    complete_address: order.complete_address || null,
+    floor: order.address_floor || null,
+    landmark: order.address_landmark || null,
+    receiver_name: order.address_receiver_name || null,
+    contact_number: order.address_contact_number || null,
+    latitude:
+      order.address_latitude != null ? Number(order.address_latitude) : null,
+    longitude:
+      order.address_longitude != null ? Number(order.address_longitude) : null,
+    pincode: order.address_pincode || null,
+    is_selected: Boolean(order.address_is_selected),
+  };
+};
+
 const resolveIssueType = (order) => {
   const opsIssue = resolveOpsIssueType(order);
   if (opsIssue) return opsIssue;
@@ -481,12 +501,11 @@ const formatWeightEstimate = (min, max) => {
   return `Est. ${estKg}kg`;
 };
 
-const formatWeightDifference = (actualWeight, min, max) => {
-  if (actualWeight == null) return 'N/A';
-  const estimated = getEstimatedKg(min, max);
-  const diff = parseFloat((Number(actualWeight) - estimated).toFixed(1));
-  if (diff === 0) return '0kg';
-  return `${diff > 0 ? '+' : ''}${diff}kg`;
+const formatCountDifference = (actualCount, declaredCount) => {
+  if (actualCount == null) return '-';
+  const diff = Number(actualCount) - Number(declaredCount || 0);
+  if (diff === 0) return '0';
+  return `${diff > 0 ? '+' : ''}${diff}`;
 };
 
 const formatOtpStatus = (verified) => (verified ? 'Verified' : 'Pending');
@@ -557,13 +576,26 @@ const fetchAdminOrderById = async (orderId) => {
       o.delivery_special_instruction,
       o.vendor_id,
       o.assigned_rider_id,
+      o.address_id,
       u.full_name AS customer_name,
+      u.mobile AS customer_mobile,
+      u.email AS customer_email,
       s.name AS service_name,
       st.name AS service_type_name,
       pickup_ts.shift_name AS pickup_shift_name,
       delivery_ts.shift_name AS delivery_shift_name,
       r.full_name AS rider_name,
-      v.laundry_shop_name AS vendor_name
+      v.laundry_shop_name AS vendor_name,
+      uad.address_type,
+      uad.complete_address,
+      uad.floor AS address_floor,
+      uad.landmark AS address_landmark,
+      uad.receiver_name AS address_receiver_name,
+      uad.contact_number AS address_contact_number,
+      uad.latitude AS address_latitude,
+      uad.longitude AS address_longitude,
+      uad.pincode AS address_pincode,
+      uad.is_selected AS address_is_selected
     FROM orders o
     JOIN users u ON o.user_id = u.id
     JOIN services s ON o.service_id = s.id
@@ -573,6 +605,7 @@ const fetchAdminOrderById = async (orderId) => {
     LEFT JOIN riders r ON o.assigned_rider_id = r.id
     LEFT JOIN vendors v ON o.vendor_id = v.id
     LEFT JOIN coupons c ON o.applied_coupon_id = c.id
+    LEFT JOIN user_address_details uad ON uad.id = o.address_id
     WHERE o.id = $1
       AND o.status NOT IN ('draft', 'cancelled')
   `,
@@ -714,6 +747,8 @@ export const getAdminOrderDetailsService = async (orderId) => {
     customer_booking: {
       customer_name: order.customer_name,
       customer_id: formatCustomerId(order.user_id),
+      customer_mobile: order.customer_mobile || null,
+      customer_email: order.customer_email || null,
       declared_count: formatCountLabel(order.clothes_count),
       estimated_weight: formatWeightEstimate(
         order.estimated_weight_min,
@@ -726,6 +761,7 @@ export const getAdminOrderDetailsService = async (orderId) => {
         pickup: order.pickup_special_instruction ?? null,
         delivery: order.delivery_special_instruction ?? null,
       },
+      address: mapOrderAddress(order),
     },
     pickup: buildPickupSection(
       order.pickup_shift_name,
@@ -774,10 +810,9 @@ export const getAdminOrderOperationsService = async (orderId) => {
       merchant: formatMerchantLabel(order.vendor_name, order.vendor_id),
       verified_count: verifiedCount,
       actual_weight: actualWeight,
-      count_difference: formatWeightDifference(
-        order.actual_weight,
-        order.estimated_weight_min,
-        order.estimated_weight_max,
+      count_difference: formatCountDifference(
+        order.actual_clothes_count,
+        order.clothes_count,
       ),
       is_stained: Number(order.is_stained) || 0,
       stain_images: normalizeStainImages(order.stain_images),
