@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "0ab27996-6701-4140-840f-dcf18b76748a",
     "name": "metroGini_user",
-    "description": "User login + order journey.\n\nLogin: Login Or Register → Verify OTP (saves `token` and `refreshToken`).\nOrder: Create Order (saves `orderId`) → Complete Order → Review → Payment → Order Details.\nUser must have a selected default address before creating an order.",
+    "description": "User login + order journey.\n\nLogin: Login Or Register → Verify OTP (saves `token` and `refreshToken`).\nAddress: Add Address (required) → Set Default if needed → Create Order.\nOrder: Create Order (saves `orderId`) → Complete Order → Review (auto loyalty coupon) → Payment → Order Details.\nLoyalty: Review auto-applies coupon marked `auto_apply_loyalty` (percentage for 1st-2nd orders, per_kg for 3rd+). Remove to dismiss; Apply with `{}` to reapply.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -411,32 +411,182 @@
           }
         },
         {
-          "name": "Get User Address",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+          "name": "Address",
+          "item": [
+            {
+              "name": "Add Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "description": "Required before Create Order (draft uses selected/default address). Optional name/email sync to user profile. address_type: home | work | institute.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"name\": \"Dablu\",\r\n    \"email\": \"dablu@example.com\",\r\n    \"address_type\": \"work\",\r\n    \"complete_address\": \"2108/B , Padmavati Nagar\",\r\n    \"floor\":\"2108\",\r\n    \"landmark\":\"Dadar\",\r\n    \"receiver_name\": \"Dablu\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address"
+                  ]
                 }
-              ]
+              },
+              "response": []
             },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}api/user/address",
-              "host": [
-                "{{baseUrl}}api"
-              ],
-              "path": [
-                "user",
-                "address"
-              ]
+            {
+              "name": "Get User Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "description": "Returns profile name/email + all addresses. Prefill forms when adding another address.",
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"name\": \"Babli\",\r\n    \"email\": \"babli@example.com\",\r\n    \"address_type\": \"home\",\r\n    \"complete_address\": \"2108/B , Mahavir Nagar\",\r\n    \"floor\":\"208\",\r\n    \"landmark\":\"Mumbai\",\r\n    \"receiver_name\": \"Babli\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/{{addressId}}",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "{{addressId}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Set Default Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "description": "Marks address as selected (is_selected). Draft orders use this address.",
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/default/{{addressId}}",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "default",
+                    "{{addressId}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Address",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/address/{{addressId}}",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "address",
+                    "{{addressId}}"
+                  ]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         }
       ]
     },
@@ -750,6 +900,7 @@
             },
             "method": "GET",
             "header": [],
+            "description": "Auto-applies loyalty coupon on estimate from coupons table (`auto_apply_loyalty=true`): percentage for 1st-2nd completed orders, per_kg for 3rd+. Skips if user dismissed on this draft.",
             "url": {
               "raw": "{{baseUrl}}api/user/order/{{orderId}}/review",
               "host": [
@@ -780,9 +931,50 @@
             },
             "method": "POST",
             "header": [],
+            "description": "Apply any coupon code on draft or unpaid post-weigh order. For loyalty reapply without a code, use request 8b.",
             "body": {
               "mode": "raw",
               "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "applyCoupon"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8b. Apply Loyalty Coupon (no code)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "description": "Reapply eligible loyalty coupon (empty body). Tier from order count; amount from coupon.discount_value.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -819,6 +1011,7 @@
             },
             "method": "POST",
             "header": [],
+            "description": "Removes coupon and sets auto_coupon_dismissed so Review will not auto-reapply. After weigh, rebuilds final_total/remaining_amount.",
             "body": {
               "mode": "raw",
               "raw": ""
@@ -1231,6 +1424,10 @@
     },
     {
       "key": "orderId",
+      "value": "1"
+    },
+    {
+      "key": "addressId",
       "value": "1"
     }
   ]

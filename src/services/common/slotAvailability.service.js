@@ -164,8 +164,34 @@ export const reserveSlotCapacity = async (
   );
 };
 
-export const getSlotsAvailability = async ({ pincodeGroupId, days } = {}) => {
-  const validatedPincodeGroupId = validatePincodeGroupId(pincodeGroupId);
+export const getSlotsAvailability = async ({
+  pincode,
+  pincodeGroupId,
+  days,
+} = {}) => {
+  let validatedPincodeGroupId;
+
+  if (pincode != null && String(pincode).trim() !== '') {
+    const pinRow = await lookupPincode(pincode);
+    validatedPincodeGroupId = Number(pinRow.pincode_group_id);
+    if (!Number.isInteger(validatedPincodeGroupId) || validatedPincodeGroupId < 1) {
+      throw {
+        status: 400,
+        message: 'Pincode is not linked to a pincode group',
+      };
+    }
+  } else if (
+    pincodeGroupId != null &&
+    String(pincodeGroupId).trim() !== ''
+  ) {
+    validatedPincodeGroupId = validatePincodeGroupId(pincodeGroupId);
+  } else {
+    throw {
+      status: 400,
+      message: 'Provide pincode or pincodeGroupId',
+    };
+  }
+
   const validatedDays = validateDays(days);
 
   const { rows } = await sql.query(

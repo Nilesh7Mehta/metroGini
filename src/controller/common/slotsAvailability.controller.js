@@ -16,7 +16,9 @@ const handleError = (res, err, next) => {
 export const getAvailability = async (req, res, next) => {
   try {
     const data = await getSlotsAvailability({
-      pincodeGroupId: req.query.pincodeGroupId,
+      pincode: req.query.pincode,
+      pincodeGroupId:
+        req.query.pincodeGroupId ?? req.query.pincode_group_id,
       days: req.query.days,
     });
 
