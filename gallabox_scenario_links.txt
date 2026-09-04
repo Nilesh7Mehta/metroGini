@@ -1,0 +1,243 @@
+================================================================================
+METROGINI × GALLABOX — SCENARIO LINK MAP
+Source: Whatsapp scenarios -updated.docx (Scenarios 1–11 only)
+Purpose: Decide which scenario to open, and where each menu jumps next.
+Always use WhatsApp sender number. Never ask the customer to type their phone.
+================================================================================
+
+FIRST API (almost every inbound message)
+---------------------------------------
+1) POST /api/whatsapp/customer/lookup   { "mobile": "<wa_number>" }
+   OR POST /api/whatsapp/session        { "mobile": "<wa_number>" }  → JWT + profile
+
+Lookup fields used for routing:
+  - exists
+  - full_name
+  - customer_id          (e.g. MG-12)
+  - total_orders
+  - active_order_id
+  - draft_order_id
+  - has_app
+  - default_address
+
+Optional follow-up:
+  GET /api/whatsapp/customer/:mobile/abandoned-booking   → has_draft
+  GET /api/whatsapp/orders/active-by-mobile?mobile=       → live order + stage_label
+  GET /api/whatsapp/orders/:id/delay-status              → delayed pickup/delivery
+
+
+================================================================================
+A) INBOUND "Hi" / customer reaches out  → ROUTER
+================================================================================
+
+IF message is about delay / "where is my pickup/delivery?"
+  → Scenario 11 — Delayed Pickup / Delivery Inquiry
+  (also check active order first)
+
+ELSE IF exists = false
+  → Scenario 9A — New Customer Reaches Out (no prior data)
+  Menu: 1 Book | 2 Know more | 3 Existing Booking
+
+ELSE IF exists = true AND full_name present AND total_orders = 0 AND no WhatsApp/app activity yet
+  (e.g. Meta lead form name only)
+  → Scenario 9B — New Customer Reaches Out (name known, e.g. Karthik)
+  Same menu as 9A
+
+ELSE IF exists = true AND total_orders = 0 AND has_app / registered (customer_id)
+  → Scenario 3 — Cust reaches out (Send) — registered customer
+  Welcome with Customer ID MG-{id}
+  Menu: 1 Book | 2 Know more | 3 Existing Booking
+
+ELSE IF exists = true AND total_orders >= 1
+  → Scenario 10 — Existing Customer Reaches Out
+  Hello <user_name>
+  Menu: 1 Book | 2 Know more | 3 Existing Booking
+  Book uses loyalty nudge (not FIRST15). Prefill saved address.
+
+
+================================================================================
+B) OUTBOUND / PUSH  → which campaign scenario
+================================================================================
+
+Cold promo / new WA contact (marketing send)
+  → Scenario 1 — Promotion / New Customer (Send)
+  Flow: Hi → PINCODE first → if not serviceable "coming soon"
+        → if OK full address → Book / Know more → garments (min 10) → date → confirm
+
+App downloaded, registered, 0 completed orders, idle
+  CRM: GET /api/whatsapp/crm/inactive-app-users?hours=48
+  → Scenario 2 — Promotion: App Downloaded (push)
+  FIRST15. Menu: 1 Book | 2 Know more
+  (Know more → same as Scenario 1 Know more)
+
+Has draft / abandoned booking (no completed booking)
+  CRM: GET /api/whatsapp/customer/:mobile/abandoned-booking
+  IF has_draft = true
+  → Scenario 4 — Draft: New Customer (No Booking) (Push)
+  Menu: 1 Continue | 2 Start new | 3 Know more
+
+Exactly 1 completed order, inactive N days (win-back)
+  CRM: GET /api/whatsapp/crm/winback?days=30&total_orders=1
+  → Scenario 5 — Retention: One-Time Customer, No Repeat Order
+  VALUED10 (3 days). Menu: 1 Book Now | 2 Know more
+  Book → saved address Yes/No (No → Scenario 1 address steps)
+
+Order events (system push — not "Hi" menu):
+  Pickup day morning / rider assigned
+  → Scenario 6 — Notification: Day of Pickup
+      6A Confirm / Need help → Reschedule | Cancel
+      6B Rider assigned
+
+  Pickup OTP success
+  → Scenario 7 — Notification: Pickup Successful
+
+  Vendor weight / bill ready
+  → Scenario 8 — Notification: Weight Confirmation & Payment Gateway
+      Razorpay link / QR → payment received
+
+
+================================================================================
+C) MENU JUMPS (scenarios reuse each other)
+================================================================================
+
+FROM Scenario 1
+  Book Wash by Kilo     → S1 booking path (pincode → address → garments → date → confirm)
+  Know more             → S1 content: FAQ | How it works | View pricing
+  Footer every message  → App download UTM (Play Store + App Store)
+
+FROM Scenario 2
+  1 Book                → JUMP Scenario 1 booking path (FIRST15)
+  2 Know more           → JUMP Scenario 1 Know more
+
+FROM Scenario 3
+  1 Book                → JUMP Scenario 1 booking path (registered; usually has address)
+  2 Know more           → JUMP Scenario 1 Know more
+  3 Existing Booking    → list/detail orders (or active-by-mobile if live)
+
+FROM Scenario 4
+  1 Continue my booking → stay in S4 (review draft → schedule → finalize → pay ₹0)
+  2 Start a new booking → JUMP Scenario 1 full booking
+  3 Know more           → JUMP Scenario 1 Know more
+
+FROM Scenario 5
+  1 Book Now
+       Yes, use saved address → continue booking (loyalty / VALUED10)
+       No, change address     → JUMP Scenario 1 address (+ then booking)
+  2 Know more           → JUMP Scenario 1 Know more
+
+FROM Scenario 6
+  Confirm available     → ack only
+  Need help → Reschedule → update pickup APIs
+  Need help → Cancel    → cancel order APIs
+  Rider assigned        → show rider (GET /api/whatsapp/orders/:id/rider)
+
+FROM Scenario 7
+  (notification only; next event is usually Scenario 8)
+
+FROM Scenario 8
+  Pay Now               → create Razorpay / payment link
+  After pay             → payment received copy
+
+FROM Scenario 9 (A or B)
+  1 Book                → JUMP Scenario 1 booking path
+  2 Know more           → JUMP Scenario 1 Know more
+  3 Existing Booking    → if none found, ask Booking ID / say no active order
+                          if found → same status blocks as Scenario 10 option 3
+
+FROM Scenario 10
+  1 Book                → JUMP Scenario 1 booking BUT:
+                          - prefill saved address
+                          - loyalty per-kg nudge (not FIRST15)
+  2 Know more           → JUMP Scenario 1 Know more
+  3 Existing Booking    → live stages (booking confirmed → rider → pickup → laundry
+                          → weight → pay → washing → out for delivery → delivered)
+
+FROM Scenario 11
+  IF active pickup delayed   → rider on the way (rider name)
+  IF delivery delayed        → new ETA copy
+  IF no active order         → ask Booking ID
+
+
+================================================================================
+D) SIMPLE DECISION TREE (inbound Hi)
+================================================================================
+
+                    Customer says Hi / Hello
+                              |
+              Is message about delay / missing rider?
+                     /                    \
+                   YES                     NO
+                    |                       |
+              Scenario 11          POST customer/lookup
+                                            |
+                         +------------------+------------------+
+                         |                  |                  |
+                   exists=false      exists=true         exists=true
+                         |           total_orders=0      total_orders>=1
+                         |                  |                  |
+                   Scenario 9A     registered/app?       Scenario 10
+                   (or 9B if            /    \
+                    name known)       YES     NO
+                                       |      |
+                                 Scenario 3  Scenario 9B
+
+
+================================================================================
+E) SIMPLE DECISION TREE (outbound who to message)
+================================================================================
+
+  inactive-app-users (0 orders)     → Scenario 2
+  abandoned-booking has_draft       → Scenario 4
+  winback (1 order, inactive)       → Scenario 5
+  marketing new number              → Scenario 1
+  order event pickup day            → Scenario 6
+  order event pickup done           → Scenario 7
+  order event weight/bill           → Scenario 8
+
+
+================================================================================
+F) SHARED CONTENT BLOCKS (do not duplicate in Gallabox)
+================================================================================
+
+BLOCK_BOOK_S1
+  pincode-check → add address (if needed) → set default → slots
+  → create order clothes → schedule → finalize → review → pay ₹0
+  Coupons: FIRST15 / Bulk15 on first journey
+
+BLOCK_KNOW_MORE_S1
+  FAQ | How MetroGini Works | View Pricing
+  APIs: /api/common/faq | how-we-work | know-about-us
+
+BLOCK_EXISTING_ORDER
+  active-by-mobile OR getUserOrder + Orderdetail
+  stage_label copy for Scenario 10 / 9 option 3
+
+BLOCK_ADDRESS_CHANGE
+  POST /api/whatsapp/address
+  Body required: mobile, complete_address, pincode, name, email
+  Optional: none
+  Server splits floor/landmark from complete_address and sets is_selected=true (default).
+  Also returns access_token for next booking APIs.
+  Do NOT call PUT /api/user/address/default/:id after this.
+
+
+================================================================================
+G) SCENARIO INDEX (names from updated doc)
+================================================================================
+
+  1  Promotion / New Customer (Send)
+  2  Promotion: App Downloaded (push)
+  3  Cust reaches out (Send) — registered customer
+  4  Draft: New Customer (No Booking) (Push)
+  5  Retention: One-Time Customer, No Repeat Order
+  6  Notification: Day of Pickup
+  7  Notification: Pickup Successful
+  8  Notification: Weight Confirmation & Payment Gateway
+  9  New Customer Reaches Out
+ 10  Existing Customer Reaches Out
+ 11  Delayed Pickup / Delivery Inquiry
+
+Related files:
+  Gallabox_WhatsApp_Scenarios.postman_collection.json
+  gallabox_scenarios.xlsx
+================================================================================

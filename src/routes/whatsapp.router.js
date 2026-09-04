@@ -9,6 +9,13 @@ router.use(requireWhatsappSecret);
 /** No-OTP session: WhatsApp mobile → JWT + profile */
 router.post("/session", whatsappController.createSession);
 
+/**
+ * Gallabox add address (simple):
+ * Body required: mobile, complete_address, pincode, name, email
+ * Internally splits floor/landmark and sets as default.
+ */
+router.post("/address", whatsappController.addSimpleAddress);
+
 /** Soft identity check (no token) */
 router.post("/customer/lookup", whatsappController.lookupCustomer);
 router.get("/customer/lookup", whatsappController.lookupCustomer);

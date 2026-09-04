@@ -34,14 +34,88 @@ const saveOrderEvents = [
       exec: [
         "if (pm.response.code >= 200 && pm.response.code < 300) {",
         "  const json = pm.response.json();",
-        "  const id = json.id || json.order_id || (json.data && (json.data.order_id || json.data.id));",
-        "  if (id) pm.collectionVariables.set('orderId', String(id));",
-        "  if (json.data && json.data.address_id) pm.collectionVariables.set('addressId', String(json.data.address_id));",
+        "  const data = json.data || json;",
+        "  const id = json.id || json.order_id || data.order_id || data.id;",
+        "  if (id && !data.address_id) pm.collectionVariables.set('orderId', String(id));",
+        "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
         "}",
       ],
     },
   },
 ];
+
+/** Pull first "Required:" / "Optional:" lines from catalog text. */
+const extractFieldLine = (text, label) => {
+  if (!text) return null;
+  const re = new RegExp(`${label}:\\s*([^\\n]+)`, "i");
+  const m = String(text).match(re);
+  return m ? m[1].trim() : null;
+};
+
+const firstFieldKeys = (line) => {
+  if (!line || /^none$/i.test(line.trim())) return [];
+  return line
+    .split(",")
+    .map((part) => {
+      const token = part.trim().split(/\s+/)[0] || "";
+      return token.replace(/[^a-zA-Z0-9_]/g, "");
+    })
+    .filter(Boolean);
+};
+
+const buildFieldGuide = (row) => {
+  const blob = [row.descriptionExtra, row.request].filter(Boolean).join("\n");
+  const required =
+    row.requiredFields ||
+    extractFieldLine(blob, "Required") ||
+    extractFieldLine(blob, "Query required") ||
+    extractFieldLine(blob, "Path required") ||
+    (row.body ? "see body keys below" : "none (no body)");
+  const optional =
+    row.optionalFields ||
+    extractFieldLine(blob, "Optional") ||
+    "none";
+
+  const lines = [
+    "========== FIELD GUIDE ==========",
+    `REQUIRED: ${required}`,
+    `OPTIONAL: ${optional}`,
+    "=================================",
+    "",
+    "How to use in Postman:",
+    "- OPTIONAL query params are unchecked (disabled). Tick only if needed.",
+    "- Body tab sends clean JSON (no comments).",
+    "- Annotated body below is documentation for Gallabox (which fields are optional).",
+  ];
+
+  if (row.query?.length) {
+    lines.push("", "Query params:");
+    for (const q of row.query) {
+      const tag = q.disabled ? "OPTIONAL" : "REQUIRED (or usually sent)";
+      const note = q.description ? ` — ${q.description}` : "";
+      lines.push(`  • ${q.key}: ${tag}${note}`);
+    }
+  }
+
+  if (row.body && typeof row.body === "object" && !Array.isArray(row.body)) {
+    const optKeys = new Set(firstFieldKeys(optional));
+    const reqKeys = new Set(firstFieldKeys(required));
+    lines.push("", "Annotated body (docs only — do not paste comments into Body):");
+    lines.push("{");
+    const keys = Object.keys(row.body);
+    keys.forEach((key, i) => {
+      const val = JSON.stringify(row.body[key]);
+      let tag = "INCLUDED";
+      if (optKeys.has(key)) tag = "OPTIONAL — can omit";
+      else if (reqKeys.has(key) || reqKeys.size === 0) tag = "REQUIRED";
+      const comma = i < keys.length - 1 ? "," : "";
+      lines.push(`  "${key}": ${val}${comma}  // ${tag}`);
+    });
+    lines.push("}");
+  }
+
+  return lines.join("\n");
+};
 
 const toPostmanItem = (row) => {
   if (row.postmanAuth === "skip") {
@@ -55,6 +129,8 @@ const toPostmanItem = (row) => {
           host: ["{{baseUrl}}"],
         },
         description:
+          buildFieldGuide(row) +
+          "\n\n" +
           (row.request || "") +
           "\n\nNo MetroGini API — Gallabox menu only.",
       },
@@ -77,12 +153,19 @@ const toPostmanItem = (row) => {
   }
 
   const pathParts = path.split("/").filter(Boolean);
-  const query = (row.query || []).map((q) => ({
-    key: q.key,
-    value: q.value,
-    description: q.description || "",
-    disabled: Boolean(q.disabled),
-  }));
+  const query = (row.query || []).map((q) => {
+    const isOpt = Boolean(q.disabled);
+    const base = q.description || "";
+    const prefix = isOpt
+      ? "OPTIONAL — leave unchecked if not needed"
+      : "REQUIRED / usually sent";
+    return {
+      key: q.key,
+      value: q.value,
+      description: base ? `${prefix}. ${base}` : prefix,
+      disabled: isOpt,
+    };
+  });
 
   const headers = [];
   if (row.postmanAuth === "whatsapp") {
@@ -94,10 +177,12 @@ const toPostmanItem = (row) => {
   }
   headers.push({ key: "Content-Type", value: "application/json", type: "text" });
 
-  const descParts = [];
-  if (row.descriptionExtra) descParts.push(row.descriptionExtra);
-  descParts.push(row.request || "");
-  descParts.push(`Token: ${row.token}`);
+  const descParts = [
+    buildFieldGuide(row),
+    row.descriptionExtra,
+    row.request,
+    `Token: ${row.token}`,
+  ];
 
   const item = {
     name: row.name,
@@ -170,8 +255,10 @@ const collection = {
     description:
       "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\n" +
       "Folder names match the updated document.\n" +
+      "Every request Description starts with FIELD GUIDE (REQUIRED / OPTIONAL).\n" +
+      "Body requests also show an annotated body with // OPTIONAL comments (docs only).\n" +
+      "Body tab still sends clean JSON so Send works.\n" +
       "Optional query params are unchecked (disabled) in Postman.\n" +
-      "Optional body fields are listed in each request Description.\n" +
       "Easy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\n" +
       "Set vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
     schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -205,7 +292,9 @@ const toExcelRow = (r) => ({
   Scenario: r.scenario,
   Name: r.name,
   Endpoint: r.method === "—" ? r.path : `${r.method} ${BASE}${r.path}`,
-  Request: r.request,
+  Request: [buildFieldGuide(r), r.descriptionExtra, r.request]
+    .filter(Boolean)
+    .join("\n\n"),
   Response:
     typeof r.response === "string" ? r.response : JSON.stringify(r.response, null, 2),
   Token: r.token,

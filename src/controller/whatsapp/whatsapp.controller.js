@@ -1,6 +1,7 @@
 import * as authService from "../../services/whatsapp/whatsappAuth.service.js";
 import * as crmService from "../../services/whatsapp/whatsappCrm.service.js";
 import * as orderService from "../../services/whatsapp/whatsappOrder.service.js";
+import * as addressService from "../../services/whatsapp/whatsappAddress.service.js";
 import {
   emitWhatsappEvent,
   emitWhatsappOrderEventSafe,
@@ -100,6 +101,25 @@ export const delayStatus = async (req, res, next) => {
       orderId: req.params.id,
     });
     return res.status(200).json(result);
+  } catch (err) {
+    handleError(res, err, next);
+  }
+};
+
+/**
+ * Gallabox simple address: mobile, complete_address, pincode, name, email (all required).
+ * Splits address internally and sets as default.
+ */
+export const addSimpleAddress = async (req, res, next) => {
+  try {
+    const result = await addressService.addWhatsappSimpleAddress({
+      mobile: req.body?.mobile,
+      complete_address: req.body?.complete_address,
+      pincode: req.body?.pincode,
+      name: req.body?.name,
+      email: req.body?.email,
+    });
+    return res.status(201).json(result);
   } catch (err) {
     handleError(res, err, next);
   }

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gallabox-whatsapp-from-txt-001",
     "name": "Gallabox WhatsApp Scenarios",
-    "description": "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\nFolder names match the updated document.\nOptional query params are unchecked (disabled) in Postman.\nOptional body fields are listed in each request Description.\nEasy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\nSet vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
+    "description": "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\nFolder names match the updated document.\nEvery request Description starts with FIELD GUIDE (REQUIRED / OPTIONAL).\nBody requests also show an annotated body with // OPTIONAL comments (docs only).\nBody tab still sends clean JSON so Send works.\nOptional query params are unchecked (disabled) in Postman.\nEasy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\nSet vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -85,7 +85,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nUse WhatsApp sender number. Do not ask user to type phone.\n\nToken: Gallabox secret (X-Gallabox-Secret)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nUse WhatsApp sender number. Do not ask user to type phone.\n\nToken: Gallabox secret (X-Gallabox-Secret)",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -144,7 +144,7 @@
                 "lookup"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nAlso: GET /api/whatsapp/customer/lookup?mobile=\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nAlso: GET /api/whatsapp/customer/lookup?mobile=\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -178,7 +178,7 @@
                 "login-or-register"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: No",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: No",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -212,7 +212,7 @@
                 "verify-otp"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\",\n  \"otp\": \"1234\"\n}\n\nRequired: mobile, otp\nOptional: none\n\nToken: No",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, otp\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"otp\": \"1234\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\",\n  \"otp\": \"1234\"\n}\n\nRequired: mobile, otp\nOptional: none\n\nToken: No",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"otp\": \"1234\"\n}",
@@ -271,7 +271,7 @@
                 "emit"
               ]
             },
-            "description": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74,\n  \"mobile\": \"9004186460\",\n  \"data\": {}\n}\n\nRequired: event\nOptional: order_id, mobile, data\nEvents: booking_confirmed, pickup_day_reminder, rider_assigned, pickup_completed, vendor_received, weight_confirmed, order.weight_confirmed, order.finalized, payment_received, out_for_delivery, delivered, delayed, cancelled\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: event\nOPTIONAL: order_id, mobile, data\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"event\": \"pickup_day_reminder\",  // REQUIRED\n  \"order_id\": \"{{orderId}}\",  // OPTIONAL — can omit\n  \"data\": {}  // OPTIONAL — can omit\n}\n\n{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74,\n  \"mobile\": \"9004186460\",\n  \"data\": {}\n}\n\nRequired: event\nOptional: order_id, mobile, data\nEvents: booking_confirmed, pickup_day_reminder, rider_assigned, pickup_completed, vendor_received, weight_confirmed, order.weight_confirmed, order.finalized, payment_received, out_for_delivery, delivered, delayed, cancelled\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": \"{{orderId}}\",\n  \"data\": {}\n}",
@@ -315,7 +315,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -371,12 +371,12 @@
                 {
                   "key": "pincode",
                   "value": "{{pincode}}",
-                  "description": "Required. 6-digit pincode",
+                  "description": "REQUIRED / usually sent. Required. 6-digit pincode",
                   "disabled": false
                 }
               ]
             },
-            "description": "Query required: pincode\nOptional: none\nIf serviceable=false → coming soon; stop.\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: pincode\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • pincode: REQUIRED (or usually sent) — Required. 6-digit pincode\n\nQuery required: pincode\nOptional: none\nIf serviceable=false → coming soon; stop.\n\nToken: No"
           },
           "response": []
         },
@@ -404,24 +404,24 @@
                 {
                   "key": "pincode",
                   "value": "{{pincode}}",
-                  "description": "Optional. Exact pincode",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional. Exact pincode",
                   "disabled": true
                 },
                 {
                   "key": "pincode_group_id",
                   "value": "1",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 },
                 {
                   "key": "serviceable",
                   "value": "true",
-                  "description": "Optional: true | false",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional: true | false",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: pincode, pincode_group_id, serviceable (true/false)\nPrefer pincode-check for WhatsApp.\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: pincode, pincode_group_id, serviceable (true/false)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • pincode: OPTIONAL — Optional. Exact pincode\n  • pincode_group_id: OPTIONAL — Optional\n  • serviceable: OPTIONAL — Optional: true | false\n\nQuery optional: pincode, pincode_group_id, serviceable (true/false)\nPrefer pincode-check for WhatsApp.\n\nToken: No"
           },
           "response": []
         },
@@ -449,18 +449,18 @@
                 {
                   "key": "pincode",
                   "value": "{{pincode}}",
-                  "description": "Optional",
+                  "description": "REQUIRED / usually sent. Optional",
                   "disabled": false
                 },
                 {
                   "key": "pincode_group_id",
                   "value": "1",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: pincode OR pincode_group_id (or zone_id)\nIf omitted, default service prices.\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: pincode OR pincode_group_id (or zone_id)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • pincode: REQUIRED (or usually sent) — Optional\n  • pincode_group_id: OPTIONAL — Optional\n\nQuery optional: pincode OR pincode_group_id (or zone_id)\nIf omitted, default service prices.\n\nToken: No"
           },
           "response": []
         },
@@ -485,15 +485,20 @@
                 "service-types"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         },
         {
-          "name": "Add address",
+          "name": "Add address (Gallabox simple)",
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -501,29 +506,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}api/user/address",
+              "raw": "{{baseUrl}}api/whatsapp/address",
               "host": [
                 "{{baseUrl}}api"
               ],
               "path": [
-                "user",
+                "whatsapp",
                 "address"
               ]
             },
-            "description": "OPTIONAL body: complete_address, name, email. Required: address_type, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode.\n\n{\n  \"address_type\": \"home\",\n  \"floor\": \"204\",\n  \"landmark\": \"Near station\",\n  \"receiver_name\": \"Karthik\",\n  \"contact_number\": \"9004186460\",\n  \"latitude\": \"19.1197\",\n  \"longitude\": \"72.8468\",\n  \"pincode\": \"400058\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: address_type (home|work|institute), floor, landmark, receiver_name (or name), contact_number, latitude, longitude, pincode\nOptional: complete_address, name, email\n\nToken: Yes (user Bearer)",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",  // REQUIRED\n  \"pincode\": \"{{pincode}}\",  // REQUIRED\n  \"name\": \"Karthik\",  // REQUIRED\n  \"email\": \"karthik@example.com\"  // REQUIRED\n}\n\nGallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call.\n\n{\n  \"mobile\": \"9004186460\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"400058\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"address_type\": \"home\",\n  \"floor\": \"204\",\n  \"landmark\": \"Near station\",\n  \"receiver_name\": \"Karthik\",\n  \"contact_number\": \"{{mobile}}\",\n  \"latitude\": \"19.1197\",\n  \"longitude\": \"72.8468\",\n  \"pincode\": \"{{pincode}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -531,10 +526,44 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  const id = json.id || json.order_id || data.order_id || data.id;",
+                  "  if (id && !data.address_id) pm.collectionVariables.set('orderId', String(id));",
+                  "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Set default address",
+          "name": "Set default address (app only — skip on WhatsApp)",
           "request": {
             "method": "PUT",
             "header": [
@@ -556,7 +585,7 @@
                 "{{addressId}}"
               ]
             },
-            "description": "No body.\nPath required: id = address_id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id = address_id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body.\nPath required: id = address_id\nOptional: none\nWhatsApp: skip — POST /api/whatsapp/address already sets default.\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -595,24 +624,24 @@
                 {
                   "key": "pincode",
                   "value": "{{pincode}}",
-                  "description": "Required unless pincodeGroupId",
+                  "description": "REQUIRED / usually sent. Required unless pincodeGroupId",
                   "disabled": false
                 },
                 {
                   "key": "pincodeGroupId",
                   "value": "1",
-                  "description": "Optional (use instead of pincode)",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional (use instead of pincode)",
                   "disabled": true
                 },
                 {
                   "key": "days",
                   "value": "7",
-                  "description": "Optional. Default 7",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional. Default 7",
                   "disabled": true
                 }
               ]
             },
-            "description": "Required: pincode OR pincodeGroupId (or pincode_group_id)\nOptional: days (default 7)\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: pincode OR pincodeGroupId (or pincode_group_id)\nOPTIONAL: days (default 7)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • pincode: REQUIRED (or usually sent) — Required unless pincodeGroupId\n  • pincodeGroupId: OPTIONAL — Optional (use instead of pincode)\n  • days: OPTIONAL — Optional. Default 7\n\nRequired: pincode OR pincodeGroupId (or pincode_group_id)\nOptional: days (default 7)\n\nToken: No"
           },
           "response": []
         },
@@ -637,7 +666,7 @@
                 "order"
               ]
             },
-            "description": "{\n  \"service_id\": 1,\n  \"clothes_count\": 15\n}\n\nRequired: service_id, clothes_count (10–25)\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: service_id, clothes_count (10–25)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"service_id\": 1,  // REQUIRED\n  \"clothes_count\": 15  // REQUIRED\n}\n\n{\n  \"service_id\": 1,\n  \"clothes_count\": 15\n}\n\nRequired: service_id, clothes_count (10–25)\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -667,9 +696,10 @@
                 "exec": [
                   "if (pm.response.code >= 200 && pm.response.code < 300) {",
                   "  const json = pm.response.json();",
-                  "  const id = json.id || json.order_id || (json.data && (json.data.order_id || json.data.id));",
-                  "  if (id) pm.collectionVariables.set('orderId', String(id));",
-                  "  if (json.data && json.data.address_id) pm.collectionVariables.set('addressId', String(json.data.address_id));",
+                  "  const data = json.data || json;",
+                  "  const id = json.id || json.order_id || data.order_id || data.id;",
+                  "  if (id && !data.address_id) pm.collectionVariables.set('orderId', String(id));",
+                  "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
                   "}"
                 ]
               }
@@ -699,7 +729,7 @@
                 "complete-order"
               ]
             },
-            "description": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\nAlt step-by-step: PUT service-type, PUT pickup, PUT delivery, POST finalize\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"service_type_id\": 1,  // REQUIRED\n  \"pickup_date\": \"2026-09-10\",  // REQUIRED\n  \"pickup_slot_id\": 1,  // REQUIRED\n  \"next_delivery_date\": \"2026-09-13\"  // REQUIRED\n}\n\n{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\nAlt step-by-step: PUT service-type, PUT pickup, PUT delivery, POST finalize\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -745,7 +775,7 @@
                 "review"
               ]
             },
-            "description": "No body. Path required: id\nOptional: none. Loyalty coupon auto-applies.\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none. Loyalty coupon auto-applies.\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Path required: id\nOptional: none. Loyalty coupon auto-applies.\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -783,7 +813,7 @@
                 "pay"
               ]
             },
-            "description": "{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week (1=Mon…7=Sun)\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: group_code, shift_id, day_of_week (1=Mon…7=Sun)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"group_code\": \"{{groupCode}}\",  // REQUIRED\n  \"shift_id\": 1,  // REQUIRED\n  \"day_of_week\": 3  // REQUIRED\n}\n\n{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week (1=Mon…7=Sun)\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -829,7 +859,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "No body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -866,7 +896,7 @@
                 "cancelService"
               ]
             },
-            "description": "OPTIONAL: reason_description (required only when reason_type = other)\n\n{\n  \"reason_type\": \"changed_mind\",\n  \"reason_description\": \"Customer pressed C on WhatsApp\"\n}\n\nRequired: reason_type (pickup_schedule_issue | modify_order | service_charge_incorrect | changed_mind | other)\nOptional: reason_description (required only if reason_type=other)\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: reason_type (pickup_schedule_issue | modify_order | service_charge_incorrect | changed_mind | other)\nOPTIONAL: reason_description (required only when reason_type = other)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"reason_type\": \"changed_mind\",  // REQUIRED\n  \"reason_description\": \"Customer pressed C on WhatsApp\"  // OPTIONAL — can omit\n}\n\nOPTIONAL: reason_description (required only when reason_type = other)\n\n{\n  \"reason_type\": \"changed_mind\",\n  \"reason_description\": \"Customer pressed C on WhatsApp\"\n}\n\nRequired: reason_type (pickup_schedule_issue | modify_order | service_charge_incorrect | changed_mind | other)\nOptional: reason_description (required only if reason_type=other)\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -910,7 +940,7 @@
                 "faq"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         },
@@ -935,7 +965,7 @@
                 "how-we-work"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         },
@@ -960,7 +990,7 @@
                 "know-about-us"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         }
@@ -999,18 +1029,18 @@
                 {
                   "key": "hours",
                   "value": "48",
-                  "description": "Optional. Default 48",
+                  "description": "REQUIRED / usually sent. Optional. Default 48",
                   "disabled": false
                 },
                 {
                   "key": "limit",
                   "value": "100",
-                  "description": "Optional. Default 100",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional. Default 100",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: hours (default 48), limit (default 100, max 500)\nUsers with 0 completed orders and created_at older than hours.\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: hours (default 48), limit (default 100, max 500)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • hours: REQUIRED (or usually sent) — Optional. Default 48\n  • limit: OPTIONAL — Optional. Default 100\n\nQuery optional: hours (default 48), limit (default 100, max 500)\nUsers with 0 completed orders and created_at older than hours.\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -1040,7 +1070,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -1093,7 +1123,7 @@
                 "profile"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1138,7 +1168,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nShow data.customer_id (e.g. MG-12) in welcome copy.\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\nShow data.customer_id (e.g. MG-12) in welcome copy.\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -1197,7 +1227,7 @@
                 "lookup"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -1231,7 +1261,7 @@
                 "address"
               ]
             },
-            "description": "No body. Optional: none\nBook = Scenario 1 garment → pickup → confirm. Registered user usually has an address.\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\nBook = Scenario 1 garment → pickup → confirm. Registered user usually has an address.\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1266,7 +1296,7 @@
                 "faq"
               ]
             },
-            "description": "No body. Optional: none. Same Know more as Scenario 1.\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none. Same Know more as Scenario 1.\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none. Same Know more as Scenario 1.\n\nToken: No"
           },
           "response": []
         },
@@ -1291,7 +1321,7 @@
                 "how-we-work"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         },
@@ -1316,7 +1346,7 @@
                 "know-about-us"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: No"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: No"
           },
           "response": []
         },
@@ -1345,24 +1375,24 @@
                 {
                   "key": "status",
                   "value": "booked",
-                  "description": "Optional filter",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional filter",
                   "disabled": true
                 },
                 {
                   "key": "page",
                   "value": "1",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 },
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: status, time, page, limit\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: status, time, page, limit\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • status: OPTIONAL — Optional filter\n  • page: OPTIONAL — Optional\n  • limit: OPTIONAL — Optional\n\nQuery optional: status, time, page, limit\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1399,7 +1429,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1446,7 +1476,7 @@
                 "abandoned-booking"
               ]
             },
-            "description": "Path required: mobile\nOptional: none\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: mobile\nOptional: none\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -1476,7 +1506,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -1531,7 +1561,7 @@
                 "review"
               ]
             },
-            "description": "Path: draft order_id from abandoned-booking\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath: draft order_id from abandoned-booking\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1568,7 +1598,7 @@
                 "complete-order"
               ]
             },
-            "description": "{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"service_type_id\": 1,  // REQUIRED\n  \"pickup_date\": \"2026-09-10\",  // REQUIRED\n  \"pickup_slot_id\": 1,  // REQUIRED\n  \"next_delivery_date\": \"2026-09-13\"  // REQUIRED\n}\n\n{\n  \"service_type_id\": 1,\n  \"pickup_date\": \"2026-09-10\",\n  \"pickup_slot_id\": 1,\n  \"next_delivery_date\": \"2026-09-13\"\n}\n\nRequired: service_type_id, pickup_date, pickup_slot_id, next_delivery_date\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1615,7 +1645,7 @@
                 "pay"
               ]
             },
-            "description": "{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: group_code, shift_id, day_of_week\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"group_code\": \"{{groupCode}}\",  // REQUIRED\n  \"shift_id\": 1,  // REQUIRED\n  \"day_of_week\": 3  // REQUIRED\n}\n\n{\n  \"group_code\": \"MUM_WEST\",\n  \"shift_id\": 1,\n  \"day_of_week\": 3\n}\n\nRequired: group_code, shift_id, day_of_week\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1673,24 +1703,24 @@
                 {
                   "key": "days",
                   "value": "30",
-                  "description": "Optional. Default 30",
+                  "description": "REQUIRED / usually sent. Optional. Default 30",
                   "disabled": false
                 },
                 {
                   "key": "total_orders",
                   "value": "1",
-                  "description": "Optional. Default 1",
+                  "description": "REQUIRED / usually sent. Optional. Default 1",
                   "disabled": false
                 },
                 {
                   "key": "limit",
                   "value": "100",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: days (default 30), total_orders (default 1), limit (default 100)\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: days (default 30), total_orders (default 1), limit (default 100)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • days: REQUIRED (or usually sent) — Optional. Default 30\n  • total_orders: REQUIRED (or usually sent) — Optional. Default 1\n  • limit: OPTIONAL — Optional\n\nQuery optional: days (default 30), total_orders (default 1), limit (default 100)\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -1720,7 +1750,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -1773,7 +1803,7 @@
                 "address"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1810,7 +1840,7 @@
                 "applyCoupon"
               ]
             },
-            "description": "OPTIONAL: coupon_code. Empty body {} reapplies loyalty coupon.\n\n{\n  \"coupon_code\": \"VALUED10\"\n}\n\nOptional: coupon_code — omit or {} to reapply loyalty\nTxt also listed POST /api/whatsapp/offers/apply — not built; use this.\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: see body keys below\nOPTIONAL: coupon_code. Empty body {} reapplies loyalty coupon.\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"coupon_code\": \"VALUED10\"  // OPTIONAL — can omit\n}\n\nOPTIONAL: coupon_code. Empty body {} reapplies loyalty coupon.\n\n{\n  \"coupon_code\": \"VALUED10\"\n}\n\nOptional: coupon_code — omit or {} to reapply loyalty\nTxt also listed POST /api/whatsapp/offers/apply — not built; use this.\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1865,7 +1895,7 @@
                 "emit"
               ]
             },
-            "description": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, mobile, data\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: event\nOPTIONAL: order_id, mobile, data\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"event\": \"pickup_day_reminder\",  // REQUIRED\n  \"order_id\": \"{{orderId}}\"  // OPTIONAL — can omit\n}\n\n{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, mobile, data\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"event\": \"pickup_day_reminder\",\n  \"order_id\": \"{{orderId}}\"\n}",
@@ -1905,7 +1935,7 @@
                 "emit"
               ]
             },
-            "description": "{\n  \"event\": \"rider_assigned\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: event\nOPTIONAL: order_id, data\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"event\": \"rider_assigned\",  // REQUIRED\n  \"order_id\": \"{{orderId}}\"  // OPTIONAL — can omit\n}\n\n{\n  \"event\": \"rider_assigned\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"event\": \"rider_assigned\",\n  \"order_id\": \"{{orderId}}\"\n}",
@@ -1941,7 +1971,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "No body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1983,7 +2013,7 @@
                 "rider"
               ]
             },
-            "description": "Path required: id\nOptional: none\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: id\nOptional: none\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -2010,7 +2040,7 @@
                 "rescheduleOrderPickup"
               ]
             },
-            "description": "{\n  \"pickup_date\": \"2026-09-11\",\n  \"pickup_slot_id\": 1\n}\n\nRequired: pickup_date, pickup_slot_id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: pickup_date, pickup_slot_id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"pickup_date\": \"2026-09-11\",  // REQUIRED\n  \"pickup_slot_id\": 1  // REQUIRED\n}\n\n{\n  \"pickup_date\": \"2026-09-11\",\n  \"pickup_slot_id\": 1\n}\n\nRequired: pickup_date, pickup_slot_id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2056,7 +2086,7 @@
                 "cancelService"
               ]
             },
-            "description": "{\n  \"reason_type\": \"pickup_schedule_issue\"\n}\n\nRequired: reason_type\nOptional: reason_description\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: reason_type\nOPTIONAL: reason_description\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"reason_type\": \"pickup_schedule_issue\"  // REQUIRED\n}\n\n{\n  \"reason_type\": \"pickup_schedule_issue\"\n}\n\nRequired: reason_type\nOptional: reason_description\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2111,7 +2141,7 @@
                 "emit"
               ]
             },
-            "description": "{\n  \"event\": \"pickup_completed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: event\nOPTIONAL: order_id\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"event\": \"pickup_completed\",  // REQUIRED\n  \"order_id\": \"{{orderId}}\"  // OPTIONAL — can omit\n}\n\n{\n  \"event\": \"pickup_completed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"event\": \"pickup_completed\",\n  \"order_id\": \"{{orderId}}\"\n}",
@@ -2147,7 +2177,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "No body. Optional: none. Expect status picked_up / in_process\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none. Expect status picked_up / in_process\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none. Expect status picked_up / in_process\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2189,7 +2219,7 @@
                 "confirm-weight"
               ]
             },
-            "description": "form-data Required: actual_weight\nOptional: is_stained, vendor_request_amount, stain images\n\nToken: Yes (vendor Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: actual_weight\nOPTIONAL: is_stained, vendor_request_amount, stain images\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nform-data Required: actual_weight\nOptional: is_stained, vendor_request_amount, stain images\n\nToken: Yes (vendor Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2226,7 +2256,7 @@
                 "finalize"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: Yes (vendor Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: Yes (vendor Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2267,7 +2297,7 @@
                 "emit"
               ]
             },
-            "description": "{\n  \"event\": \"order.weight_confirmed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: event\nOPTIONAL: order_id, data\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"event\": \"order.weight_confirmed\",  // REQUIRED\n  \"order_id\": \"{{orderId}}\"  // OPTIONAL — can omit\n}\n\n{\n  \"event\": \"order.weight_confirmed\",\n  \"order_id\": 74\n}\n\nRequired: event\nOptional: order_id, data\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"event\": \"order.weight_confirmed\",\n  \"order_id\": \"{{orderId}}\"\n}",
@@ -2303,7 +2333,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "No body. Optional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2341,7 +2371,7 @@
                 "create-order"
               ]
             },
-            "description": "{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}\n\nRequired: amount, payment_type\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: amount, payment_type\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"amount\": 1185.04,  // REQUIRED\n  \"payment_type\": \"remaining\"  // REQUIRED\n}\n\n{\n  \"amount\": 1185.04,\n  \"payment_type\": \"remaining\"\n}\n\nRequired: amount, payment_type\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2388,7 +2418,7 @@
                 "verify"
               ]
             },
-            "description": "{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": \"pay_xxx\",\n  \"razorpay_signature\": \"sig_xxx\"\n}\n\nRequired: razorpay_order_id, razorpay_payment_id, razorpay_signature\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: razorpay_order_id, razorpay_payment_id, razorpay_signature\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"razorpay_order_id\": \"order_xxx\",  // REQUIRED\n  \"razorpay_payment_id\": \"pay_xxx\",  // REQUIRED\n  \"razorpay_signature\": \"sig_xxx\"  // REQUIRED\n}\n\n{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": \"pay_xxx\",\n  \"razorpay_signature\": \"sig_xxx\"\n}\n\nRequired: razorpay_order_id, razorpay_payment_id, razorpay_signature\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2435,7 +2465,7 @@
                 "webhook"
               ]
             },
-            "description": "Razorpay payment.captured payload. Optional: none (Razorpay-owned)\n\nToken: Razorpay signature (no user token)"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none (Razorpay-owned)\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nRazorpay payment.captured payload. Optional: none (Razorpay-owned)\n\nToken: Razorpay signature (no user token)"
           },
           "response": []
         }
@@ -2471,7 +2501,7 @@
                 "lookup"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -2510,7 +2540,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -2574,7 +2604,7 @@
                 "lookup"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -2613,7 +2643,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -2670,24 +2700,24 @@
                 {
                   "key": "status",
                   "value": "booked",
-                  "description": "Optional filter",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional filter",
                   "disabled": true
                 },
                 {
                   "key": "page",
                   "value": "1",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 },
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Optional",
+                  "description": "OPTIONAL — leave unchecked if not needed. Optional",
                   "disabled": true
                 }
               ]
             },
-            "description": "Query optional: status, time, page, limit\nstatus: booked | out_for_pickup | pickup_in_progress | picked_up | in_process | order_finalized | ready_for_delivery | out_for_delivery | delivered | cancelled\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: status, time, page, limit\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • status: OPTIONAL — Optional filter\n  • page: OPTIONAL — Optional\n  • limit: OPTIONAL — Optional\n\nQuery optional: status, time, page, limit\nstatus: booked | out_for_pickup | pickup_in_progress | picked_up | in_process | order_finalized | ready_for_delivery | out_for_delivery | delivered | cancelled\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2724,7 +2754,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2768,12 +2798,12 @@
                 {
                   "key": "mobile",
                   "value": "{{mobile}}",
-                  "description": "Required",
+                  "description": "REQUIRED / usually sent. Required",
                   "disabled": false
                 }
               ]
             },
-            "description": "Query required: mobile\nOptional: none\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • mobile: REQUIRED (or usually sent) — Required\n\nQuery required: mobile\nOptional: none\n\nToken: Gallabox secret"
           },
           "response": []
         }
@@ -2808,7 +2838,7 @@
                 "session"
               ]
             },
-            "description": "{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\"  // REQUIRED\n}\n\n{\n  \"mobile\": \"9004186460\"\n}\n\nRequired: mobile\nOptional: none\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -2870,12 +2900,12 @@
                 {
                   "key": "mobile",
                   "value": "{{mobile}}",
-                  "description": "Required",
+                  "description": "REQUIRED / usually sent. Required",
                   "disabled": false
                 }
               ]
             },
-            "description": "Query required: mobile\nOptional: none\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nQuery params:\n  • mobile: REQUIRED (or usually sent) — Required\n\nQuery required: mobile\nOptional: none\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -2902,7 +2932,7 @@
                 "Orderdetail"
               ]
             },
-            "description": "Path required: id\nOptional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: id\nOptional: none\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2944,7 +2974,7 @@
                 "delay-status"
               ]
             },
-            "description": "Path required: id\nOptional: none\n\nToken: Gallabox secret"
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: id\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nPath required: id\nOptional: none\n\nToken: Gallabox secret"
           },
           "response": []
         },
@@ -2969,7 +2999,7 @@
                 "needHelp"
               ]
             },
-            "description": "OPTIONAL: report_issue. Required: message\n\n{\n  \"report_issue\": \"delay\",\n  \"message\": \"Pickup delayed\"\n}\n\nRequired: message\nOptional: report_issue\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: message\nOPTIONAL: report_issue. Required: message\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"report_issue\": \"delay\",  // OPTIONAL — can omit\n  \"message\": \"Pickup delayed\"  // REQUIRED\n}\n\nOPTIONAL: report_issue. Required: message\n\n{\n  \"report_issue\": \"delay\",\n  \"message\": \"Pickup delayed\"\n}\n\nRequired: message\nOptional: report_issue\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
