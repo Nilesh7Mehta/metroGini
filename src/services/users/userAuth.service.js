@@ -88,6 +88,7 @@ export const loginOrRegister = async ({ mobile }) => {
         id: user.id,
         mobile: user.mobile,
         otp: skipOtpDelivery ? undefined : otp,
+        profile_image: user.profile_image || DEFAULT_USER_PROFILE_IMAGE,
         profile_completed: user.profile_completed,
         terms_and_condition: Boolean(user.terms_and_condition),
       },

@@ -255,6 +255,7 @@ const collection = {
     description:
       "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\n" +
       "Folder names match the updated document.\n" +
+      "WhatsApp add address: POST /api/whatsapp/address — Required: mobile, complete_address, pincode, name, email. Auto-default.\n" +
       "Every request Description starts with FIELD GUIDE (REQUIRED / OPTIONAL).\n" +
       "Body requests also show an annotated body with // OPTIONAL comments (docs only).\n" +
       "Body tab still sends clean JSON so Send works.\n" +

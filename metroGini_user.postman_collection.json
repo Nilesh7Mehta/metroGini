@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "0ab27996-6701-4140-840f-dcf18b76748a",
     "name": "metroGini_user",
-    "description": "User login + order journey.\n\nLogin: Login Or Register → Verify OTP (saves `token` and `refreshToken`).\nAddress: Add Address (required) → Set Default if needed → Create Order.\nOrder: Create Order (saves `orderId`) → Complete Order → Review (auto loyalty coupon) → Payment → Order Details.\nLoyalty: Review auto-applies coupon marked `auto_apply_loyalty` (percentage for 1st-2nd orders, per_kg for 3rd+). Remove to dismiss; Apply with `{}` to reapply.",
+    "description": "User login + order journey.\n\nLogin: Login Or Register → Verify OTP (saves `token` and `refreshToken`).\nNew users (and users with no photo) get default profile_image: `uploads/profile/metrogini_avatae.jpeg` (URL: `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`).\nAddress (app): Add Address → Set Default if needed → Create Order.\nAddress (WhatsApp/Gallabox): POST /api/whatsapp/address with X-Gallabox-Secret — body: mobile, complete_address, pincode, name, email (all required). Auto-splits floor/landmark and sets default; returns access_token + address_id.\nOrder: Create Order (saves `orderId`) → Complete Order → Review (auto loyalty coupon) → Payment → Order Details.\nLoyalty: Review auto-applies coupon marked `auto_apply_loyalty` (percentage for 1st-2nd orders, per_kg for 3rd+). Remove to dismiss; Apply with `{}` to reapply.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -33,9 +33,46 @@
                 "login-or-register"
               ]
             },
-            "description": "Sends OTP to the mobile. OTP is currently 1234. Response includes profile_completed and terms_and_condition."
+            "description": "Sends OTP to the mobile.\n\nOn **new register**: inserts user with default `profile_image = uploads/profile/metrogini_avatae.jpeg`.\nOn **login**: if `profile_image` is null, fills the same default avatar.\n\nOTP is currently 1234 for dummy/test mobiles (see server OTP util).\nResponse includes `profile_completed` and `terms_and_condition`.\n\nCheck avatar after Verify OTP via **Get Profile** → `data.profile_image`.\nPublic URL: `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`"
           },
-          "response": []
+          "response": [
+            {
+              "name": "Register / Login success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"mobile\": \"{{mobile}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/login-or-register",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "login-or-register"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully. OTP sent.\",\n  \"data\": {\n    \"id\": 12,\n    \"mobile\": \"9004186460\",\n    \"otp\": \"1234\",\n    \"profile_image\": \"uploads/profile/metrogini_avatae.jpeg\",\n    \"profile_completed\": false,\n    \"terms_and_condition\": false\n  }\n}"
+            }
+          ]
         },
         {
           "name": "2. Resend OTP",
@@ -134,9 +171,37 @@
                 "profile"
               ]
             },
-            "description": "Confirms login. Requires {{token}} from Verify OTP."
+            "description": "Confirms login. Requires {{token}} from Verify OTP.\n\n`data.profile_image` for new users is `uploads/profile/metrogini_avatae.jpeg`.\nOpen image: `{{baseUrl}}{{data.profile_image}}` → e.g. `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`"
           },
-          "response": []
+          "response": [
+            {
+              "name": "Profile with default avatar",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}api/user/profile",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "profile"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Profile fetched successfully\",\n  \"data\": {\n    \"id\": 12,\n    \"mobile\": \"9004186460\",\n    \"full_name\": null,\n    \"email\": null,\n    \"gender\": null,\n    \"alternate_phone\": null,\n    \"profile_completed\": false,\n    \"profile_image\": \"uploads/profile/metrogini_avatae.jpeg\",\n    \"terms_and_condition\": true,\n    \"push_notification\": true,\n    \"pincode\": null,\n    \"current_orders\": []\n  }\n}"
+            }
+          ]
         },
         {
           "name": "5. Refresh Token",
@@ -440,6 +505,108 @@
           "name": "Address",
           "item": [
             {
+              "name": "WhatsApp Add Address (Gallabox simple)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                      "  const json = pm.response.json();",
+                      "  const data = json.data || json;",
+                      "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                      "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                      "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Gallabox-Secret",
+                    "value": "{{whatsappSecret}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "description": "Gallabox / WhatsApp simple address.\n\n========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email\nOPTIONAL: none\n=================================\n\nServer splits floor/landmark from complete_address (comma-separated),\nsets address as default (is_selected=true), syncs name/email on user,\nand returns access_token for next booking APIs.\n\nSkip Set Default Address after this call.\nHeader: X-Gallabox-Secret = {{whatsappSecret}} (same as WHATSAPP_API_SECRET in .env).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/whatsapp/address",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "whatsapp",
+                    "address"
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "Address added + default",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "X-Gallabox-Secret",
+                        "value": "{{whatsappSecret}}"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}api/whatsapp/address",
+                      "host": [
+                        "{{baseUrl}}api"
+                      ],
+                      "path": [
+                        "whatsapp",
+                        "address"
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Address added and set as default\",\n  \"data\": {\n    \"address_id\": 3,\n    \"is_default\": true,\n    \"pincode\": \"400058\",\n    \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n    \"floor\": \"A-204\",\n    \"landmark\": \"Lotus Residency\",\n    \"name\": \"Karthik\",\n    \"email\": \"karthik@example.com\",\n    \"receiver_name\": \"Karthik\",\n    \"contact_number\": \"9004186460\",\n    \"user_id\": 12,\n    \"customer_id\": \"MG-12\",\n    \"mobile\": \"9004186460\",\n    \"access_token\": \"eyJ...\",\n    \"refresh_token\": \"...\"\n  }\n}"
+                }
+              ]
+            },
+            {
               "name": "Add Address",
               "request": {
                 "auth": {
@@ -454,7 +621,7 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "Required before Create Order (draft uses selected/default address). Optional name/email sync to user profile. address_type: home | work | institute.",
+                "description": "App full address API (Bearer {{token}}).\nFor WhatsApp/Gallabox prefer **WhatsApp Add Address (Gallabox simple)** instead.\nRequired: address_type, floor, landmark, receiver_name, contact_number, latitude, longitude, pincode.\nOptional: complete_address, name, email. Then call Set Default if needed.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n    \"name\": \"Dablu\",\r\n    \"email\": \"dablu@example.com\",\r\n    \"address_type\": \"work\",\r\n    \"complete_address\": \"2108/B , Padmavati Nagar\",\r\n    \"floor\":\"2108\",\r\n    \"landmark\":\"Dadar\",\r\n    \"receiver_name\": \"Dablu\",\r\n    \"contact_number\" : \"8876789098\",\r\n    \"latitude\": \"19.27078\",\r\n    \"longitude\": \"19.27078\",\r\n    \"pincode\" : \"400602\"\r\n}",
@@ -1439,6 +1606,14 @@
     {
       "key": "mobile",
       "value": "9004186460"
+    },
+    {
+      "key": "pincode",
+      "value": "400058"
+    },
+    {
+      "key": "whatsappSecret",
+      "value": "change-me-gallabox-secret"
     },
     {
       "key": "token",
