@@ -8,6 +8,7 @@ import { sendSmsSafe } from "../common/sms.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
 import { resolveAuthOtpForMobile, isDummyAuthMobile } from "../../utils/otp.js";
+import { DEFAULT_USER_PROFILE_IMAGE } from "../../constants/userProfile.js";
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
@@ -16,12 +17,22 @@ export const loginOrRegister = async ({ mobile }) => {
 
   if (!user) {
     const { rows } = await sql.query(
-      `INSERT INTO users (mobile) VALUES ($1) RETURNING *`,
-      [mobile],
+      `INSERT INTO users (mobile, profile_image) VALUES ($1, $2) RETURNING *`,
+      [mobile, DEFAULT_USER_PROFILE_IMAGE],
     );
     user = rows[0];
     message = "User registered successfully. OTP sent.";
   } else {
+    if (!user.profile_image) {
+      const { rows } = await sql.query(
+        `UPDATE users
+         SET profile_image = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING *`,
+        [user.id, DEFAULT_USER_PROFILE_IMAGE],
+      );
+      user = rows[0] || user;
+    }
     message = "User found. OTP sent for login.";
   }
 

@@ -2,6 +2,7 @@ import sql from "../../config/db.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
+import { DEFAULT_USER_PROFILE_IMAGE } from "../../constants/userProfile.js";
 
 const MOBILE_REGEX = /^\d{10,15}$/;
 
@@ -122,19 +123,31 @@ export const createWhatsappSession = async ({ mobile }) => {
 
   if (!user) {
     const { rows } = await sql.query(
-      `INSERT INTO users (mobile, terms_and_condition)
-       VALUES ($1, TRUE)
+      `INSERT INTO users (mobile, terms_and_condition, profile_image)
+       VALUES ($1, TRUE, $2)
        RETURNING *`,
-      [normalized],
+      [normalized, DEFAULT_USER_PROFILE_IMAGE],
     );
     user = rows[0];
     created = true;
-  } else if (!user.terms_and_condition) {
-    await sql.query(
-      `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
-      [user.id],
-    );
-    user.terms_and_condition = true;
+  } else {
+    if (!user.profile_image) {
+      const { rows } = await sql.query(
+        `UPDATE users
+         SET profile_image = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING *`,
+        [user.id, DEFAULT_USER_PROFILE_IMAGE],
+      );
+      user = rows[0] || user;
+    }
+    if (!user.terms_and_condition) {
+      await sql.query(
+        `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
+        [user.id],
+      );
+      user.terms_and_condition = true;
+    }
   }
 
   const tokens = await issueTokens(user);
