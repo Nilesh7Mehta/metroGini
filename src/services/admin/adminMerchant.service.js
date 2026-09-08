@@ -56,9 +56,8 @@ const VENDOR_PROFILE_COLUMNS = `
 `;
 
 const DEFAULT_VENDOR_PER_KG_AMOUNT = 90;
+const DEFAULT_MAX_WASH_KG = 10;
 
-const MERCHANT_WASH_CAPACITY_KG =
-  Number(process.env.MERCHANT_WASH_CAPACITY_KG) || 150;
 const MERCHANT_DRY_CAPACITY_PCS =
   Number(process.env.MERCHANT_DRY_CAPACITY_PCS) || 60;
 const MERCHANT_BATCH_ORDER_CAPACITY =
@@ -926,6 +925,21 @@ const resolveVendorPerKgAmount = (rawValue, existingValue, { isUpdate }) => {
   return parseFloat(amount.toFixed(2));
 };
 
+const resolveMaxWashKg = (rawValue, existingValue, { isUpdate }) => {
+  const source =
+    rawValue !== undefined && rawValue !== null && rawValue !== ''
+      ? rawValue
+      : isUpdate
+        ? existingValue
+        : DEFAULT_MAX_WASH_KG;
+
+  const amount = Number(source);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return DEFAULT_MAX_WASH_KG;
+  }
+  return amount;
+};
+
 const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {}) => {
   const {
     profile = {},
@@ -1093,12 +1107,11 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
       pickString(equipment.power_backup)
       || (isUpdate ? existing?.power_backup : null),
     upi_id: pickOptionalString(banking.upi_id, existing?.upi_id, { isUpdate }),
-    max_wash_kg:
-      capacity.max_wash_kg != null
-        ? Number(capacity.max_wash_kg)
-        : isUpdate
-          ? Number(existing?.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG)
-          : MERCHANT_WASH_CAPACITY_KG,
+    max_wash_kg: resolveMaxWashKg(
+      body.max_wash_kg ?? capacity.max_wash_kg,
+      existing?.max_wash_kg,
+      { isUpdate },
+    ),
     max_dry_pcs:
       capacity.max_dry_pcs != null
         ? parseInt(capacity.max_dry_pcs, 10)
@@ -1172,7 +1185,7 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
       buildDetailKeyValue('upi_id', vendor.upi_id),
     ],
     capacity: {
-      max_wash_kg: Number(vendor.max_wash_kg ?? MERCHANT_WASH_CAPACITY_KG),
+      max_wash_kg: resolveMaxWashKg(vendor.max_wash_kg, null, { isUpdate: false }),
       max_dry_pcs: Number(vendor.max_dry_pcs ?? MERCHANT_DRY_CAPACITY_PCS),
     },
     vendor_per_kg_amount: parseFloat(
