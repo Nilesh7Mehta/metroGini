@@ -473,6 +473,7 @@ const fetchEarliestPendingDeliveryDate = async (
     SELECT MIN(delivery_date)::date AS earliest_delivery_date
     FROM orders
     WHERE vendor_id = $1
+      AND vendor_received_at IS NOT NULL
       AND delivery_date IS NOT NULL
       AND status = ANY($2::text[])
       ${dateClause}
@@ -574,6 +575,7 @@ const fetchVendorTaskOrders = async (vendor_id, taskDeadline) => {
     JOIN services s ON o.service_id = s.id
     LEFT JOIN service_types st ON o.service_type_id = st.id
     WHERE o.vendor_id = $1
+      AND o.vendor_received_at IS NOT NULL
       AND o.delivery_date = $2::date
       AND o.status = ANY($3::text[])
     ORDER BY o.id DESC
