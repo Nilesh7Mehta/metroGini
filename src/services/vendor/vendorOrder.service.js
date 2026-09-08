@@ -1778,6 +1778,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     discount,
     base_total,
     subtotal_before_gst: subtotalBeforeGst,
+    gst,
     final_total,
     remaining_amount,
   } = computeFinalTotalsForConfirmWeight({

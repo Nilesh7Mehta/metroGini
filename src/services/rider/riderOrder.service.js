@@ -4,9 +4,14 @@ import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { PAYMENT_TYPE } from "../../utils/status.js";
 import { sendUserEmailSafe, sendPickupOtpEmail } from "../common/email.service.js";
-import { sendSmsSafe, sendSmsToUserSafe } from "../common/sms.service.js";
+import { sendOtpSmsIfEnabled, sendSmsToUserSafe } from "../common/sms.service.js";
+import { isSmsEnabled } from "../../config/sms.js";
 import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
-import { generateOTP } from "../../utils/otp.js";
+import {
+  generateOTP,
+  otpMatches,
+  getCooldownRemainingSeconds,
+} from "../../utils/otp.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import {
   deliveryOtpTemplate,
@@ -162,12 +167,10 @@ export const startDelivery = async (rider_id, order_id) => {
   );
   if (orderRows.length > 0) {
     const otp = orderRows[0].pickup_otp || generateOTP();
-    if (!orderRows[0].pickup_otp) {
-      await sql.query(`UPDATE orders SET pickup_otp = $1 WHERE id = $2`, [
-        otp,
-        order_id,
-      ]);
-    }
+    await sql.query(
+      `UPDATE orders SET pickup_otp = $1, otp_generated_at = NOW() WHERE id = $2`,
+      [otp, order_id],
+    );
 
     const pickupOtp = pickupOtpTemplate({ otp });
     await createNotificationsBatch([
@@ -217,7 +220,8 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
     throw { status: 403, message: "You are not assigned to this order" };
   // if (order.status !== "active")
   //   throw { status: 400, message: "Order is not in delivery stage" };
-  if (order.pickup_otp !== otp) throw { status: 400, message: "Invalid OTP" };
+  if (!otpMatches(order.pickup_otp, otp))
+    throw { status: 400, message: "Invalid OTP" };
 
   await sql.query(
     `UPDATE orders SET status = 'picked_up', otp_verified = 'true', pickup_completed_at = NOW() WHERE id = $1`,
@@ -258,21 +262,52 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
 };
 
 export const resendOtp = async (rider_id, order_id) => {
+  if (!order_id) throw { status: 400, message: "order_id is required" };
+
   const { rows } = await sql.query(
-    `SELECT o.id, o.user_id, o.order_code, u.mobile
+    `SELECT o.id, o.user_id, o.order_code, o.assigned_rider_id,
+            o.otp_verified, o.otp_generated_at, u.mobile
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
-     WHERE o.id = $1 AND o.assigned_rider_id = $2 AND o.otp_verified = false`,
-    [order_id, rider_id],
+     WHERE o.id = $1`,
+    [order_id],
   );
   if (rows.length === 0) throw { status: 404, message: "Order not found" };
 
   const order = rows[0];
+  if (order.assigned_rider_id !== rider_id)
+    throw { status: 403, message: "You are not assigned to this order" };
+  if (order.otp_verified)
+    throw { status: 400, message: "Pickup OTP already verified" };
+
+  const remaining = getCooldownRemainingSeconds(order.otp_generated_at);
+  if (remaining > 0) {
+    throw {
+      status: 429,
+      message: `Please wait ${remaining} seconds before requesting another OTP`,
+    };
+  }
+
   const otp = generateOTP();
-  await sql.query(`UPDATE orders SET pickup_otp = $1 WHERE id = $2`, [
-    otp,
-    order_id,
-  ]);
+
+  try {
+    await sendOtpSmsIfEnabled(
+      SMS_TEMPLATE_KEYS.OTP_PICKUP,
+      order.mobile,
+      { otp },
+      { reference_type: "order", reference_id: order_id },
+    );
+  } catch (error) {
+    throw {
+      status: error.status || 502,
+      message: "Unable to send OTP. Please try again.",
+    };
+  }
+
+  await sql.query(
+    `UPDATE orders SET pickup_otp = $1, otp_generated_at = NOW() WHERE id = $2`,
+    [otp, order_id],
+  );
 
   const pickupOtp = pickupOtpTemplate({ otp });
   await createNotificationsBatch([
@@ -293,14 +328,7 @@ export const resendOtp = async (rider_id, order_id) => {
     otp,
   });
 
-  sendSmsSafe(
-    SMS_TEMPLATE_KEYS.OTP_PICKUP,
-    order.mobile,
-    { otp },
-    { reference_type: "order", reference_id: order_id },
-  );
-
-  return otp;
+  return isSmsEnabled() ? {} : { otp };
 };
 
 export const handoverToVendorService = async (rider_id, order_id, vendor_id) => {
@@ -641,7 +669,7 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     throw { status: 400, message: 'Order must be out_for_delivery to verify OTP' };
   }
 
-  if (order.delivery_otp !== otp) {
+  if (!otpMatches(order.delivery_otp, otp)) {
     throw { status: 400, message: 'Invalid delivery OTP' };
   }
 
