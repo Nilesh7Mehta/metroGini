@@ -39,21 +39,33 @@ export const resolveVendorAndRider = async (
   }
 
   const vendorRes = await client.query(
-    `SELECT laundry_id FROM laundry_group_shift_schedule
-     WHERE pincode_group_id = $1 AND day_of_week = $2 AND shift_id = $3`,
+    `SELECT lgss.laundry_id
+     FROM laundry_group_shift_schedule lgss
+     JOIN vendors v ON v.id = lgss.laundry_id
+     WHERE lgss.pincode_group_id = $1
+       AND lgss.day_of_week = $2
+       AND lgss.shift_id = $3
+       AND LOWER(COALESCE(v.status, '')) = 'active'
+       AND COALESCE(v.is_active, TRUE) IS TRUE`,
     [pincode_group_id, dayOfWeek, shiftId],
   );
   if (vendorRes.rows.length === 0) {
-    throwHttpError("No vendor scheduled for this group, day, and shift");
+    throwHttpError("No active vendor scheduled for this group, day, and shift");
   }
 
   const riderRes = await client.query(
-    `SELECT rider_id FROM rider_group_shift_schedule
-     WHERE pincode_group_id = $1 AND day_of_week = $2 AND shift_id = $3`,
+    `SELECT rgss.rider_id
+     FROM rider_group_shift_schedule rgss
+     JOIN riders r ON r.id = rgss.rider_id
+     WHERE rgss.pincode_group_id = $1
+       AND rgss.day_of_week = $2
+       AND rgss.shift_id = $3
+       AND LOWER(COALESCE(r.status, '')) = 'active'
+       AND COALESCE(r.is_active, TRUE) IS TRUE`,
     [pincode_group_id, dayOfWeek, shiftId],
   );
   if (riderRes.rows.length === 0) {
-    throwHttpError("No rider scheduled for this group, day, and shift");
+    throwHttpError("No active rider scheduled for this group, day, and shift");
   }
 
   return {

@@ -98,6 +98,10 @@ export const evaluatePincodeBookable = async (pincode) => {
       INNER JOIN laundry_group_shift_schedule lgss
         ON lgss.pincode_group_id = $1
        AND lgss.day_of_week = u.day_of_week
+      INNER JOIN vendors v
+        ON v.id = lgss.laundry_id
+       AND LOWER(COALESCE(v.status, '')) = 'active'
+       AND COALESCE(v.is_active, TRUE) IS TRUE
     ),
     rider_days AS (
       SELECT DISTINCT u.day_of_week, rgss.shift_id
@@ -105,6 +109,10 @@ export const evaluatePincodeBookable = async (pincode) => {
       INNER JOIN rider_group_shift_schedule rgss
         ON rgss.pincode_group_id = $1
        AND rgss.day_of_week = u.day_of_week
+      INNER JOIN riders r
+        ON r.id = rgss.rider_id
+       AND LOWER(COALESCE(r.status, '')) = 'active'
+       AND COALESCE(r.is_active, TRUE) IS TRUE
     )
     SELECT
       EXISTS (SELECT 1 FROM vendor_days) AS has_vendor_slots,

@@ -106,7 +106,9 @@ export const reserveSlotCapacity = async (
   const capacityResult = await client.query(
     `SELECT FLOOR(COALESCE(max_wash_kg, $2))::int AS default_capacity
      FROM vendors
-     WHERE id = $1`,
+     WHERE id = $1
+       AND LOWER(COALESCE(status, '')) = 'active'
+       AND COALESCE(is_active, TRUE) IS TRUE`,
     [laundryId, DEFAULT_VENDOR_WASH_CAPACITY_KG],
   );
 
@@ -217,13 +219,28 @@ export const getSlotsAvailability = async ({
         ds.day_of_week,
         s.id AS shift_id,
         s.shift_name,
-        lgss.laundry_id
+        CASE
+          WHEN vend.id IS NULL OR rid.id IS NULL THEN NULL
+          ELSE lgss.laundry_id
+        END AS laundry_id
       FROM date_series ds
       CROSS JOIN active_shifts s
       LEFT JOIN laundry_group_shift_schedule lgss
         ON lgss.pincode_group_id = $1
        AND lgss.day_of_week = ds.day_of_week
        AND lgss.shift_id = s.id
+      LEFT JOIN vendors vend
+        ON vend.id = lgss.laundry_id
+       AND LOWER(COALESCE(vend.status, '')) = 'active'
+       AND COALESCE(vend.is_active, TRUE) IS TRUE
+      LEFT JOIN rider_group_shift_schedule rgss
+        ON rgss.pincode_group_id = $1
+       AND rgss.day_of_week = ds.day_of_week
+       AND rgss.shift_id = s.id
+      LEFT JOIN riders rid
+        ON rid.id = rgss.rider_id
+       AND LOWER(COALESCE(rid.status, '')) = 'active'
+       AND COALESCE(rid.is_active, TRUE) IS TRUE
     )
     SELECT
       g.slot_date,
@@ -301,12 +318,15 @@ export const getDeliveryDates = async ({
   const validatedDays = validateDays(days);
 
   const vendorCheck = await sql.query(
-    `SELECT id FROM vendors WHERE id = $1`,
+    `SELECT id FROM vendors
+     WHERE id = $1
+       AND LOWER(COALESCE(status, '')) = 'active'
+       AND COALESCE(is_active, TRUE) IS TRUE`,
     [validatedLaundryId],
   );
 
   if (vendorCheck.rows.length === 0) {
-    throw { status: 404, message: 'Laundry not found' };
+    throw { status: 404, message: 'Laundry not found or inactive' };
   }
 
   const { rows } = await sql.query(
