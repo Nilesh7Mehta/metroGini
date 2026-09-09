@@ -5,6 +5,10 @@ import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service
 import { generateOTP } from '../../utils/otp.js';
 import { computeFinalTotalsForConfirmWeight } from '../../utils/orderFinalBilling.util.js';
 import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
+import {
+  normalizeStainSizeList,
+  resolveStainChargesFromSizes,
+} from '../../utils/stainPricing.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 import { paginateArray } from '../../utils/pagination.util.js';
@@ -1655,7 +1659,6 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     is_stained,
     stain_images,
     stain_sizes,
-    vendor_request_amount,
     is_damaged,
     damage_count,
     damage_images,
@@ -1701,26 +1704,11 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     ? damage_images.filter((path) => typeof path === 'string' && path.trim())
     : [];
 
-  let sizeList = [];
-  if (Array.isArray(stain_sizes)) {
-    sizeList = stain_sizes;
-  } else if (typeof stain_sizes === 'string' && stain_sizes.trim()) {
-    try {
-      const parsed = JSON.parse(stain_sizes);
-      sizeList = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      sizeList = [];
-    }
-  }
+  const sizeList = normalizeStainSizeList(stain_sizes);
 
+  let stainCharges = null;
   if (stained === 1) {
-    if (imagePaths.length === 0) {
-      throw { status: 400, message: 'At least one image is required when is_stained is 1' };
-    }
-    const amount = parseFloat(vendor_request_amount);
-    if (!vendor_request_amount || Number.isNaN(amount) || amount <= 0) {
-      throw { status: 400, message: 'vendor_request_amount must be a positive number when is_stained is 1' };
-    }
+    stainCharges = resolveStainChargesFromSizes(sizeList, imagePaths.length);
   }
 
   let resolvedDamageCount = null;
@@ -1757,21 +1745,19 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
 
   const resolvedImages =
     stained === 1
-      ? imagePaths.map((path, index) => {
-          const rawSize = sizeList[index];
-          const strain_size =
-            rawSize === 'small' || rawSize === 'big' ? rawSize : null;
-          return strain_size ? { path, strain_size } : { path };
-        })
+      ? imagePaths.map((path, index) => ({
+          path,
+          strain_size: stainCharges.sizes[index],
+        }))
       : null;
-  const resolvedAmount = stained === 1 ? parseFloat(vendor_request_amount) : null;
+  const resolvedAmount = stainCharges ? stainCharges.vendor_request_amount : null;
+  const vendor_request_markup = stainCharges
+    ? stainCharges.vendor_request_markup
+    : null;
   const ratePerKg = resolveVendorAmountPerKg(order, order.vendor_per_kg_amount);
-  // Vendor payout = per-kg earnings + their stain request (markup is platform side)
   const vendor_revenue = parseFloat(
     (weight * ratePerKg + (resolvedAmount || 0)).toFixed(2),
   );
-  const vendor_request_markup =
-    stained === 1 ? parseFloat((resolvedAmount * 0.3).toFixed(2)) : null;
 
   const {
     gross_base_total,
@@ -1839,6 +1825,7 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     vendor_amount_per_kg: ratePerKg,
     vendor_request_amount: resolvedAmount,
     vendor_request_markup,
+    user_stain_total: stainCharges ? stainCharges.user_stain_total : 0,
     vendor_revenue,
     subtotal_before_gst: subtotalBeforeGst,
     gst,
