@@ -1079,7 +1079,7 @@ const CURRENT_ORDER_STATUSES = [
 export const getCurrentUserOrdersService = async ({ user_id, limit = 3 }) => {
   const result = await sql.query(
     `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
-            o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount,
+            o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup,
             o.is_damaged, o.damage_count, o.damage_images,
             o.amount_paid, o.remaining_amount, o.discount_price, o.extra_price_per_kg,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
