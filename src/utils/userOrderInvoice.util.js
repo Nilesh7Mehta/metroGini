@@ -434,7 +434,9 @@ export const ensureUserOrderInvoiceFile = async (
   const additiveCharges = additionalCharges.filter(
     (charge) => !bakedInLabels.has(charge.name),
   );
-  const laundryCharges = Math.round(Number(order.estimated_total || 0));
+  const laundryCharges = order.actual_weight != null
+    ? Math.round(Number(order.actual_weight) * Number(order.base_price_per_kg || 0))
+    : Math.round(Number(order.estimated_total || 0));
   const invoiceLines = [
     ...(laundryCharges > 0
       ? [{ name: 'Laundry charges', amount: laundryCharges }]

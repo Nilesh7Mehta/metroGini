@@ -26,7 +26,7 @@ export const buildOrderBillingPayload = (order) => {
   const additionalCharges = [];
 
   const flatFee = Number(order.flat_fee || 0);
-  if (flatFee > 0) {
+  if (!hasConfirmedWeight && flatFee > 0) {
     additionalCharges.push({
       name: 'Service Fee',
       qty: 1,
@@ -36,7 +36,7 @@ export const buildOrderBillingPayload = (order) => {
   }
 
   const peakCharge = Number(order.peak_extra_charge || 0);
-  if (peakCharge > 0) {
+  if (!hasConfirmedWeight && peakCharge > 0) {
     additionalCharges.push({
       name: 'Peak Hour Surcharge',
       qty: 1,
@@ -45,20 +45,7 @@ export const buildOrderBillingPayload = (order) => {
     });
   }
 
-  let extraWeightCharge = 0;
-  if (hasConfirmedWeight) {
-    // After weight confirm this column holds the extra-weight charge amount
-    extraWeightCharge = Math.round(typeExtraRate);
-  }
-
-  if (extraWeightCharge > 0) {
-    additionalCharges.push({
-      name: 'Extra Weight Charge',
-      qty: 1,
-      rate: String(extraWeightCharge),
-      amount: String(extraWeightCharge),
-    });
-  }
+  const extraWeightCharge = 0;
 
   const vendorExtra = Number(order.vendor_request_amount || 0);
   const vendorMarkup = Number(order.vendor_request_markup || 0);
@@ -77,7 +64,9 @@ export const buildOrderBillingPayload = (order) => {
   const vendorExtraRounded = isStained ? Math.round(vendorExtra) : 0;
   const vendorMarkupRounded = isStained ? Math.round(vendorMarkup) : 0;
 
-  const grossBeforeCoupon = estimatedTotal + extraWeightCharge;
+  const grossBeforeCoupon = hasConfirmedWeight
+    ? Math.round(actualWeight * baseRate)
+    : estimatedTotal;
   const { discount: couponDiscount } = applyCouponDiscount(grossBeforeCoupon, order);
   const couponDiscountRounded = Math.round(couponDiscount);
   const netBaseAfterCoupon = Math.round(grossBeforeCoupon - couponDiscountRounded);
