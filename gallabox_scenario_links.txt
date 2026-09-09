@@ -27,6 +27,39 @@ Optional follow-up:
 
 
 ================================================================================
+WHATSAPP ADD ADDRESS (use everywhere address is collected)
+================================================================================
+POST /api/whatsapp/address
+Header: X-Gallabox-Secret: <WHATSAPP_API_SECRET>
+
+Body (ALL REQUIRED — no optional fields):
+{
+  "mobile": "<wa_number>",
+  "complete_address": "A-204, Lotus Residency, Andheri West",
+  "pincode": "400058",
+  "name": "Karthik",
+  "email": "karthik@example.com"
+}
+
+What the server does:
+  1. Checks pincode is bookable (same as pincode-check)
+  2. Creates/reuses user from mobile (issues JWT)
+  3. Splits complete_address → floor (1st comma part) + landmark (2nd part)
+  4. Saves name + email on user profile
+  5. Inserts address and sets is_selected = TRUE (default)
+  6. Returns address_id, is_default, floor, landmark, access_token, refresh_token
+
+Do NOT call:
+  - POST /api/user/address          (app full form — not for Gallabox)
+  - PUT  /api/user/address/default/:id   (already default)
+
+Postman / Excel locations:
+  - SHARED APIs → Add address (Gallabox simple)
+  - Scenario 1  → Add address (Gallabox simple)
+  - Scenario 5  → Change address (Gallabox simple)
+
+
+================================================================================
 A) INBOUND "Hi" / customer reaches out  → ROUTER
 ================================================================================
 
@@ -62,7 +95,9 @@ B) OUTBOUND / PUSH  → which campaign scenario
 Cold promo / new WA contact (marketing send)
   → Scenario 1 — Promotion / New Customer (Send)
   Flow: Hi → PINCODE first → if not serviceable "coming soon"
-        → if OK full address → Book / Know more → garments (min 10) → date → confirm
+        → if OK ask: name, email, complete_address
+        → POST /api/whatsapp/address (auto default)
+        → Book / Know more → garments (min 10) → date → confirm
 
 App downloaded, registered, 0 completed orders, idle
   CRM: GET /api/whatsapp/crm/inactive-app-users?hours=48
@@ -80,7 +115,8 @@ Exactly 1 completed order, inactive N days (win-back)
   CRM: GET /api/whatsapp/crm/winback?days=30&total_orders=1
   → Scenario 5 — Retention: One-Time Customer, No Repeat Order
   VALUED10 (3 days). Menu: 1 Book Now | 2 Know more
-  Book → saved address Yes/No (No → Scenario 1 address steps)
+  Book → saved address Yes/No
+       No → BLOCK_ADDRESS (POST /api/whatsapp/address) then continue booking
 
 Order events (system push — not "Hi" menu):
   Pickup day morning / rider assigned
@@ -101,7 +137,8 @@ C) MENU JUMPS (scenarios reuse each other)
 ================================================================================
 
 FROM Scenario 1
-  Book Wash by Kilo     → S1 booking path (pincode → address → garments → date → confirm)
+  Collect address       → BLOCK_ADDRESS (POST /api/whatsapp/address)
+  Book Wash by Kilo     → S1 booking path (pincode → BLOCK_ADDRESS → garments → date → confirm)
   Know more             → S1 content: FAQ | How it works | View pricing
   Footer every message  → App download UTM (Play Store + App Store)
 
@@ -110,19 +147,20 @@ FROM Scenario 2
   2 Know more           → JUMP Scenario 1 Know more
 
 FROM Scenario 3
-  1 Book                → JUMP Scenario 1 booking path (registered; usually has address)
+  1 Book                → JUMP Scenario 1 booking path
+                          If no default_address → BLOCK_ADDRESS first
   2 Know more           → JUMP Scenario 1 Know more
   3 Existing Booking    → list/detail orders (or active-by-mobile if live)
 
 FROM Scenario 4
   1 Continue my booking → stay in S4 (review draft → schedule → finalize → pay ₹0)
-  2 Start a new booking → JUMP Scenario 1 full booking
+  2 Start a new booking → JUMP Scenario 1 full booking (may call BLOCK_ADDRESS)
   3 Know more           → JUMP Scenario 1 Know more
 
 FROM Scenario 5
   1 Book Now
        Yes, use saved address → continue booking (loyalty / VALUED10)
-       No, change address     → JUMP Scenario 1 address (+ then booking)
+       No, change address     → BLOCK_ADDRESS then continue booking
   2 Know more           → JUMP Scenario 1 Know more
 
 FROM Scenario 6
@@ -139,14 +177,15 @@ FROM Scenario 8
   After pay             → payment received copy
 
 FROM Scenario 9 (A or B)
-  1 Book                → JUMP Scenario 1 booking path
+  1 Book                → JUMP Scenario 1 booking path (includes BLOCK_ADDRESS)
   2 Know more           → JUMP Scenario 1 Know more
   3 Existing Booking    → if none found, ask Booking ID / say no active order
                           if found → same status blocks as Scenario 10 option 3
 
 FROM Scenario 10
   1 Book                → JUMP Scenario 1 booking BUT:
-                          - prefill saved address
+                          - prefill saved address (skip BLOCK_ADDRESS if default exists)
+                          - if change address → BLOCK_ADDRESS
                           - loyalty per-kg nudge (not FIRST15)
   2 Know more           → JUMP Scenario 1 Know more
   3 Existing Booking    → live stages (booking confirmed → rider → pickup → laundry
@@ -199,10 +238,24 @@ E) SIMPLE DECISION TREE (outbound who to message)
 F) SHARED CONTENT BLOCKS (do not duplicate in Gallabox)
 ================================================================================
 
+BLOCK_ADDRESS  (= BLOCK_ADDRESS_CHANGE)
+  POST /api/whatsapp/address
+  Header: X-Gallabox-Secret
+  Body required: mobile, complete_address, pincode, name, email
+  Optional: none
+  Ask customer on chat for: pincode (already checked) + full address + name + email
+  Server splits floor/landmark; sets default; returns access_token
+  Do NOT call PUT /api/user/address/default/:id after this
+  Used by: Scenario 1, 2 (book), 3 (no address), 4 (start new), 5 (change address),
+           9 (book), 10 (change address)
+
 BLOCK_BOOK_S1
-  pincode-check → add address (if needed) → set default → slots
+  GET  /api/common/pincode-check?pincode=
+  → BLOCK_ADDRESS (if no default / new / change)
+  → GET slots availability
   → create order clothes → schedule → finalize → review → pay ₹0
   Coupons: FIRST15 / Bulk15 on first journey
+  (Do NOT use app POST /api/user/address for Gallabox)
 
 BLOCK_KNOW_MORE_S1
   FAQ | How MetroGini Works | View Pricing
@@ -211,14 +264,6 @@ BLOCK_KNOW_MORE_S1
 BLOCK_EXISTING_ORDER
   active-by-mobile OR getUserOrder + Orderdetail
   stage_label copy for Scenario 10 / 9 option 3
-
-BLOCK_ADDRESS_CHANGE
-  POST /api/whatsapp/address
-  Body required: mobile, complete_address, pincode, name, email
-  Optional: none
-  Server splits floor/landmark from complete_address and sets is_selected=true (default).
-  Also returns access_token for next booking APIs.
-  Do NOT call PUT /api/user/address/default/:id after this.
 
 
 ================================================================================
@@ -239,5 +284,6 @@ G) SCENARIO INDEX (names from updated doc)
 
 Related files:
   Gallabox_WhatsApp_Scenarios.postman_collection.json
-  gallabox_scenarios.xlsx
+  gallabox_scenarios.xlsx   (sheets: Shared + Scenario 1–11)
+  metroGini_user.postman_collection.json  (also has WhatsApp Add Address)
 ================================================================================

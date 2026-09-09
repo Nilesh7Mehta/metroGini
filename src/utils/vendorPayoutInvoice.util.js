@@ -123,7 +123,7 @@ const row = (doc, fonts, label, value, y, opts = {}) => {
 };
 
 /** Uber-matching payout receipt UI. */
-const buildPayoutReceiptPdf = (batch, invoiceId, publicPath) =>
+const buildPayoutReceiptPdf = (batch, invoiceId) =>
   new Promise((resolve, reject) => {
     const vendor = String(batch.vendor_name || 'Vendor');
     const zone = String(batch.zone_group || batch.pincode_group_name || '-');
@@ -297,42 +297,7 @@ const buildPayoutReceiptPdf = (batch, invoiceId, publicPath) =>
     hairline(doc, y);
     y += 22;
 
-    // ========== 5. Download PDF (clickable link) ==========
-    const baseUrl = String(
-      process.env.API_BASE_URL ||
-        process.env.SERVER_URL ||
-        `http://localhost:${process.env.PORT || 4001}`,
-    ).replace(/\/$/, '');
-    const downloadUrl = `${baseUrl}${publicPath}?download=1`;
-
-    doc
-      .fillColor(COLORS.ink)
-      .font(fonts.regular)
-      .fontSize(13)
-      .text('Download the receipt in a PDF format', MARGIN_X, y + 10, {
-        width: CONTENT_W * 0.55,
-      });
-
-    const btnW = 148;
-    const btnH = 36;
-    const btnX = PAGE_W - MARGIN_X - btnW;
-    doc.roundedRect(btnX, y, btnW, btnH, 18).fill(COLORS.buttonBg);
-    doc
-      .fillColor(COLORS.ink)
-      .font(fonts.regular)
-      .fontSize(12)
-      .text('Download PDF', btnX, y + 11, {
-        width: btnW,
-        align: 'center',
-      });
-    // Make the button open/download the invoice PDF
-    doc.link(btnX, y, btnW, btnH, downloadUrl);
-
-    y += 56;
-    hairline(doc, y);
-    y += 18;
-
-    // ========== 6. Legal fine print (kept above footer) ==========
+    // ========== 5. Legal fine print (kept above footer) ==========
     const FOOTER_H = 100;
     const footerY = PAGE_H - FOOTER_H;
     const legalMaxH = Math.max(40, footerY - y - 24);
@@ -444,7 +409,7 @@ export const ensureAutoInvoiceFile = async (batch, { force = false } = {}) => {
     return { invoice_id: invoiceId, invoice_image: publicPath, absPath };
   }
 
-  const pdf = await buildPayoutReceiptPdf(batch, invoiceId, publicPath);
+  const pdf = await buildPayoutReceiptPdf(batch, invoiceId);
   fs.writeFileSync(absPath, pdf);
 
   return { invoice_id: invoiceId, invoice_image: publicPath, absPath };

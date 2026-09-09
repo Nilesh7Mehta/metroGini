@@ -167,6 +167,7 @@ const fetchOrdersByWorkday = async (vendor_id, _workDayDows, todayStr) => {
       COUNT(*)::int AS orders
     FROM orders o
     WHERE o.vendor_id = $1
+      AND o.vendor_received_at IS NOT NULL
       AND o.delivery_date >= $2::date
       AND o.delivery_date <= $3::date
       AND o.status NOT IN ('draft', 'cancelled')

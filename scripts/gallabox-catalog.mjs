@@ -26,6 +26,50 @@ const api = (scenario, row) => ({
   ...row,
 });
 
+/** Shared Gallabox simple address payload (used in Shared + S1 + S5). */
+const whatsappAddAddressRow = {
+  name: "Add address (Gallabox simple)",
+  method: "POST",
+  path: "/api/whatsapp/address",
+  token: "Gallabox secret",
+  request:
+    j({
+      mobile: "9004186460",
+      complete_address: "A-204, Lotus Residency, Andheri West",
+      pincode: "400058",
+      name: "Karthik",
+      email: "karthik@example.com",
+    }) +
+    "\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.",
+  response: j({
+    success: true,
+    message: "Address added and set as default",
+    data: {
+      address_id: 3,
+      is_default: true,
+      pincode: "400058",
+      complete_address: "A-204, Lotus Residency, Andheri West",
+      floor: "A-204",
+      landmark: "Lotus Residency",
+      name: "Karthik",
+      email: "karthik@example.com",
+      access_token: "eyJ...",
+    },
+  }),
+  postmanAuth: "whatsapp",
+  body: {
+    mobile: "{{mobile}}",
+    complete_address: "A-204, Lotus Residency, Andheri West",
+    pincode: "{{pincode}}",
+    name: "Karthik",
+    email: "karthik@example.com",
+  },
+  descriptionExtra:
+    "Gallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call. Prefer this over POST /api/user/address.",
+  saveToken: true,
+  saveOrder: true,
+};
+
 const sessionRes = {
   success: true,
   message: "WhatsApp session created",
@@ -103,6 +147,7 @@ export const CATALOG = [
     body: { mobile: "{{mobile}}" },
     saveToken: true,
   }),
+  api(SCENARIO_NAMES.shared, whatsappAddAddressRow),
   api(SCENARIO_NAMES.shared, {
     name: "Customer lookup by mobile",
     method: "POST",
@@ -237,46 +282,8 @@ export const CATALOG = [
     postmanAuth: "none",
   }),
   api(SCENARIO_NAMES[1], {
+    ...whatsappAddAddressRow,
     name: "Add address (Gallabox simple)",
-    method: "POST",
-    path: "/api/whatsapp/address",
-    token: "Gallabox secret",
-    request:
-      j({
-        mobile: "9004186460",
-        complete_address: "A-204, Lotus Residency, Andheri West",
-        pincode: "400058",
-        name: "Karthik",
-        email: "karthik@example.com",
-      }) +
-      "\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.",
-    response: j({
-      success: true,
-      message: "Address added and set as default",
-      data: {
-        address_id: 3,
-        is_default: true,
-        pincode: "400058",
-        complete_address: "A-204, Lotus Residency, Andheri West",
-        floor: "A-204",
-        landmark: "Lotus Residency",
-        name: "Karthik",
-        email: "karthik@example.com",
-        access_token: "eyJ...",
-      },
-    }),
-    postmanAuth: "whatsapp",
-    body: {
-      mobile: "{{mobile}}",
-      complete_address: "A-204, Lotus Residency, Andheri West",
-      pincode: "{{pincode}}",
-      name: "Karthik",
-      email: "karthik@example.com",
-    },
-    descriptionExtra:
-      "Gallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call.",
-    saveToken: true,
-    saveOrder: true,
   }),
   api(SCENARIO_NAMES[1], {
     name: "Set default address (app only — skip on WhatsApp)",
@@ -702,12 +709,19 @@ export const CATALOG = [
     method: "GET",
     path: "/api/user/address",
     token: "Yes (user Bearer)",
-    request: "No body. Optional: none",
+    request:
+      "No body. Optional: none\nIf customer picks Yes → use this address. If No → next request (WhatsApp Add address).",
     response: j({
       success: true,
       data: { addresses: [{ id: 3, pincode: "400058", is_selected: true }] },
     }),
     postmanAuth: "user",
+  }),
+  api(SCENARIO_NAMES[5], {
+    ...whatsappAddAddressRow,
+    name: "Change address (Gallabox simple)",
+    descriptionExtra:
+      "Scenario 5: customer chose No, change address. Same as Scenario 1 WhatsApp add-address. Required: mobile, complete_address, pincode, name, email. Auto-sets default.",
   }),
   api(SCENARIO_NAMES[5], {
     name: "Apply coupon (VALUED10 / win-back)",

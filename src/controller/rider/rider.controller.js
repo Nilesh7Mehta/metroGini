@@ -14,6 +14,10 @@ export const loginOrVerify = async (req, res, next) => {
     const data = await loginOrVerifyService(req.body.mobile_number);
     res.json({ success: true, message: "OTP sent successfully", data });
   } catch (error) {
+    if (error.status)
+      return res
+        .status(error.status)
+        .json({ success: false, message: error.message });
     next(error);
   }
 };

@@ -400,6 +400,23 @@ export const sendSms = async (
   };
 };
 
+/**
+ * Send OTP SMS when SpringEdge is configured.
+ * No-op if SMS is disabled. Throws if the provider is enabled and send fails.
+ */
+export const sendOtpSmsIfEnabled = async (
+  templateKey,
+  mobileNumber,
+  variables = {},
+  meta = {},
+) => {
+  if (!isSmsEnabled()) {
+    return { sent: false, skipped: true };
+  }
+  const result = await sendSms(templateKey, mobileNumber, variables, meta);
+  return { sent: true, skipped: false, ...result };
+};
+
 /** Fire-and-forget SMS — never throws. */
 export const sendSmsSafe = async (
   templateKey,

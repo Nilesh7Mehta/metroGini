@@ -32,10 +32,9 @@ export const applyCouponDiscount = (grossTotal, order = {}) => {
   }
 
   let net_total = parseFloat((gross - discount).toFixed(2));
-
-  if (net_total < 500) {
-    discount = gross - 500;
-    net_total = 500;
+  if (net_total < 0) {
+    discount = gross;
+    net_total = 0;
   }
 
   return {

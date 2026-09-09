@@ -4,16 +4,123 @@ import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
 import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
 import { sendPushSafe } from "../common/push.service.js";
-import { sendSmsSafe } from "../common/sms.service.js";
+import { sendOtpSmsIfEnabled } from "../common/sms.service.js";
+import { isSmsEnabled } from "../../config/sms.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
-import { resolveAuthOtpForMobile, isDummyAuthMobile } from "../../utils/otp.js";
+import {
+  resolveAuthOtpForMobile,
+  isDummyAuthMobile,
+  USER_OTP_TTL_MINUTES,
+  OTP_MAX_ATTEMPTS,
+  otpMatches,
+  isOtpExpired,
+  getOtpCooldownRemainingSeconds,
+} from "../../utils/otp.js";
 import { DEFAULT_USER_PROFILE_IMAGE } from "../../constants/userProfile.js";
+
+const persistUserOtp = async (userId, otp) => {
+  await sql.query(
+    `UPDATE users
+     SET otp = $2,
+         otp_expires_at = NOW() + ($3::int * INTERVAL '1 minute'),
+         otp_attempts = 0
+     WHERE id = $1`,
+    [userId, otp, USER_OTP_TTL_MINUTES],
+  );
+};
+
+const deliverSecondaryOtpChannels = (user, otp) => {
+  const otpPush = accountOtpTemplate({ otp });
+  sendPushSafe(user.id, {
+    title: otpPush.title,
+    body: otpPush.message,
+    reference_type: "auth",
+    reference_id: user.id,
+    data: otpPush.data,
+  });
+
+  if (user.email) {
+    sendEmailSafe(sendOtpEmail, {
+      email: user.email,
+      name: user.full_name,
+      otp,
+    });
+  }
+};
+
+const issueUserOtp = async (user, { successMessage, dummyMessage }) => {
+  const remaining = getOtpCooldownRemainingSeconds(
+    user.otp_expires_at,
+    USER_OTP_TTL_MINUTES,
+  );
+  if (remaining > 0) {
+    return {
+      statusCode: 429,
+      body: {
+        success: false,
+        message: `Please wait ${remaining} seconds before requesting another OTP`,
+        retry_after_seconds: remaining,
+      },
+    };
+  }
+
+  const otp = resolveAuthOtpForMobile(user.mobile);
+  const skipOtpDelivery = isDummyAuthMobile(user.mobile);
+
+  if (!skipOtpDelivery) {
+    try {
+      await sendOtpSmsIfEnabled(
+        SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+        user.mobile,
+        { otp },
+        { reference_type: "auth", reference_id: user.id },
+      );
+    } catch (error) {
+      return {
+        statusCode: error.status || 502,
+        body: {
+          success: false,
+          message: "Unable to send OTP. Please try again.",
+        },
+      };
+    }
+  }
+
+  await persistUserOtp(user.id, otp);
+
+  if (!skipOtpDelivery) {
+    deliverSecondaryOtpChannels(user, otp);
+  }
+
+  const includeOtp = !skipOtpDelivery && !isSmsEnabled();
+
+  return {
+    statusCode: 200,
+    body: {
+      success: true,
+      message: skipOtpDelivery ? dummyMessage : successMessage,
+      data: {
+        id: user.id,
+        mobile: user.mobile,
+        ...(includeOtp ? { otp } : {}),
+      },
+    },
+  };
+};
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
 export const loginOrRegister = async ({ mobile }) => {
+  if (!mobile) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "Mobile is required" },
+    };
+  }
+
   let user = await findUserByMobile(mobile);
-  let message;
+  let dummyMessage;
+  let successMessage;
 
   if (!user) {
     const { rows } = await sql.query(
@@ -21,7 +128,8 @@ export const loginOrRegister = async ({ mobile }) => {
       [mobile, DEFAULT_USER_PROFILE_IMAGE],
     );
     user = rows[0];
-    message = "User registered successfully. OTP sent.";
+    successMessage = "User registered successfully. OTP sent.";
+    dummyMessage = "User registered successfully.";
   } else {
     if (!user.profile_image) {
       const { rows } = await sql.query(
@@ -33,66 +141,18 @@ export const loginOrRegister = async ({ mobile }) => {
       );
       user = rows[0] || user;
     }
-    message = "User found. OTP sent for login.";
+    successMessage = "User found. OTP sent for login.";
+    dummyMessage = "User found. Ready for login.";
   }
 
-  const otp = resolveAuthOtpForMobile(mobile);
-  const skipOtpDelivery = isDummyAuthMobile(mobile);
+  const issued = await issueUserOtp(user, { successMessage, dummyMessage });
+  if (issued.statusCode !== 200) return issued;
 
-  // Update OTP and expiry (template: valid 10 minutes)
-  await sql.query(
-    `UPDATE users
-     SET otp = $2,
-         otp_expires_at = NOW() + INTERVAL '10 minutes',
-         otp_attempts = 0
-     WHERE id = $1`,
-    [user.id, otp],
-  );
-
-  if (!skipOtpDelivery) {
-    const otpPush = accountOtpTemplate({ otp });
-    sendPushSafe(user.id, {
-      title: otpPush.title,
-      body: otpPush.message,
-      reference_type: "auth",
-      reference_id: user.id,
-      data: otpPush.data,
-    });
-
-    if (user.email) {
-      sendEmailSafe(sendOtpEmail, {
-        email: user.email,
-        name: user.full_name,
-        otp,
-      });
-    }
-
-    sendSmsSafe(
-      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-      user.mobile,
-      { otp },
-      { reference_type: "auth", reference_id: user.id },
-    );
-  }
-
-  return {
-    statusCode: 200,
-    body: {
-      success: true,
-      message: skipOtpDelivery
-        ? message.includes("registered")
-          ? "User registered successfully."
-          : "User found. Ready for login."
-        : message,
-      data: {
-        id: user.id,
-        mobile: user.mobile,
-        otp: skipOtpDelivery ? undefined : otp,
-        profile_completed: user.profile_completed,
-        terms_and_condition: Boolean(user.terms_and_condition),
-      },
-    },
-  };
+  issued.body.data.profile_image =
+    user.profile_image || DEFAULT_USER_PROFILE_IMAGE;
+  issued.body.data.profile_completed = user.profile_completed;
+  issued.body.data.terms_and_condition = Boolean(user.terms_and_condition);
+  return issued;
 };
 
 export const resendOtp = async ({ mobile }) => {
@@ -112,56 +172,10 @@ export const resendOtp = async ({ mobile }) => {
     };
   }
 
-  const otp = resolveAuthOtpForMobile(mobile);
-  const skipOtpDelivery = isDummyAuthMobile(mobile);
-
-  await sql.query(
-    `UPDATE users
-     SET otp = $2,
-         otp_expires_at = NOW() + INTERVAL '10 minutes',
-         otp_attempts = 0
-     WHERE id = $1`,
-    [user.id, otp],
-  );
-
-  if (!skipOtpDelivery) {
-    const otpPush = accountOtpTemplate({ otp });
-    sendPushSafe(user.id, {
-      title: otpPush.title,
-      body: otpPush.message,
-      reference_type: "auth",
-      reference_id: user.id,
-      data: otpPush.data,
-    });
-
-    if (user.email) {
-      sendEmailSafe(sendOtpEmail, {
-        email: user.email,
-        name: user.full_name,
-        otp,
-      });
-    }
-
-    sendSmsSafe(
-      SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-      user.mobile,
-      { otp },
-      { reference_type: "auth", reference_id: user.id },
-    );
-  }
-
-  return {
-    statusCode: 200,
-    body: {
-      success: true,
-      message: skipOtpDelivery ? "OTP ready. Use 1234 to verify." : "OTP resent successfully",
-      data: {
-        id: user.id,
-        mobile: user.mobile,
-        otp: skipOtpDelivery ? undefined : otp,
-      },
-    },
-  };
+  return issueUserOtp(user, {
+    successMessage: "OTP resent successfully",
+    dummyMessage: "OTP ready. Use 1234 to verify.",
+  });
 };
 
 export const verifyOTP = async ({ mobile, otp }) => {
@@ -186,7 +200,45 @@ export const verifyOTP = async ({ mobile, otp }) => {
 
   const user = userResult.rows[0];
 
-  if (user.otp !== otp) {
+  if (!user.otp) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "OTP not generated. Please request a new OTP." },
+    };
+  }
+
+  if (Number(user.otp_attempts) >= OTP_MAX_ATTEMPTS) {
+    return {
+      statusCode: 429,
+      body: {
+        success: false,
+        message: "Too many incorrect attempts. Request a new OTP.",
+      },
+    };
+  }
+
+  if (isOtpExpired(user.otp_expires_at)) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "OTP expired. Please request a new OTP." },
+    };
+  }
+
+  if (!otpMatches(user.otp, otp)) {
+    const { rows } = await sql.query(
+      `UPDATE users SET otp_attempts = otp_attempts + 1 WHERE id = $1 RETURNING otp_attempts`,
+      [user.id],
+    );
+    const attempts = Number(rows[0]?.otp_attempts || 0);
+    if (attempts >= OTP_MAX_ATTEMPTS) {
+      return {
+        statusCode: 429,
+        body: {
+          success: false,
+          message: "Too many incorrect attempts. Request a new OTP.",
+        },
+      };
+    }
     return {
       statusCode: 400,
       body: { success: false, message: "Invalid OTP" },
@@ -194,7 +246,13 @@ export const verifyOTP = async ({ mobile, otp }) => {
   }
 
   await sql.query(
-    `UPDATE users SET terms_and_condition = TRUE WHERE id = $1`,
+    `UPDATE users
+     SET terms_and_condition = TRUE,
+         is_mobile_verified = TRUE,
+         otp = NULL,
+         otp_expires_at = NULL,
+         otp_attempts = 0
+     WHERE id = $1`,
     [user.id],
   );
 
@@ -287,4 +345,3 @@ export const logout = async ({ refresh_token }) => {
     body: { success: true, message: "Logged out successfully" },
   };
 };
-

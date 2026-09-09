@@ -83,10 +83,12 @@ export const verifyPickupOtp = async (req, res, next) => {
 
 export const resendPickupOtp = async (req, res, next) => {
   try {
-    const otp = await resendOtp(req.user.rider_id, req.body.order_id);
-    return res
-      .status(200)
-      .json({ success: true, message: "OTP sent to customer", otp }); // Remove otp in Prod
+    const result = await resendOtp(req.user.rider_id, req.body.order_id);
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to customer",
+      ...(result.otp != null ? { otp: result.otp } : {}),
+    });
   } catch (err) {
     if (err.status)
       return res

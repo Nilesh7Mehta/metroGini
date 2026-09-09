@@ -3,65 +3,99 @@ import jwt from "jsonwebtoken";
 import { deleteFile } from "../../utils/file.service.js";
 import { getImageUrl } from "../../utils/getImageUrl.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
-import { sendSmsSafe } from "../common/sms.service.js";
+import { sendOtpSmsIfEnabled } from "../common/sms.service.js";
+import { isSmsEnabled } from "../../config/sms.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { DAY_LABELS } from "../common/laundryGroupShiftSchedule.service.js";
-import { resolveAuthOtpForMobile, isDummyAuthMobile } from "../../utils/otp.js";
+import {
+  resolveAuthOtpForMobile,
+  isDummyAuthMobile,
+  RIDER_OTP_TTL_MINUTES,
+  OTP_MAX_ATTEMPTS,
+  otpMatches,
+  isOtpExpired,
+  getOtpCooldownRemainingSeconds,
+} from "../../utils/otp.js";
 
 
 export const loginOrVerifyService = async (mobile_number) => {
   const client = await sql.connect();
+  let rider;
   try {
     await client.query("BEGIN");
 
     const checkRider = await client.query(
-      `SELECT id FROM riders WHERE mobile_number = $1`,
+      `SELECT id, otp_expires_at FROM riders WHERE mobile_number = $1`,
       [mobile_number],
     );
 
-    let rider =
+    rider =
       checkRider.rows.length > 0
         ? checkRider.rows[0]
         : (
             await client.query(
-              `INSERT INTO riders (mobile_number) VALUES ($1) RETURNING id, mobile_number`,
+              `INSERT INTO riders (mobile_number) VALUES ($1) RETURNING id, otp_expires_at`,
               [mobile_number],
             )
           ).rows[0];
 
-    const otp = resolveAuthOtpForMobile(mobile_number);
-
-    await client.query(
-      `UPDATE riders SET otp = $2, otp_expires_at = NOW() + INTERVAL '2 minutes', otp_attempts = 0 WHERE id = $1`,
-      [rider.id, otp],
-    );
-
     await client.query("COMMIT");
-
-    if (!isDummyAuthMobile(mobile_number)) {
-      sendSmsSafe(
-        SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-        mobile_number,
-        { otp },
-        { reference_type: "auth", reference_id: rider.id },
-      );
-    }
-
-    return {
-      rider_id: rider.id,
-      mobile_number,
-      otp: isDummyAuthMobile(mobile_number) ? undefined : otp,
-    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
   }
+
+  const remaining = getOtpCooldownRemainingSeconds(
+    rider.otp_expires_at,
+    RIDER_OTP_TTL_MINUTES,
+  );
+  if (remaining > 0) {
+    throw {
+      status: 429,
+      message: `Please wait ${remaining} seconds before requesting another OTP`,
+    };
+  }
+
+  const otp = resolveAuthOtpForMobile(mobile_number);
+  const skipOtpDelivery = isDummyAuthMobile(mobile_number);
+
+  if (!skipOtpDelivery) {
+    try {
+      await sendOtpSmsIfEnabled(
+        SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
+        mobile_number,
+        { otp },
+        { reference_type: "auth", reference_id: rider.id },
+      );
+    } catch (error) {
+      throw {
+        status: error.status || 502,
+        message: "Unable to send OTP. Please try again.",
+      };
+    }
+  }
+
+  await sql.query(
+    `UPDATE riders
+     SET otp = $2,
+         otp_expires_at = NOW() + ($3::int * INTERVAL '1 minute'),
+         otp_attempts = 0
+     WHERE id = $1`,
+    [rider.id, otp, RIDER_OTP_TTL_MINUTES],
+  );
+
+  return {
+    rider_id: rider.id,
+    mobile_number,
+    ...(!skipOtpDelivery && !isSmsEnabled() ? { otp } : {}),
+  };
 };
 
 export const verifyOtpService = async (mobile_number, otp) => {
   const client = await sql.connect();
+  let committed = false;
   try {
     await client.query("BEGIN");
 
@@ -77,18 +111,28 @@ export const verifyOtpService = async (mobile_number, otp) => {
 
     if (!rider.otp)
       throw { status: 400, message: "OTP already used or not generated" };
-    if (rider.otp_attempts >= 5)
+    if (Number(rider.otp_attempts) >= OTP_MAX_ATTEMPTS)
       throw {
         status: 429,
         message: "Too many incorrect attempts. Request a new OTP.",
       };
 
-    if (rider.otp != otp) {
-      await client.query(
-        `UPDATE riders SET otp_attempts = otp_attempts + 1 WHERE id = $1`,
+    if (isOtpExpired(rider.otp_expires_at))
+      throw { status: 400, message: "OTP expired. Request a new OTP." };
+
+    if (!otpMatches(rider.otp, otp)) {
+      const { rows: attemptRows } = await client.query(
+        `UPDATE riders SET otp_attempts = otp_attempts + 1 WHERE id = $1 RETURNING otp_attempts`,
         [rider.id],
       );
       await client.query("COMMIT");
+      committed = true;
+      if (Number(attemptRows[0]?.otp_attempts || 0) >= OTP_MAX_ATTEMPTS) {
+        throw {
+          status: 429,
+          message: "Too many incorrect attempts. Request a new OTP.",
+        };
+      }
       throw { status: 400, message: "Invalid OTP" };
     }
 
@@ -109,6 +153,7 @@ export const verifyOtpService = async (mobile_number, otp) => {
            shift_id = $2,
            shift_started_at = NOW(),
            otp = NULL,
+           otp_expires_at = NULL,
            otp_attempts = 0
        WHERE id = $1`,
       [rider.id, DEFAULT_SHIFT_ID],
@@ -121,6 +166,7 @@ export const verifyOtpService = async (mobile_number, otp) => {
     );
 
     await client.query("COMMIT");
+    committed = true;
     return {
       access_token,
       rider_id: rider.id,
@@ -130,7 +176,13 @@ export const verifyOtpService = async (mobile_number, otp) => {
       shift_id: DEFAULT_SHIFT_ID,
     };
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (!committed) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+        /* ignore */
+      }
+    }
     throw error;
   } finally {
     client.release();

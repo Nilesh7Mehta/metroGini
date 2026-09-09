@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gallabox-whatsapp-from-txt-001",
     "name": "Gallabox WhatsApp Scenarios",
-    "description": "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\nFolder names match the updated document.\nEvery request Description starts with FIELD GUIDE (REQUIRED / OPTIONAL).\nBody requests also show an annotated body with // OPTIONAL comments (docs only).\nBody tab still sends clean JSON so Send works.\nOptional query params are unchecked (disabled) in Postman.\nEasy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\nSet vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
+    "description": "Generated from Whatsapp scenarios -updated.docx (11 scenarios only).\n\nFolder names match the updated document.\nWhatsApp add address: POST /api/whatsapp/address — Required: mobile, complete_address, pincode, name, email. Auto-default.\nEvery request Description starts with FIELD GUIDE (REQUIRED / OPTIONAL).\nBody requests also show an annotated body with // OPTIONAL comments (docs only).\nBody tab still sends clean JSON so Send works.\nOptional query params are unchecked (disabled) in Postman.\nEasy auth: POST /api/whatsapp/session with X-Gallabox-Secret → {{token}}.\nSet vars: baseUrl, whatsappSecret, mobile, pincode, groupCode.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -111,6 +111,79 @@
                   "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
                   "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
                   "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add address (Gallabox simple)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/address",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "address"
+              ]
+            },
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",  // REQUIRED\n  \"pincode\": \"{{pincode}}\",  // REQUIRED\n  \"name\": \"Karthik\",  // REQUIRED\n  \"email\": \"karthik@example.com\"  // REQUIRED\n}\n\nGallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call. Prefer this over POST /api/user/address.\n\n{\n  \"mobile\": \"9004186460\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"400058\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  const id = json.id || json.order_id || data.order_id || data.id;",
+                  "  if (id && !data.address_id) pm.collectionVariables.set('orderId', String(id));",
+                  "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
                   "}"
                 ]
               }
@@ -515,7 +588,7 @@
                 "address"
               ]
             },
-            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",  // REQUIRED\n  \"pincode\": \"{{pincode}}\",  // REQUIRED\n  \"name\": \"Karthik\",  // REQUIRED\n  \"email\": \"karthik@example.com\"  // REQUIRED\n}\n\nGallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call.\n\n{\n  \"mobile\": \"9004186460\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"400058\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.\n\nToken: Gallabox secret",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",  // REQUIRED\n  \"pincode\": \"{{pincode}}\",  // REQUIRED\n  \"name\": \"Karthik\",  // REQUIRED\n  \"email\": \"karthik@example.com\"  // REQUIRED\n}\n\nGallabox: mobile + complete_address + pincode + name + email (all required). No separate set-default call. Prefer this over POST /api/user/address.\n\n{\n  \"mobile\": \"9004186460\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"400058\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.\n\nToken: Gallabox secret",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
@@ -1803,7 +1876,7 @@
                 "address"
               ]
             },
-            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\n\nToken: Yes (user Bearer)",
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: none (no body)\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nNo body. Optional: none\nIf customer picks Yes → use this address. If No → next request (WhatsApp Add address).\n\nToken: Yes (user Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1816,6 +1889,79 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Change address (Gallabox simple)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Gallabox-Secret",
+                "value": "{{whatsappSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}api/whatsapp/address",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "whatsapp",
+                "address"
+              ]
+            },
+            "description": "========== FIELD GUIDE ==========\nREQUIRED: mobile, complete_address, pincode, name, email. Auto-sets default.\nOPTIONAL: none\n=================================\n\nHow to use in Postman:\n- OPTIONAL query params are unchecked (disabled). Tick only if needed.\n- Body tab sends clean JSON (no comments).\n- Annotated body below is documentation for Gallabox (which fields are optional).\n\nAnnotated body (docs only — do not paste comments into Body):\n{\n  \"mobile\": \"{{mobile}}\",  // REQUIRED\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",  // REQUIRED\n  \"pincode\": \"{{pincode}}\",  // REQUIRED\n  \"name\": \"Karthik\",  // REQUIRED\n  \"email\": \"karthik@example.com\"  // REQUIRED\n}\n\nScenario 5: customer chose No, change address. Same as Scenario 1 WhatsApp add-address. Required: mobile, complete_address, pincode, name, email. Auto-sets default.\n\n{\n  \"mobile\": \"9004186460\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"400058\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}\n\nRequired: mobile, complete_address, pincode, name, email\nOptional: none\nServer splits floor/landmark from complete_address and auto-sets default. Returns access_token for booking steps.\n\nToken: Gallabox secret",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"complete_address\": \"A-204, Lotus Residency, Andheri West\",\n  \"pincode\": \"{{pincode}}\",\n  \"name\": \"Karthik\",\n  \"email\": \"karthik@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  if (data.access_token) pm.collectionVariables.set('token', data.access_token);",
+                  "  if (data.refresh_token) pm.collectionVariables.set('refreshToken', data.refresh_token);",
+                  "  if (data.user_id) pm.collectionVariables.set('userId', String(data.user_id));",
+                  "  if (data.active_order_id) pm.collectionVariables.set('orderId', String(data.active_order_id));",
+                  "  if (data.draft_order_id) pm.collectionVariables.set('draftOrderId', String(data.draft_order_id));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  const data = json.data || json;",
+                  "  const id = json.id || json.order_id || data.order_id || data.id;",
+                  "  if (id && !data.address_id) pm.collectionVariables.set('orderId', String(id));",
+                  "  if (data.address_id) pm.collectionVariables.set('addressId', String(data.address_id));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Apply coupon (VALUED10 / win-back)",
