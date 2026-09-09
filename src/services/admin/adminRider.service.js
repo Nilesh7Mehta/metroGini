@@ -16,6 +16,7 @@ import {
 } from '../../utils/adminGeoFilter.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
+import { DEFAULT_USER_PROFILE_IMAGE } from '../../constants/userProfile.js';
 
 const AADHAR_REGEX = /^\d{12}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -1632,12 +1633,13 @@ export const createAdminRiderService = async (body) => {
          account_number,
          ifsc_code,
          upi_id,
+         image,
          status,
          is_active,
          profile_completed
        ) VALUES (
          $1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10::date,
-         $11, $12, $13, $14, $15, $16, $17, $18, $19,
+         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
          'active', TRUE, TRUE
        )
        RETURNING id`,
@@ -1661,6 +1663,7 @@ export const createAdminRiderService = async (body) => {
         payload.account_number,
         payload.ifsc_code,
         payload.upi_id,
+        DEFAULT_USER_PROFILE_IMAGE,
       ],
     );
 
