@@ -1,4 +1,4 @@
-import { applyCouponDiscount, applyGst } from './price.util.js';
+import { applyCouponDiscount, applyGst, isFullOffCoupon } from './price.util.js';
 
 /** User bill after vendor confirms weight: actual kg × zone rate per kg. */
 const resolveGrossBaseTotal = (order, actualWeight) => {
@@ -37,16 +37,27 @@ const applyStainAndGst = (order, grossBaseTotal, vendorRequestAmount, vendorRequ
     couponOrder,
   );
 
-  const subtotalBeforeGst = parseFloat(
-    (
-      baseTotal +
-      Number(vendorRequestAmount || 0) +
-      Number(vendorRequestMarkup || 0)
-    ).toFixed(2),
-  );
+  const stainTotal =
+    Number(vendorRequestAmount || 0) + Number(vendorRequestMarkup || 0);
+
+  if (isFullOffCoupon(couponOrder, grossBaseTotal)) {
+    const waived = parseFloat((grossBaseTotal + stainTotal).toFixed(2));
+    return {
+      gross_base_total: grossBaseTotal,
+      discount: waived,
+      base_total: 0,
+      subtotal_before_gst: 0,
+      gst: 0,
+      final_total: 0,
+      remaining_amount: 0,
+    };
+  }
+
+  const subtotalBeforeGst = parseFloat((baseTotal + stainTotal).toFixed(2));
   const { gst, final_total } = applyGst(subtotalBeforeGst);
-  const remaining_amount = parseFloat(
-    (final_total - Number(order.amount_paid || 0)).toFixed(2),
+  const remaining_amount = Math.max(
+    0,
+    parseFloat((final_total - Number(order.amount_paid || 0)).toFixed(2)),
   );
 
   return {

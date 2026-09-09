@@ -11,7 +11,7 @@ export const isPaymentAlreadyProcessed = async (client, razorpayPaymentId) => {
   return rows.length > 0;
 };
 
-const insertPayment = async (client, { orderId, amount, paymentType, paymentMethod, transactionId, status }) => {
+export const insertPayment = async (client, { orderId, amount, paymentType, paymentMethod, transactionId, status }) => {
   const paidAt = status === "success" ? ", paid_at" : "";
   const paidAtValue = status === "success" ? ", NOW()" : "";
 
@@ -21,6 +21,84 @@ const insertPayment = async (client, { orderId, amount, paymentType, paymentMeth
      VALUES ($1, $2, $3, $4, $5, $6${paidAtValue})`,
     [orderId, amount, paymentType, paymentMethod || "razorpay", transactionId, status],
   );
+};
+
+const zeroDueTransactionId = (orderId) => `zero_due_${orderId}`;
+
+/** When confirm-weight (or coupon) leaves nothing to collect: mark paid and insert remaining ₹0. */
+export const syncPaymentStatusAfterFinalBill = async (
+  client,
+  { orderId, remainingAmount },
+) => {
+  const remaining = Math.max(0, Number(remainingAmount) || 0);
+
+  if (remaining > 0) {
+    await client.query(
+      `DELETE FROM payments
+       WHERE order_id = $1 AND payment_type = $2 AND transaction_id = $3`,
+      [orderId, PAYMENT_TYPE.REMAINING, zeroDueTransactionId(orderId)],
+    );
+
+    const remainingPaid = await client.query(
+      `SELECT id FROM payments
+       WHERE order_id = $1 AND payment_type = $2 AND status = 'success' LIMIT 1`,
+      [orderId, PAYMENT_TYPE.REMAINING],
+    );
+
+    if (remainingPaid.rows.length === 0) {
+      await client.query(
+        `UPDATE orders
+         SET payment_status = $2,
+             remaining_amount = $3,
+             payment_completed_at = NULL,
+             updated_at = NOW()
+         WHERE id = $1 AND payment_status = $4`,
+        [
+          orderId,
+          PAYMENT_STATUS.PARTIALLY_PAID,
+          remaining,
+          PAYMENT_STATUS.PAID,
+        ],
+      );
+    }
+
+    return {
+      remaining_amount: remaining,
+      payment_status: PAYMENT_STATUS.PARTIALLY_PAID,
+    };
+  }
+
+  const existing = await client.query(
+    `SELECT id FROM payments
+     WHERE order_id = $1 AND payment_type = $2 AND status = 'success' LIMIT 1`,
+    [orderId, PAYMENT_TYPE.REMAINING],
+  );
+
+  if (existing.rows.length === 0) {
+    await insertPayment(client, {
+      orderId,
+      amount: 0,
+      paymentType: PAYMENT_TYPE.REMAINING,
+      paymentMethod: "coupon",
+      transactionId: zeroDueTransactionId(orderId),
+      status: "success",
+    });
+  }
+
+  await client.query(
+    `UPDATE orders
+     SET payment_status = $2,
+         remaining_amount = 0,
+         payment_completed_at = COALESCE(payment_completed_at, NOW()),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [orderId, PAYMENT_STATUS.PAID],
+  );
+
+  return {
+    remaining_amount: 0,
+    payment_status: PAYMENT_STATUS.PAID,
+  };
 };
 
 export const fulfillAdvancePayment = async ({

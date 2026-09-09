@@ -4,6 +4,7 @@ import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
 import { computeFinalTotalsForConfirmWeight } from '../../utils/orderFinalBilling.util.js';
+import { syncPaymentStatusAfterFinalBill } from '../users/payment/paymentFulfillment.service.js';
 import { resolveVendorAmountPerKg } from '../../utils/vendorPayout.util.js';
 import {
   normalizeStainSizeList,
@@ -1813,6 +1814,11 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     ]
   );
 
+  const settlement = await syncPaymentStatusAfterFinalBill(sql, {
+    orderId: order_id,
+    remainingAmount: remaining_amount,
+  });
+
   return {
     order_id: parseInt(order_id),
     actual_weight: weight,
@@ -1831,6 +1837,8 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
     gst,
     gst_rate: 18,
     final_total,
+    remaining_amount: settlement.remaining_amount,
+    payment_status: settlement.payment_status,
     is_stained: stained,
     stain_images: resolvedImages
       ? resolvedImages.map((entry) => entry.path)

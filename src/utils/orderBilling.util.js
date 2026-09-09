@@ -1,4 +1,4 @@
-import { applyCouponDiscount, splitGstComponents } from './price.util.js';
+import { applyCouponDiscount, isFullOffCoupon, splitGstComponents } from './price.util.js';
 
 const getEstimatedKg = (min, max) => {
   const weightMin = Number(min || 0);
@@ -86,6 +86,12 @@ export const buildOrderBillingPayload = (order) => {
   let payableGst = Math.round(subtotalBeforeGst * 0.18);
   let payableFinal = subtotalBeforeGst + payableGst;
   let taxableValue = subtotalBeforeGst;
+
+  if (isFullOffCoupon(order, grossBeforeCoupon)) {
+    payableGst = 0;
+    payableFinal = 0;
+    taxableValue = 0;
+  }
 
   const totalAmount =
     order.final_total != null

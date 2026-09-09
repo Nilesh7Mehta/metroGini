@@ -16,6 +16,7 @@ import { orderReceivedTemplate, formatOrderDisplayId } from "../../utils/userNot
 import { normalizeOrderListFilter, USER_ORDER_FILTER_STATUSES } from "../../utils/userOrder.util.js";
 import { PAYMENT_STATUS } from "../../utils/status.js";
 import { computeFinalTotalsFromOrder } from "../../utils/orderFinalBilling.util.js";
+import { syncPaymentStatusAfterFinalBill } from "../users/payment/paymentFulfillment.service.js";
 import {
   assertLoyaltyCouponAllowedForCount,
   getCompletedOrderCount,
@@ -728,12 +729,18 @@ const persistCouponOnOrder = async (
       ],
     );
 
+    const settlement = await syncPaymentStatusAfterFinalBill(client, {
+      orderId: order.id,
+      remainingAmount: totals.remaining_amount,
+    });
+
     return {
       discount_price: totals.discount,
       discount: totals.discount,
       approx_total: totals.final_total,
       final_total: totals.final_total,
-      remaining_amount: totals.remaining_amount,
+      remaining_amount: settlement.remaining_amount,
+      payment_status: settlement.payment_status,
     };
   }
 
@@ -969,10 +976,16 @@ export const removeCouponService = async ({ order_id, user_id }) => {
         [totals.final_total, totals.remaining_amount, order_id],
       );
 
+      const settlement = await syncPaymentStatusAfterFinalBill(client, {
+        orderId: order_id,
+        remainingAmount: totals.remaining_amount,
+      });
+
       await client.query("COMMIT");
       return {
         final_total: totals.final_total,
-        remaining_amount: totals.remaining_amount,
+        remaining_amount: settlement.remaining_amount,
+        payment_status: settlement.payment_status,
       };
     }
 

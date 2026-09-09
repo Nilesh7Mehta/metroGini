@@ -1,3 +1,24 @@
+/** 100% (or more) percentage coupon: user pays nothing. */
+export const isFullOffCoupon = (order = {}, grossTotal = null) => {
+  const hasCoupon = Boolean(order.coupon_id || order.applied_coupon_id);
+  if (!hasCoupon) return false;
+  if (String(order.discount_type || '').toLowerCase() !== 'percentage') {
+    return false;
+  }
+  if (Number(order.discount_value) < 100) return false;
+
+  if (grossTotal == null) return true;
+
+  const gross = Number(grossTotal);
+  const minAmount = Number(order.minimum_amount_value || 0);
+  const maxRaw = order.maximum_amount_value;
+  const hasMax =
+    maxRaw != null && maxRaw !== '' && !Number.isNaN(Number(maxRaw));
+  const withinMin = gross >= minAmount;
+  const withinMax = !hasMax || gross <= Number(maxRaw);
+  return withinMin && withinMax;
+};
+
 export const resolveCouponWeight = (order = {}) => {
   if (order.actual_weight != null && order.actual_weight !== '') {
     return Number(order.actual_weight);
