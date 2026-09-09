@@ -90,7 +90,7 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
      LEFT JOIN vendors v ON v.id = o.vendor_id
      WHERE o.assigned_rider_id = $1
        AND o.delivery_date = CURRENT_DATE
-       AND o.status IN ('in_process', 'ready_for_delivery', 'out_for_delivery')
+      AND o.status IN ('ready_for_delivery', 'out_for_delivery', 'delivered')
      ORDER BY o.id DESC`,
     [rider_id],
   );
