@@ -10,6 +10,8 @@ import {
   orderConfirmedTemplate,
 } from "../../../utils/userNotificationTemplates.js";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "../../../utils/status.js";
+import { sendSmsToUserSafe } from "../../common/sms.service.js";
+import { SMS_TEMPLATE_KEYS } from "../../../utils/smsTemplates.js";
 import { fulfillAdvancePayment } from "./paymentFulfillment.service.js";
 import {
   ADVANCE_AMOUNT,
@@ -162,6 +164,11 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
         orderId,
         orderCode: orderMeta.rows[0]?.order_code,
         amount: result.paidAmount,
+      });
+
+      sendSmsToUserSafe(userId, SMS_TEMPLATE_KEYS.ORDER_RECEIVED, {}, {
+        reference_type: "order",
+        reference_id: orderId,
       });
     }
 
