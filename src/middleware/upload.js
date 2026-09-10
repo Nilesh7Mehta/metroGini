@@ -8,7 +8,7 @@ const ensureDir = (uploadPath) => {
   }
 };
 
-export const createUploader = (folderName, maxSize = 5 * 1024) => {
+export const createUploader = (folderName, maxSize = 10 * 1024 * 1024) => {
 
   const uploadPath = `uploads/${folderName}`;
   ensureDir(uploadPath);

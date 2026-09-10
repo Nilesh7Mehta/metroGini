@@ -103,7 +103,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({
       code: 400,
       success: false,
-      message: "Image must be 2MB or smaller",
+      message: "Image must be 10MB or smaller",
     });
   }
 
