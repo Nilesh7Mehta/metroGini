@@ -12,7 +12,7 @@ export const USER_OTP_TTL_MINUTES =
     ? parsedOtpExpiryMinutes
     : 10;
 export const RIDER_OTP_TTL_MINUTES = 2;
-export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+export const OTP_RESEND_COOLDOWN_SECONDS = 0;
 export const OTP_MAX_ATTEMPTS = 5;
 
 export const isDummyAuthMobile = (mobile) =>
@@ -45,7 +45,11 @@ export const getCooldownRemainingSeconds = (
   if (!sentAt) return 0;
   const elapsedMs = now.getTime() - new Date(sentAt).getTime();
   const remaining = Math.ceil((cooldownSeconds * 1000 - elapsedMs) / 1000);
-  return remaining > 0 ? remaining : 0;
+  if (remaining <= 0) return 0;
+  // pg TIMESTAMP WITHOUT TIME ZONE is often parsed as UTC while the DB is IST (+5:30),
+  // which turns a 60s cooldown into ~19800s. Never block longer than the real cooldown.
+  if (remaining > cooldownSeconds) return 0;
+  return remaining;
 };
 
 /** Cooldown from otp_expires_at = sent_at + ttl. */
