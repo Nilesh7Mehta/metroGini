@@ -99,6 +99,14 @@ app.use((err, req, res, next) => {
   console.error(err);
   logApiError(err, req);
 
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({
+      code: 400,
+      success: false,
+      message: "Image must be 2MB or smaller",
+    });
+  }
+
   res.status(err.status || 500).json({
     code: err.status || 500,
     success: false,

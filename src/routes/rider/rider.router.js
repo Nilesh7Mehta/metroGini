@@ -5,7 +5,7 @@ import {sendOtpLimiter , verifyOtpLimiter}  from '../../middleware/rateLimiter.j
 import { createUploader } from "../../middleware/upload.js";
 import {authenticate} from '../../middleware/auth.middleware.js'
 const router = express.Router();
-const riderUpload = createUploader("riders");
+const riderUpload = createUploader("riders", 2 * 1024 * 1024);
 
 router.post('/login-or-register' , sendOtpLimiter, riderController.loginOrVerify);
 router.post('/verifyOtp' , verifyOtpLimiter , riderController.verifyOtp);

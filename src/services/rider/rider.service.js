@@ -241,6 +241,29 @@ export const acceptTermsService = async (rider_id) => {
 };
 
 export const updateProfileService = async (rider_id, body, file) => {
+  const requiredFields = [
+    "full_name",
+    "alternate_contact_number",
+    "aadhaar_number",
+    "pan_card_number",
+    "date_of_birth",
+    "residential_address",
+    "vehicle_type",
+    "vehicle_registration_number",
+    "licence_validity_date",
+    "account_holder_name",
+    "bank_name",
+    "account_number",
+    "ifsc_code",
+  ];
+
+  for (const field of requiredFields) {
+    const value = body?.[field];
+    if (value == null || String(value).trim() === "") {
+      throw { status: 400, message: `${field} is required` };
+    }
+  }
+
   const client = await sql.connect();
   try {
     await client.query("BEGIN");
@@ -282,19 +305,19 @@ export const updateProfileService = async (rider_id, body, file) => {
         ifsc_code=$13, image=$14, status='active', profile_completed=true
       WHERE id=$15`,
       [
-        full_name,
-        alternate_contact_number,
-        aadhaar_number,
-        pan_card_number,
-        date_of_birth,
-        residential_address,
-        vehicle_type,
-        vehicle_registration_number,
-        licence_validity_date,
-        account_holder_name,
-        bank_name,
-        account_number,
-        ifsc_code,
+        String(full_name).trim(),
+        String(alternate_contact_number).trim(),
+        String(aadhaar_number).trim(),
+        String(pan_card_number).trim(),
+        String(date_of_birth).trim(),
+        String(residential_address).trim(),
+        String(vehicle_type).trim(),
+        String(vehicle_registration_number).trim(),
+        String(licence_validity_date).trim(),
+        String(account_holder_name).trim(),
+        String(bank_name).trim(),
+        String(account_number).trim(),
+        String(ifsc_code).trim(),
         imagePath,
         rider_id,
       ],
