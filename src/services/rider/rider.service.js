@@ -19,33 +19,25 @@ import {
 
 
 export const loginOrVerifyService = async (mobile_number) => {
-  const client = await sql.connect();
-  let rider;
-  try {
-    await client.query("BEGIN");
-
-    const checkRider = await client.query(
-      `SELECT id, otp_expires_at FROM riders WHERE mobile_number = $1`,
-      [mobile_number],
-    );
-
-    rider =
-      checkRider.rows.length > 0
-        ? checkRider.rows[0]
-        : (
-            await client.query(
-              `INSERT INTO riders (mobile_number) VALUES ($1) RETURNING id, otp_expires_at`,
-              [mobile_number],
-            )
-          ).rows[0];
-
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
+  if (!mobile_number || !String(mobile_number).trim()) {
+    throw { status: 400, message: "Mobile number is required" };
   }
+
+  const normalizedMobile = String(mobile_number).trim();
+
+  const checkRider = await sql.query(
+    `SELECT id, otp_expires_at FROM riders WHERE mobile_number = $1`,
+    [normalizedMobile],
+  );
+
+  if (checkRider.rows.length === 0) {
+    throw {
+      status: 404,
+      message: "Rider not found. Please contact admin.",
+    };
+  }
+
+  const rider = checkRider.rows[0];
 
   const remaining = getOtpCooldownRemainingSeconds(
     rider.otp_expires_at,
@@ -58,14 +50,14 @@ export const loginOrVerifyService = async (mobile_number) => {
     };
   }
 
-  const otp = resolveAuthOtpForMobile(mobile_number);
-  const skipOtpDelivery = isDummyAuthMobile(mobile_number);
+  const otp = resolveAuthOtpForMobile(normalizedMobile);
+  const skipOtpDelivery = isDummyAuthMobile(normalizedMobile);
 
   if (!skipOtpDelivery) {
     try {
       await sendOtpSmsIfEnabled(
         SMS_TEMPLATE_KEYS.OTP_CREATE_ACCOUNT,
-        mobile_number,
+        normalizedMobile,
         { otp },
         { reference_type: "auth", reference_id: rider.id },
       );
@@ -88,7 +80,7 @@ export const loginOrVerifyService = async (mobile_number) => {
 
   return {
     rider_id: rider.id,
-    mobile_number,
+    mobile_number: normalizedMobile,
     ...(!skipOtpDelivery && !isSmsEnabled() ? { otp } : {}),
   };
 };
