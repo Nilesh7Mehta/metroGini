@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 // 🔐 Send OTP limiter
 export const sendOtpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 20,
+  max: 300,
   message: {
     success: false,
     message: "Too many OTP requests. Try again after 10 minutes"
@@ -15,7 +15,7 @@ export const sendOtpLimiter = rateLimit({
 // 🔐 Verify OTP limiter
 export const verifyOtpLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5,
+  max: 15,
   message: {
     success: false,
     message: "Too many OTP attempts. Try again after 1 minute"
