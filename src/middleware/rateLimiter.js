@@ -34,12 +34,15 @@ export const vendorAuthLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 🔐 Global API limiter
+// Global API limiter — high enough for normal / continuous app use.
+// Only trips on aggressive spam from the same IP.
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000,
+  max: 50000,
   message: {
     success: false,
     message: "Too many requests from this IP. Please try later"
-  }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
