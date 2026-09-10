@@ -21,6 +21,7 @@ export const ADMIN_SIDEBAR_MODULES = [
   'know_about_us',
   'how_we_work',
   'faqs',
+  'terms_and_conditions',
   'pincodes',
   'coupons',
   'coupon',

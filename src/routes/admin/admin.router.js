@@ -22,6 +22,7 @@ import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.c
 import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAboutUs.controller.js';
 import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
 import * as adminFaqController from '../../controller/admin/adminFaq.controller.js';
+import * as adminTermsAndConditionsController from '../../controller/admin/adminTermsAndConditions.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
 import * as appVersionController from '../../controller/common/appVersion.controller.js';
 import { createUploader } from "../../middleware/upload.js";
@@ -126,6 +127,16 @@ router.get('/faqs/:id', authenticate, isAdmin, adminFaqController.getFaqItem);
 router.post('/addFaq', authenticate, isAdmin, adminFaqController.addFaq);
 router.put('/updateFaq/:id', authenticate, isAdmin, adminFaqController.updateFaqById);
 router.delete('/deleteFaq/:id', authenticate, isAdmin, adminFaqController.deleteFaqById);
+
+// Terms & Conditions
+router.get('/terms-and-conditions', authenticate, isAdmin, adminTermsAndConditionsController.getAdminTerms);
+router.put('/updateTermsAndConditions', authenticate, isAdmin, adminTermsAndConditionsController.updateAdminTerms);
+router.post('/addTermsSection', authenticate, isAdmin, adminTermsAndConditionsController.addTermsSection);
+router.put('/updateTermsSection/:id', authenticate, isAdmin, adminTermsAndConditionsController.updateTermsSectionById);
+router.delete('/deleteTermsSection/:id', authenticate, isAdmin, adminTermsAndConditionsController.deleteTermsSectionById);
+router.post('/addTermsConsent', authenticate, isAdmin, adminTermsAndConditionsController.addTermsConsent);
+router.put('/updateTermsConsent/:id', authenticate, isAdmin, adminTermsAndConditionsController.updateTermsConsentById);
+router.delete('/deleteTermsConsent/:id', authenticate, isAdmin, adminTermsAndConditionsController.deleteTermsConsentById);
 
 
 // Vendor

@@ -5,6 +5,8 @@ import { getServicesForCatalog } from "../services/common/serviceZonePrice.servi
 import { listActiveKnowAboutUs } from "../services/admin/adminKnowAboutUs.service.js";
 import { listActiveHowWeWork } from "../services/admin/adminHowWeWork.service.js";
 import { listActiveFaqs } from "../services/admin/adminFaq.service.js";
+import { getTermsAndConditionsFromDb } from "../services/common/termsAndConditions.service.js";
+import { TERMS_AND_CONDITIONS } from "../constants/termsAndConditions.js";
 
 export const getCities = async (req, res, next) => {
     try {
@@ -166,6 +168,26 @@ export const getHowWeWork = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "How we work items retrieved successfully",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTermsAndConditions = async (req, res, next) => {
+  try {
+    let data;
+    try {
+      data = await getTermsAndConditionsFromDb();
+    } catch (error) {
+      if (error.status !== 404) throw error;
+      data = TERMS_AND_CONDITIONS;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Terms and conditions retrieved successfully",
       data,
     });
   } catch (error) {

@@ -38,6 +38,7 @@ router.get('/shift',  CommonController.shift);
 router.get('/banners',  CommonController.getBanners);
 router.get('/know-about-us', CommonController.getKnowAboutUs);
 router.get('/how-we-work', CommonController.getHowWeWork);
+router.get('/terms-and-conditions', CommonController.getTermsAndConditions);
 
 // Pincode groups
 router.get('/pincode-groups', pincodeGroupController.listPincodeGroups);
