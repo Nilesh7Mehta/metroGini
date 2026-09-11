@@ -23,6 +23,7 @@ import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAbo
 import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
 import * as adminFaqController from '../../controller/admin/adminFaq.controller.js';
 import * as adminTermsAndConditionsController from '../../controller/admin/adminTermsAndConditions.controller.js';
+import * as adminPrivacyPolicyController from '../../controller/admin/adminPrivacyPolicy.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
 import * as appVersionController from '../../controller/common/appVersion.controller.js';
 import { createUploader } from "../../middleware/upload.js";
@@ -137,6 +138,13 @@ router.delete('/deleteTermsSection/:id', authenticate, isAdmin, adminTermsAndCon
 router.post('/addTermsConsent', authenticate, isAdmin, adminTermsAndConditionsController.addTermsConsent);
 router.put('/updateTermsConsent/:id', authenticate, isAdmin, adminTermsAndConditionsController.updateTermsConsentById);
 router.delete('/deleteTermsConsent/:id', authenticate, isAdmin, adminTermsAndConditionsController.deleteTermsConsentById);
+
+// Privacy Policy
+router.get('/privacy-policy', authenticate, isAdmin, adminPrivacyPolicyController.getAdminPrivacy);
+router.put('/updatePrivacyPolicy', authenticate, isAdmin, adminPrivacyPolicyController.updateAdminPrivacy);
+router.post('/addPrivacySection', authenticate, isAdmin, adminPrivacyPolicyController.addPrivacySection);
+router.put('/updatePrivacySection/:id', authenticate, isAdmin, adminPrivacyPolicyController.updatePrivacySectionById);
+router.delete('/deletePrivacySection/:id', authenticate, isAdmin, adminPrivacyPolicyController.deletePrivacySectionById);
 
 
 // Vendor

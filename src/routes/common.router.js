@@ -39,6 +39,7 @@ router.get('/banners',  CommonController.getBanners);
 router.get('/know-about-us', CommonController.getKnowAboutUs);
 router.get('/how-we-work', CommonController.getHowWeWork);
 router.get('/terms-and-conditions', CommonController.getTermsAndConditions);
+router.get('/privacy-policy', CommonController.getPrivacyPolicy);
 
 // Pincode groups
 router.get('/pincode-groups', pincodeGroupController.listPincodeGroups);

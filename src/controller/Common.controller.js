@@ -6,6 +6,7 @@ import { listActiveKnowAboutUs } from "../services/admin/adminKnowAboutUs.servic
 import { listActiveHowWeWork } from "../services/admin/adminHowWeWork.service.js";
 import { listActiveFaqs } from "../services/admin/adminFaq.service.js";
 import { getTermsAndConditionsFromDb } from "../services/common/termsAndConditions.service.js";
+import { getPrivacyPolicyFromDb } from "../services/common/privacyPolicy.service.js";
 import { TERMS_AND_CONDITIONS } from "../constants/termsAndConditions.js";
 
 export const getCities = async (req, res, next) => {
@@ -188,6 +189,19 @@ export const getTermsAndConditions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Terms and conditions retrieved successfully",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPrivacyPolicy = async (req, res, next) => {
+  try {
+    const data = await getPrivacyPolicyFromDb();
+    res.status(200).json({
+      success: true,
+      message: "Privacy policy retrieved successfully",
       data,
     });
   } catch (error) {
