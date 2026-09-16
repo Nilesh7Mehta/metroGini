@@ -1,0 +1,156 @@
+================================================================================
+MetroGini × Gallabox — WhatsApp Templates Registry
+Fill this as templates get approved. Backend wiring later from this file.
+================================================================================
+
+GALLABOX SEND API (same for ALL outbound templates)
+--------------------------------------------------------------------------------
+Method:  POST
+URL:     https://server.gallabox.com/devapi/messages/whatsapp
+
+Headers:
+  apiKey:      <from Gallabox Developer → API Keys>
+  apiSecret:   <from Gallabox Developer → API Keys>
+  Content-Type: application/json
+
+Common body fields (always):
+  channelId:   <Metrogini WhatsApp Channel ID>
+  channelType: "whatsapp"
+  recipient:   { "name": "<customer name>", "phone": "91XXXXXXXXXX" }
+
+whatsapp.template changes per message:
+  templateName + bodyValues
+
+Tested: YES (Postman/curl + Gallabox UI) — credentials/channel OK
+
+
+================================================================================
+TEMPLATE 1
+================================================================================
+Status:          APPROVED + TESTED
+Template name:   pickup_day_reminder
+Category:        Utility
+Language:        en
+Channel:         Metrogini
+
+Body:
+Good morning {{1}} 🌞
+Today's the day! Your MetroGini pickup is scheduled.
+Booking ID: {{2}}
+Thank you for choosing MetroGini!
+
+Variables:
+  {{1}} = user name        sample: Karthik
+  {{2}} = booking ID       sample: ORD-001
+
+When to send (backend later):
+  Morning of pickup_date (with pickup OTP email flow)
+
+cURL example:
+curl --location 'https://server.gallabox.com/devapi/messages/whatsapp' \
+  --header 'apiKey: YOUR_API_KEY' \
+  --header 'apiSecret: YOUR_API_SECRET' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "channelId": "YOUR_CHANNEL_ID",
+    "channelType": "whatsapp",
+    "recipient": {
+      "name": "Karthik",
+      "phone": "91XXXXXXXXXX"
+    },
+    "whatsapp": {
+      "type": "template",
+      "template": {
+        "templateName": "pickup_day_reminder",
+        "bodyValues": {
+          "1": "Karthik",
+          "2": "ORD-001"
+        }
+      }
+    }
+  }'
+
+
+================================================================================
+TEMPLATE 2 — Pickup code / OTP (PENDING)
+================================================================================
+Status:          PENDING (Auth text not preferred; decide Utility vs Auth vs SMS)
+Template name:   pickup_otp   (or pickup_code)
+Category:        TBD — Authentication (fixed Meta text) OR Utility (custom; may reject)
+Language:        en
+Channel:         Metrogini
+
+Desired body (if Utility allowed):
+Your Rider has been assigned! 🚴
+Kindly share the OTP with the rider at the time of pickup: {{1}}
+Thank you for choosing MetroGini!
+
+If Authentication (Meta fixed — cannot change):
+{{1}} is your verification code.
+
+Variables:
+  {{1}} = OTP / pickup code
+
+When to send (backend later):
+  When pickup OTP is generated / rider assigned
+
+cURL: (fill after approved)
+
+
+
+================================================================================
+TEMPLATE 3 — Weight confirmed + payment (PENDING)
+================================================================================
+Status:          NOT CREATED
+Template name:
+Category:
+Language:        en
+Channel:         Metrogini
+
+Body:
+
+Variables:
+
+When to send (backend later):
+  Vendor confirms weight / finalize
+
+cURL:
+
+
+
+================================================================================
+TEMPLATE 4 — Payment received (PENDING)
+================================================================================
+Status:          NOT CREATED
+Template name:
+Category:
+Language:        en
+Channel:         Metrogini
+
+Body:
+
+Variables:
+
+When to send (backend later):
+  Razorpay payment success
+
+cURL:
+
+
+
+================================================================================
+ENV TO SAVE LATER (do not commit secrets)
+================================================================================
+GALLABOX_API_KEY=
+GALLABOX_API_SECRET=
+GALLABOX_CHANNEL_ID=
+GALLABOX_ACCOUNT_ID=
+
+
+================================================================================
+NOTES
+================================================================================
+- Outbound WhatsApp = MetroGini → Gallabox Messages API (above)
+- Inbound chat = Gallabox → MetroGini APIs (session, verify order, etc.)
+- Do NOT wire backend until this file is complete / you say ready
+- When ready: tell Agent to "implement from gallabox_whatsapp_templates.txt"

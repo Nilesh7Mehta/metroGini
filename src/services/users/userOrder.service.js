@@ -1464,3 +1464,71 @@ export const reportOrderIssueService = async ({
 
   return rows[0];
 };
+
+const parseOrderId = (raw) => {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+
+  const upper = value.toUpperCase();
+  const ordMatch = upper.match(/^ORD-?0*(\d+)$/);
+  if (ordMatch) {
+    const id = Number(ordMatch[1]);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  if (/^\d+$/.test(value)) {
+    const id = Number(value);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  return null;
+};
+
+export const verifyOrderByCodeService = async ({ user_id, order_id }) => {
+  const id = parseOrderId(order_id);
+  if (!id) {
+    throw {
+      status: 400,
+      message: "order_id is required (e.g. ORD-001 or 1)",
+    };
+  }
+
+  const { rows } = await sql.query(
+    `SELECT o.id,
+            o.user_id,
+            o.status,
+            o.payment_status,
+            TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date
+     FROM orders o
+     WHERE o.id = $1
+     LIMIT 1`,
+    [id],
+  );
+
+  if (rows.length === 0) {
+    return {
+      belongs_to_user: false,
+      order_exists: false,
+    };
+  }
+
+  const order = rows[0];
+  if (Number(order.user_id) !== Number(user_id)) {
+    return {
+      belongs_to_user: false,
+      order_exists: true,
+    };
+  }
+
+  return {
+    belongs_to_user: true,
+    order_exists: true,
+    order_id: Number(order.id),
+    display_order_id: `ORD-${String(order.id).padStart(3, "0")}`,
+    status: order.status,
+    payment_status: order.payment_status,
+    pickup_date: order.pickup_date,
+    delivery_date: order.delivery_date,
+  };
+};
