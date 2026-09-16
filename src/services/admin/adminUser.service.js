@@ -10,7 +10,24 @@ import {
 
 const BCRYPT_ROUNDS = 10;
 
+const mapUniqueViolation = (err) => {
+  const constraint = String(err.constraint || '').toLowerCase();
+  const detail = String(err.detail || '').toLowerCase();
+
+  if (
+    constraint.includes('admin_mobile') ||
+    detail.includes('(mobile)') ||
+    detail.includes('mobile=')
+  ) {
+    return { status: 409, message: 'Admin mobile already exists' };
+  }
+
+  return { status: 409, message: 'Admin email already exists' };
+};
+
 const generateUniqueMobile = async () => {
+  // Synthetic admin mobiles avoid colliding with any existing row when possible.
+  // Explicit body.mobile may still match a customer — that is allowed.
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const mobile = `9${String(Math.floor(100000000 + Math.random() * 900000000))}`;
     const { rows } = await sql.query(
@@ -21,6 +38,56 @@ const generateUniqueMobile = async () => {
   }
 
   throw { status: 500, message: 'Unable to generate unique mobile number' };
+};
+
+const assertAdminEmailAvailable = async (email, excludeId = null) => {
+  const params = [email];
+  let excludeClause = '';
+  if (excludeId != null) {
+    params.push(excludeId);
+    excludeClause = ` AND id <> $${params.length}`;
+  }
+
+  const { rows } = await sql.query(
+    `
+    SELECT id
+    FROM users
+    WHERE LOWER(email) = $1
+      AND ${ADMIN_PANEL_ROLE_FILTER}
+      ${excludeClause}
+    LIMIT 1
+    `,
+    params,
+  );
+
+  if (rows.length > 0) {
+    throw { status: 409, message: 'Admin email already exists' };
+  }
+};
+
+const assertAdminMobileAvailable = async (mobile, excludeId = null) => {
+  const params = [mobile];
+  let excludeClause = '';
+  if (excludeId != null) {
+    params.push(excludeId);
+    excludeClause = ` AND id <> $${params.length}`;
+  }
+
+  const { rows } = await sql.query(
+    `
+    SELECT id
+    FROM users
+    WHERE mobile = $1
+      AND ${ADMIN_PANEL_ROLE_FILTER}
+      ${excludeClause}
+    LIMIT 1
+    `,
+    params,
+  );
+
+  if (rows.length > 0) {
+    throw { status: 409, message: 'Admin mobile already exists' };
+  }
 };
 
 const fetchAdminById = async (id) => {
@@ -59,6 +126,10 @@ const validateCreatePayload = (body) => {
     throw { status: 400, message: 'role is required' };
   }
   assertAdminPanelRole(String(role).trim());
+
+  if (body.mobile !== undefined && body.mobile !== null && !String(body.mobile).trim()) {
+    throw { status: 400, message: 'mobile cannot be empty' };
+  }
 };
 
 const validateUpdatePayload = (body) => {
@@ -67,6 +138,9 @@ const validateUpdatePayload = (body) => {
   }
   if (body.email !== undefined && !String(body.email).trim()) {
     throw { status: 400, message: 'email cannot be empty' };
+  }
+  if (body.mobile !== undefined && !String(body.mobile).trim()) {
+    throw { status: 400, message: 'mobile cannot be empty' };
   }
   if (body.role !== undefined && !String(body.role).trim()) {
     throw { status: 400, message: 'role cannot be empty' };
@@ -103,36 +177,52 @@ export const createAdminUserService = async (body) => {
   const isActive = body.is_active !== false;
   const permissions = permissionsForStorage(adminRole, body.permissions);
   const passwordHash = await bcrypt.hash(String(body.password), BCRYPT_ROUNDS);
-  const mobile = await generateUniqueMobile();
+  const status = isActive ? 'active' : 'inactive';
 
-  const { rows } = await sql.query(
-    `
-    INSERT INTO users (
-      mobile,
-      full_name,
-      email,
-      user_password,
-      role,
-      permissions,
-      status,
-      is_mobile_verified,
-      profile_completed
-    )
-    VALUES ($1, $2, $3, $4, $5::user_role, $6::jsonb, $7, FALSE, TRUE)
-    RETURNING id, full_name, email, status, role, permissions
-    `,
-    [
-      mobile,
-      name,
-      email,
-      passwordHash,
-      adminRole,
-      JSON.stringify(permissions),
-      isActive ? 'active' : 'inactive',
-    ],
-  );
+  await assertAdminEmailAvailable(email);
 
-  return formatAdminUser(rows[0]);
+  const mobile =
+    body.mobile !== undefined && body.mobile !== null
+      ? String(body.mobile).trim()
+      : await generateUniqueMobile();
+
+  await assertAdminMobileAvailable(mobile);
+
+  try {
+    const { rows } = await sql.query(
+      `
+      INSERT INTO users (
+        mobile,
+        full_name,
+        email,
+        user_password,
+        role,
+        permissions,
+        status,
+        is_mobile_verified,
+        profile_completed
+      )
+      VALUES ($1, $2, $3, $4, $5::user_role, $6::jsonb, $7, FALSE, TRUE)
+      RETURNING id, full_name, email, status, role, permissions
+      `,
+      [
+        mobile,
+        name,
+        email,
+        passwordHash,
+        adminRole,
+        JSON.stringify(permissions),
+        status,
+      ],
+    );
+
+    return formatAdminUser(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') {
+      throw mapUniqueViolation(err);
+    }
+    throw err;
+  }
 };
 
 export const updateAdminUserService = async (id, body) => {
@@ -147,8 +237,16 @@ export const updateAdminUserService = async (id, body) => {
     fields.push(`full_name = $${values.length}`);
   }
   if (body.email !== undefined) {
-    values.push(String(body.email).trim().toLowerCase());
+    const nextEmail = String(body.email).trim().toLowerCase();
+    await assertAdminEmailAvailable(nextEmail, id);
+    values.push(nextEmail);
     fields.push(`email = $${values.length}`);
+  }
+  if (body.mobile !== undefined) {
+    const nextMobile = String(body.mobile).trim();
+    await assertAdminMobileAvailable(nextMobile, id);
+    values.push(nextMobile);
+    fields.push(`mobile = $${values.length}`);
   }
   if (body.role !== undefined) {
     values.push(String(body.role).trim());
@@ -173,17 +271,25 @@ export const updateAdminUserService = async (id, body) => {
   }
 
   values.push(id);
-  const { rows } = await sql.query(
-    `
-    UPDATE users
-    SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $${values.length} AND ${ADMIN_PANEL_ROLE_FILTER}
-    RETURNING id, full_name, email, status, role, permissions
-    `,
-    values,
-  );
 
-  return formatAdminUser(rows[0]);
+  try {
+    const { rows } = await sql.query(
+      `
+      UPDATE users
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${values.length} AND ${ADMIN_PANEL_ROLE_FILTER}
+      RETURNING id, full_name, email, status, role, permissions
+      `,
+      values,
+    );
+
+    return formatAdminUser(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') {
+      throw mapUniqueViolation(err);
+    }
+    throw err;
+  }
 };
 
 export const deleteAdminUserService = async (id, requesterId) => {

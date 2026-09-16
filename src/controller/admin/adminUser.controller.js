@@ -5,6 +5,27 @@ import {
   deleteAdminUserService,
 } from '../../services/admin/adminUser.service.js';
 
+const respondUniqueViolation = (res, err) => {
+  const constraint = String(err.constraint || err.index || '');
+  const detail = String(err.detail || '').toLowerCase();
+
+  if (
+    constraint.includes('mobile') ||
+    detail.includes('(mobile)') ||
+    detail.includes('mobile=')
+  ) {
+    return res.status(409).json({
+      success: false,
+      message: 'Admin mobile already exists',
+    });
+  }
+
+  return res.status(409).json({
+    success: false,
+    message: 'Admin email already exists',
+  });
+};
+
 export const listAdminUsers = async (req, res, next) => {
   try {
     const data = await listAdminUsersService();
@@ -27,10 +48,7 @@ export const createAdminUser = async (req, res, next) => {
     });
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(400).json({
-        success: false,
-        message: 'Email or mobile already exists',
-      });
+      return respondUniqueViolation(res, err);
     }
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message });
@@ -49,10 +67,7 @@ export const updateAdminUser = async (req, res, next) => {
     });
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists',
-      });
+      return respondUniqueViolation(res, err);
     }
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message });

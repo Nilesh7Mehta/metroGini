@@ -187,7 +187,7 @@ export const verifyOTP = async ({ mobile, otp }) => {
   }
 
   const userResult = await sql.query(
-    `SELECT * FROM users WHERE mobile = $1`,
+    `SELECT * FROM users WHERE mobile = $1 AND role::text = 'user'`,
     [mobile],
   );
 
