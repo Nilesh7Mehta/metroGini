@@ -60,10 +60,15 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
   if (result.alreadyProcessed) return;
 
   const { rows: orderMeta } = await sql.query(
-    `SELECT order_code FROM orders WHERE id = $1`,
+    `SELECT o.order_code, u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = $1`,
     [result.order_id],
   );
   const orderCode = orderMeta[0]?.order_code;
+  const userName = orderMeta[0]?.full_name;
+  const userMobile = orderMeta[0]?.mobile;
 
   if (result.payment_type === PAYMENT_TYPE.ADVANCE) {
     const ctx = await fetchOrderNotifyContext(result.order_id);
@@ -100,6 +105,17 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
       orderCode,
       amount: result.paidAmount,
     });
+
+    const { sendBookingWashByKiloSafe } = await import(
+      "../../whatsapp/gallaboxWhatsapp.service.js"
+    );
+    sendBookingWashByKiloSafe({
+      mobile: userMobile || ctx?.mobile,
+      name: userName || ctx?.name,
+      orderId: result.order_id,
+      pickupDate: ctx?.pickupDate,
+      deliveryDate: ctx?.deliveryDate,
+    });
     return;
   }
 
@@ -120,6 +136,15 @@ const sendPaymentNotifications = async (result, paymentMethod = "razorpay") => {
     amount: result.paidAmount,
     paymentMethod,
   });
+
+  const { sendPaymentReceivedSafe } = await import(
+    "../../whatsapp/gallaboxWhatsapp.service.js"
+  );
+  sendPaymentReceivedSafe({
+    mobile: userMobile,
+    name: userName,
+    orderId: result.order_id,
+  });
 };
 
 export const handleRazorpayWebhook = async (body, signature) => {
@@ -127,6 +152,7 @@ export const handleRazorpayWebhook = async (body, signature) => {
   const event = payload?.event || null;
   const paymentEntity = payload?.payload?.payment?.entity;
   const orderEntity = payload?.payload?.order?.entity;
+  const paymentLinkEntity = payload?.payload?.payment_link?.entity;
   const razorpayPaymentId = paymentEntity?.id || null;
   const eventKey = `${event || "unknown"}:${razorpayPaymentId || payload?.id || Date.now()}`;
 
@@ -171,7 +197,11 @@ export const handleRazorpayWebhook = async (body, signature) => {
     return { status: 200, body: "OK" };
   }
 
-  const orderId = extractInternalOrderId(paymentEntity, orderEntity);
+  const orderId = extractInternalOrderId(
+    paymentEntity,
+    orderEntity,
+    paymentLinkEntity,
+  );
   if (!orderId) {
     await insertWebhookEvent({
       event,
@@ -189,7 +219,11 @@ export const handleRazorpayWebhook = async (body, signature) => {
     };
   }
 
-  const paymentNotes = extractPaymentNotes(paymentEntity, orderEntity);
+  const paymentNotes = extractPaymentNotes(
+    paymentEntity,
+    orderEntity,
+    paymentLinkEntity,
+  );
   const paymentPayload = {
     orderId,
     razorpayPaymentId: paymentEntity.id,

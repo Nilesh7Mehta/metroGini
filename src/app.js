@@ -18,10 +18,15 @@ import whatsappRouter from './routes/whatsapp.router.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
+import { startPaymentReminderCron } from "./cron/paymentReminderCron.js";
+import { startReengagementCron } from "./cron/reengagementCron.js";
 import "./cron/vendorDeadlineCron.js";
 import "./cron/deliveryRescheduleCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
+import { payRedirect } from './controller/users/paymentGateway/payRedirect.controller.js';
 startPickupCron();
+startPaymentReminderCron();
+startReengagementCron();
 AssignOrderToRider();
 const app = express();
 const jsonParser = express.json();
@@ -58,6 +63,9 @@ app.set('trust proxy', 1); // trust first proxy for rate limiting and secure coo
 app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
+
+/** WhatsApp Pay Now — public redirect to Razorpay Payment Link */
+app.get('/api/pay/:orderId', payRedirect);
 
 /** Force file download when ?download=1 is present on upload URLs. */
 const forceUploadDownload = (req, res, next) => {

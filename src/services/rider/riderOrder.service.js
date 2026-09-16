@@ -230,7 +230,11 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
 
   // Notify user clothes have been picked up
   const { rows: pickedRows } = await sql.query(
-    `SELECT user_id FROM orders WHERE id = $1`, [order_id]
+    `SELECT o.user_id, u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = $1`,
+    [order_id],
   );
   if (pickedRows.length > 0) {
     await createNotificationsBatch([{
@@ -241,6 +245,14 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
       reference_type: 'order',
       reference_id: order_id,
     }]);
+
+    const { sendPickupCompletedSafe } = await import(
+      "../whatsapp/gallaboxWhatsapp.service.js"
+    );
+    sendPickupCompletedSafe({
+      mobile: pickedRows[0].mobile,
+      name: pickedRows[0].full_name,
+    });
   }
 
   try {
@@ -652,8 +664,11 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
 export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
   const { rows } = await sql.query(
     `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
-            o.delivery_otp, o.payment_status, o.final_total
-     FROM orders o WHERE o.id = $1`,
+            o.delivery_otp, o.payment_status, o.final_total,
+            u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = $1`,
     [order_id]
   );
 
@@ -693,6 +708,15 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
   sendSmsToUserSafe(order.user_id, SMS_TEMPLATE_KEYS.DELIVERY_SUCCESS, {}, {
     reference_type: "order",
     reference_id: order_id,
+  });
+
+  const { sendOrderDeliveredSafe } = await import(
+    "../whatsapp/gallaboxWhatsapp.service.js"
+  );
+  sendOrderDeliveredSafe({
+    mobile: order.mobile,
+    name: order.full_name,
+    orderId: order_id,
   });
 
   // Notify vendor that rider completed the delivery

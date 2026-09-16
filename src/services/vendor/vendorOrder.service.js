@@ -13,6 +13,7 @@ import {
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
 import { DAY_LABELS } from '../common/laundryGroupShiftSchedule.service.js';
 import { paginateArray } from '../../utils/pagination.util.js';
+import { formatOrderDisplayId } from '../../utils/userNotificationTemplates.js';
 
 // Orders still on the vendor's task board for a given deadline day.
 // ready_for_delivery stays visible for that day (dispatch), but does not
@@ -1854,8 +1855,12 @@ export const confirmWeightService = async (vendor_id, order_id, payload) => {
 
 export const finalizeOrderService = async (vendor_id, order_id) => {
   const orderCheck = await sql.query(
-    `SELECT o.id, o.status, o.user_id, o.final_total, o.actual_weight, o.actual_clothes_count
+    `SELECT o.id, o.status, o.user_id, o.final_total, o.actual_weight,
+            o.actual_clothes_count, o.remaining_amount,
+            c.coupon_code, u.full_name, u.mobile
      FROM orders o
+     LEFT JOIN coupons c ON c.id = o.applied_coupon_id
+     LEFT JOIN users u ON u.id = o.user_id
      WHERE o.id = $1 AND o.vendor_id = $2`,
     [order_id, vendor_id]
   );
@@ -1894,6 +1899,19 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     reference_id: order_id,
   }]);
 
+  const { sendOrderBillPaymentSafe } = await import(
+    '../whatsapp/gallaboxWhatsapp.service.js'
+  );
+  sendOrderBillPaymentSafe({
+    mobile: order.mobile,
+    name: order.full_name,
+    orderId: order_id,
+    weightKg: order.actual_weight,
+    totalBill: order.final_total,
+    couponCode: order.coupon_code,
+    amountPayable: order.remaining_amount,
+  });
+
   try {
     const { emitWhatsappOrderEventSafe } = await import(
       '../whatsapp/whatsappEvents.service.js'
@@ -1917,7 +1935,11 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
 export const markReadyForDeliveryService = async (vendor_id, order_id) => {
   console.log(`Marking order ${order_id} as ready for delivery for vendor ${vendor_id}`);
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.user_id, o.order_code FROM orders o
+    `SELECT o.id, o.status, o.user_id, o.order_code,
+            o.payment_status, o.remaining_amount,
+            u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
      WHERE o.id = $1 AND o.vendor_id = $2`,
     [order_id, vendor_id]
   );
@@ -1957,6 +1979,42 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     orderCode: order.order_code,
     otp: delivery_otp,
   });
+
+  // Reminder if remaining balance still unpaid (deduped by notification title)
+  const remaining = Number(order.remaining_amount);
+  if (
+    order.payment_status === 'partially_paid' &&
+    Number.isFinite(remaining) &&
+    remaining > 0
+  ) {
+    const alreadyReminded = await sql.query(
+      `SELECT 1 FROM notifications
+       WHERE identity_id = $1 AND role = 'user'
+         AND reference_type = 'order' AND reference_id = $2
+         AND title = 'Payment Reminder'
+       LIMIT 1`,
+      [order.user_id, order_id],
+    );
+    if (alreadyReminded.rows.length === 0) {
+      await createNotificationsBatch([{
+        identity_id: order.user_id,
+        role: 'user',
+        title: 'Payment Reminder',
+        message: `Kindly complete the payment for order ${formatOrderDisplayId(order_id)} (₹${remaining}) before your scheduled delivery.`,
+        reference_type: 'order',
+        reference_id: order_id,
+      }]);
+      const { sendPaymentReminderSafe } = await import(
+        '../whatsapp/gallaboxWhatsapp.service.js'
+      );
+      sendPaymentReminderSafe({
+        mobile: order.mobile,
+        name: order.full_name,
+        orderId: order_id,
+        amountPayable: remaining,
+      });
+    }
+  }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
   return {

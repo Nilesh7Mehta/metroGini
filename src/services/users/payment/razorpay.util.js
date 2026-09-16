@@ -60,9 +60,15 @@ export const parseWebhookBody = (body) => {
   return { rawBody, payload };
 };
 
-export const extractInternalOrderId = (paymentEntity, orderEntity) => {
+export const extractInternalOrderId = (
+  paymentEntity,
+  orderEntity,
+  paymentLinkEntity,
+) => {
   const fromNotes =
-    paymentEntity?.notes?.internal_order_id ?? orderEntity?.notes?.internal_order_id;
+    paymentEntity?.notes?.internal_order_id ??
+    orderEntity?.notes?.internal_order_id ??
+    paymentLinkEntity?.notes?.internal_order_id;
 
   if (fromNotes) return String(fromNotes);
 
@@ -71,8 +77,13 @@ export const extractInternalOrderId = (paymentEntity, orderEntity) => {
   return match ? match[1] : null;
 };
 
-export const extractPaymentNotes = (paymentEntity, orderEntity) => {
+export const extractPaymentNotes = (
+  paymentEntity,
+  orderEntity,
+  paymentLinkEntity,
+) => {
   const notes = {
+    ...(paymentLinkEntity?.notes || {}),
     ...(orderEntity?.notes || {}),
     ...(paymentEntity?.notes || {}),
   };

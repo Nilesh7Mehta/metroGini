@@ -6,6 +6,7 @@ import {
   sendPickupOtpEmail,
   sendUserEmailSafe,
 } from "../services/common/email.service.js";
+import { sendPickupDayReminderSafe } from "../services/whatsapp/gallaboxWhatsapp.service.js";
 import { formatOrderDisplayId } from "../utils/userNotificationTemplates.js";
 
 
@@ -18,10 +19,12 @@ export const startPickupCron = () => {
       const today = new Date().toISOString().split("T")[0];
 
       const { rows } = await sql.query(
-        `SELECT id, user_id, order_code
-         FROM orders
-         WHERE pickup_date = $1
-         AND status = 'booked'`,
+        `SELECT o.id, o.user_id, o.order_code,
+                u.full_name, u.mobile
+         FROM orders o
+         LEFT JOIN users u ON u.id = o.user_id
+         WHERE o.pickup_date = $1
+         AND o.status = 'booked'`,
         [today]
       );
 
@@ -53,6 +56,12 @@ export const startPickupCron = () => {
           orderId: order.id,
           orderCode: order.order_code,
           otp,
+        });
+
+        sendPickupDayReminderSafe({
+          mobile: order.mobile,
+          name: order.full_name,
+          orderId: order.id,
         });
 
         console.log(`Order ${order.id} moved to out_for_pickup`);

@@ -170,6 +170,17 @@ export const processDummyPay = async ({ orderId, userId, body }) => {
         reference_type: "order",
         reference_id: orderId,
       });
+
+      const { sendBookingWashByKiloSafe } = await import(
+        "../../whatsapp/gallaboxWhatsapp.service.js"
+      );
+      sendBookingWashByKiloSafe({
+        mobile: ctx?.mobile,
+        name: ctx?.name,
+        orderId,
+        pickupDate: ctx?.pickupDate,
+        deliveryDate: ctx?.deliveryDate,
+      });
     }
 
     try {
