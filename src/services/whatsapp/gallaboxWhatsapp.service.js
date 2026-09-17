@@ -244,7 +244,7 @@ const formatWeightValue = (value) => {
 };
 
 /**
- * Template: order_bill_payment
+ * Template: order_bill_payment_clone (Dynamic Pay Now URL)
  * {{1}} weight kg, {{2}} total bill, {{3}} coupon code, {{4}} amount payable
  * Pay Now button dynamic suffix = order.id → /api/pay/{id}
  */
@@ -259,11 +259,11 @@ export const sendOrderBillPaymentSafe = ({
 }) => {
   const remaining = Number(amountPayable);
   console.log(
-    `[gallabox] order_bill_payment trigger orderId=${orderId} mobile=${JSON.stringify(mobile)} remaining=${amountPayable} parsedRemaining=${remaining} weight=${weightKg} total=${totalBill} coupon=${couponCode}`,
+    `[gallabox] order_bill_payment_clone trigger orderId=${orderId} mobile=${JSON.stringify(mobile)} remaining=${amountPayable} parsedRemaining=${remaining} weight=${weightKg} total=${totalBill} coupon=${couponCode}`,
   );
   if (!Number.isFinite(remaining) || remaining <= 0) {
     console.warn(
-      `[gallabox] SKIP order_bill_payment orderId=${orderId} reason=remaining_amount_not_positive remaining=${amountPayable}`,
+      `[gallabox] SKIP order_bill_payment_clone orderId=${orderId} reason=remaining_amount_not_positive remaining=${amountPayable}`,
     );
     return;
   }
@@ -271,7 +271,7 @@ export const sendOrderBillPaymentSafe = ({
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "order_bill_payment",
+    templateName: "order_bill_payment_clone",
     bodyValues: {
       "1": formatWeightValue(weightKg),
       "2": formatMoneyValue(totalBill),
@@ -284,7 +284,7 @@ export const sendOrderBillPaymentSafe = ({
 };
 
 /**
- * Template: payment_reminder
+ * Template: payment_reminder_clone (Dynamic Pay Now URL)
  * {{1}} ORD-xxx, {{2}} amount payable
  * Pay Now button dynamic suffix = order.id → /api/pay/{id}
  */
@@ -302,7 +302,7 @@ export const sendPaymentReminderSafe = ({
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "payment_reminder",
+    templateName: "payment_reminder_clone",
     bodyValues: {
       "1": formatOrderDisplayId(orderId),
       "2": formatMoneyValue(remaining),

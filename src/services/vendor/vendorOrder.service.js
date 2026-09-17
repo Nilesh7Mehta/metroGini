@@ -1903,7 +1903,7 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
     '../whatsapp/gallaboxWhatsapp.service.js'
   );
   console.log(
-    `[gallabox] finalizeOrder calling order_bill_payment orderId=${order_id} userId=${order.user_id} mobile=${JSON.stringify(order.mobile)} remaining=${order.remaining_amount} statusWas=${order.status}`,
+    `[gallabox] finalizeOrder calling order_bill_payment_clone orderId=${order_id} userId=${order.user_id} mobile=${JSON.stringify(order.mobile)} remaining=${order.remaining_amount} statusWas=${order.status}`,
   );
   sendOrderBillPaymentSafe({
     mobile: order.mobile,

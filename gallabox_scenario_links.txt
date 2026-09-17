@@ -34,19 +34,19 @@ ORDER LIFECYCLE (scenario order)
 
 
 5) AFTER VENDOR FINALIZES WEIGHT / BILL (order_finalized)
-   Template:  order_bill_payment
+   Template:  order_bill_payment_clone
    Trigger:   Vendor finalize order (remaining_amount > 0)
    Vars:      {{1}} weight kg | {{2}} total bill | {{3}} coupon | {{4}} amount payable
-   Button:    Pay Now → https://api.metrogini.com/api/pay/{orderId}
+   Button:    Pay Now → Dynamic https://api.metrogini.com/api/pay/{{1}}
 
 
 6) PAYMENT REMINDER (still unpaid before delivery)
-   Template:  payment_reminder
+   Template:  payment_reminder_clone
    Trigger:   (a) Hourly cron on delivery_date if unpaid
               (b) Vendor mark ready_for_delivery if unpaid
    Once:      once per order (deduped)
    Vars:      {{1}} ORD-xxx | {{2}} amount payable
-   Button:    Pay Now → https://api.metrogini.com/api/pay/{orderId}
+   Button:    Pay Now → Dynamic https://api.metrogini.com/api/pay/{{1}}
 
 
 7) AFTER ORDER OUT FOR DELIVERY (rider picks up from vendor)
@@ -80,7 +80,7 @@ PAY LINK (not a template — used by Pay Now buttons)
 ================================================================================
 URL:      GET /api/pay/:orderId   (no auth token)
 Action:   Creates/reuses Razorpay Payment Link for remaining_amount → redirect
-Used by:  order_bill_payment, payment_reminder
+Used by:  order_bill_payment_clone, payment_reminder_clone
 
 
 ================================================================================
@@ -90,8 +90,8 @@ booking_wash_by_kilo          → after booking confirmed
 pickup_day_reminder           → morning of pickup day
 order_pickup_update           → pickup morning if rider assigned; else startPickup fallback
 pickup_completed              → after pickup OTP success
-order_bill_payment            → after vendor finalize (bill + pay link)
-payment_reminder              → unpaid, before/on delivery day (once)
+order_bill_payment_clone      → after vendor finalize (bill + pay link)
+payment_reminder_clone        → unpaid, before/on delivery day (once)
 order_on_the_way              → rider picks up from vendor → out_for_delivery
 payment_received              → after remaining payment success
 order_delivered               → after delivery OTP success
