@@ -65,6 +65,8 @@ export const addVendorService = async (body, file) => {
     account_number: validatedAccountNumber,
     ifsc_code,
     pincode: validatedPincode,
+    latitude: validatedLatitude,
+    longitude: validatedLongitude,
   } = fields;
 
   try {
@@ -72,8 +74,8 @@ export const addVendorService = async (body, file) => {
       `INSERT INTO vendors
         (owner_contact_name, mobile_number, email, aadhar_number, pan_card_number,
          laundry_shop_name, shop_address, gst_number, tds_number, account_holder_name, bank_name,
-         account_number, ifsc_code, image , pincode , status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, 'active')
+         account_number, ifsc_code, image, pincode, latitude, longitude, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, 'active')
        RETURNING *`,
       [
         validatedOwner,
@@ -91,6 +93,8 @@ export const addVendorService = async (body, file) => {
         ifsc_code || null,
         imagePath,
         validatedPincode || null,
+        validatedLatitude ?? null,
+        validatedLongitude ?? null,
       ],
     );
     return rows[0];
@@ -157,8 +161,10 @@ export const updateVendorService = async (id, body, file) => {
         ifsc_code           = COALESCE($13, ifsc_code),
         image               = COALESCE($14, image),
         pincode             = COALESCE($15, pincode),
+        latitude            = COALESCE($16, latitude),
+        longitude           = COALESCE($17, longitude),
         updated_at          = NOW()
-       WHERE id = $16
+       WHERE id = $18
        RETURNING *`,
       [
         patch("owner_contact_name"),
@@ -178,6 +184,8 @@ export const updateVendorService = async (id, body, file) => {
         patch("ifsc_code"),
         newImagePath,
         patch("pincode"),
+        body.latitude !== undefined ? fields.latitude ?? null : null,
+        body.longitude !== undefined ? fields.longitude ?? null : null,
         id,
       ],
     );

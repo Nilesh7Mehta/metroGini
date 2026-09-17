@@ -1131,11 +1131,15 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
             pickup_slot.start_time AS pickup_start, pickup_slot.end_time AS pickup_end,
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
             delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
-            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date
+            TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+            r.id AS rider_id,
+            r.full_name AS rider_name,
+            r.mobile_number AS rider_number
      FROM orders o
      JOIN services s ON o.service_id=s.id
      LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
+     LEFT JOIN riders r ON r.id = o.assigned_rider_id
      WHERE o.id = $1 AND o.user_id = $2`,
     [order_id, user_id],
   );

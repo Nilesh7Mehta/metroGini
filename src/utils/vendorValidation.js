@@ -36,6 +36,16 @@ export const normalizeVendorFields = (data = {}) => ({
   laundry_shop_name: data.laundry_shop_name,
   shop_address: data.shop_address,
   pincode: data.pincode,
+  latitude: (() => {
+    if (data.latitude === undefined) return undefined;
+    if (data.latitude === null || data.latitude === "") return null;
+    return Number(data.latitude);
+  })(),
+  longitude: (() => {
+    if (data.longitude === undefined) return undefined;
+    if (data.longitude === null || data.longitude === "") return null;
+    return Number(data.longitude);
+  })(),
   account_holder_name: data.account_holder_name,
   bank_name: data.bank_name,
   account_number: data.account_number,
@@ -132,6 +142,29 @@ export const validateVendorFields = (data = {}, { partial = false } = {}) => {
     (v) => !v || PINCODE_REGEX.test(String(v)),
     "pincode must be a valid 6-digit pincode",
   );
+
+  validatePresent(
+    "latitude",
+    (v) =>
+      v == null ||
+      (Number.isFinite(Number(v)) && Number(v) >= -90 && Number(v) <= 90),
+    "latitude must be a valid number between -90 and 90",
+  );
+
+  validatePresent(
+    "longitude",
+    (v) =>
+      v == null ||
+      (Number.isFinite(Number(v)) && Number(v) >= -180 && Number(v) <= 180),
+    "longitude must be a valid number between -180 and 180",
+  );
+
+  // If one coordinate is set, require the other
+  const latPresent = isPresent("latitude") && fields.latitude != null;
+  const lngPresent = isPresent("longitude") && fields.longitude != null;
+  if (latPresent !== lngPresent) {
+    fail("latitude and longitude must both be provided together");
+  }
 
   validatePresent(
     "account_number",

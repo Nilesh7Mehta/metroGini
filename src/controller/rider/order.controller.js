@@ -12,6 +12,7 @@ import {
   pickupFromVendorService,
   verifyDeliveryOtpService,
 } from "../../services/rider/riderOrder.service.js";
+import { getOptimizedRiderRoute } from "../../services/rider/riderRoute.service.js";
 export const getTodayOrderList = async (req, res, next) => {
   try {
     const data = await fetchTodayOrders(req.user.rider_id);
@@ -34,6 +35,24 @@ export const getTodayDeliveryOrderList = async (req, res, next) => {
       return res
         .status(err.status)
         .json({ status: false, message: err.message });
+    next(err);
+  }
+};
+
+/** Today's pickup + delivery stops — Google Routes optimized sequence. */
+export const getOptimizedRoute = async (req, res, next) => {
+  try {
+    const data = await getOptimizedRiderRoute(req.user.rider_id);
+    return res.status(200).json({
+      success: true,
+      orderSequence: data.orderSequence,
+      latlong: data.latlong,
+    });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
     next(err);
   }
 };
