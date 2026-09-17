@@ -24,7 +24,7 @@ types.setTypeParser(1114, (value) => value);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { // comment node for local development, set to true in production if needed
-    rejectUnauthorized: true, // for development, set to true in production
+    rejectUnauthorized: false, // for development, set to true in production
   },
   //ssl:false //uncomment to run backend in local machine 
 });
