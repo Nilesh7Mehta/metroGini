@@ -112,5 +112,12 @@ export const formatUserOrder = (order) => {
     },
     payment_status: order.payment_status || "pending",
     timestamps: buildOrderTimestamps(order),
+    rider: order.rider_id
+    ? {
+        id: order.rider_id,
+        name: order.rider_name ?? null,
+        number: order.rider_number ?? null,
+      }
+    : null,
   };
 };

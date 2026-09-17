@@ -26,12 +26,12 @@ const attachOrderTimestamps = (row) => ({
 });
 
 export const fetchTodayOrders = async (rider_id) => {
-  const ready = await checkRiderReady(rider_id);
-  if (!ready)
-    throw {
-      status: 400,
-      message: "Rider must select shift and go online first",
-    };
+  // const ready = await checkRiderReady(rider_id);
+  // if (!ready)
+  //   throw {
+  //     status: 400,
+  //     message: "Rider must select shift and go online first",
+  //   };
 
   const { rows } = await sql.query(
     `SELECT
@@ -45,11 +45,17 @@ export const fetchTodayOrders = async (rider_id) => {
         u.full_name AS customer_name,
         u.id AS customer_id,
         u.mobile AS customer_number,
-        a.complete_address, a.pincode
+        a.complete_address, a.pincode,
+        a.latitude, a.longitude,
+        v.laundry_shop_name AS vendor_name,
+        v.shop_address AS vendor_address,
+        v.latitude AS vendor_latitude,
+        v.longitude AS vendor_longitude
      FROM orders o
      JOIN time_slots ts ON ts.id = o.pickup_slot_id
      JOIN users u ON u.id = o.user_id
      JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN vendors v ON v.id = o.vendor_id
      WHERE o.assigned_rider_id = $1
        AND o.pickup_date = CURRENT_DATE
        AND o.status IN ('out_for_pickup', 'pickup_in_progress','in_process' , 'picked_up')
@@ -60,12 +66,12 @@ export const fetchTodayOrders = async (rider_id) => {
 };
 
 export const fetchTodayDeliveryOrders = async (rider_id) => {
-  const ready = await checkRiderReady(rider_id);
-  if (!ready)
-    throw {
-      status: 400,
-      message: "Rider must select shift and go online first",
-    };
+  // const ready = await checkRiderReady(rider_id);
+  // if (!ready)
+  //   throw {
+  //     status: 400,
+  //     message: "Rider must select shift and go online first",
+  //   };
   const { rows } = await sql.query(
     `SELECT
         o.id,
@@ -86,8 +92,13 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
         u.mobile AS customer_number,
         a.complete_address,
         a.pincode,
+        a.latitude,
+        a.longitude,
         v.laundry_shop_name AS vendor_name,
-        v.shop_address AS shop_address
+        v.shop_address AS shop_address,
+        v.shop_address AS vendor_address,
+        v.latitude AS vendor_latitude,
+        v.longitude AS vendor_longitude
      FROM orders o
      JOIN time_slots ts ON ts.id = o.delivery_slot_id
      JOIN users u ON u.id = o.user_id

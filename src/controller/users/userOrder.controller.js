@@ -16,6 +16,7 @@ import {
   rescheduleDeliveryService,
   cancelServiceService,
   reportOrderIssueService,
+  verifyOrderByCodeService,
 } from "../../services/users/userOrder.service.js";
 
 const handleError = (error, res, next) => {
@@ -349,6 +350,30 @@ export const reportOrderIssue = async (req, res, next) => {
     return res
       .status(201)
       .json({ success: true, message: "Issue reported successfully", data });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const verifyOrderByCode = async (req, res, next) => {
+  try {
+    const order_id = req.body?.order_id ?? req.query?.order_id;
+    const data = await verifyOrderByCodeService({
+      user_id: req.user.id,
+      order_id,
+    });
+
+    const message = data.belongs_to_user
+      ? "Order belongs to this customer"
+      : data.order_exists
+        ? "Order does not belong to this customer"
+        : "Order not found";
+
+    return res.status(200).json({
+      success: true,
+      message,
+      data,
+    });
   } catch (error) {
     handleError(error, res, next);
   }

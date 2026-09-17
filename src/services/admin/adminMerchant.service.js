@@ -960,6 +960,46 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     pickString(business.address)
     || pickString(profile.address)
     || (isUpdate ? existing?.shop_address : null);
+
+  const resolveCoord = (raw, existingValue) => {
+    if (raw === undefined) {
+      return isUpdate ? (existingValue != null ? Number(existingValue) : null) : null;
+    }
+    if (raw === null || raw === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      throw { status: 400, message: 'latitude and longitude must be valid numbers' };
+    }
+    return n;
+  };
+
+  const latitudeRaw =
+    business.latitude !== undefined
+      ? business.latitude
+      : profile.latitude !== undefined
+        ? profile.latitude
+        : body.latitude !== undefined
+          ? body.latitude
+          : undefined;
+  const longitudeRaw =
+    business.longitude !== undefined
+      ? business.longitude
+      : profile.longitude !== undefined
+        ? profile.longitude
+        : body.longitude !== undefined
+          ? body.longitude
+          : undefined;
+
+  const latitude = resolveCoord(latitudeRaw, existing?.latitude);
+  const longitude = resolveCoord(longitudeRaw, existing?.longitude);
+
+  if ((latitude == null) !== (longitude == null)) {
+    throw {
+      status: 400,
+      message: 'latitude and longitude must both be provided together',
+    };
+  }
+
   const mobile_number = resolveMobileNumber(
     business.phone,
     profile.phone,
@@ -1015,6 +1055,8 @@ const mapMerchantPayload = (body = {}, { isUpdate = false, existing = null } = {
     tds_number: pickOptionalString(tdsRaw, existing?.tds_number, { isUpdate }),
     laundry_shop_name,
     shop_address,
+    latitude,
+    longitude,
     account_holder_name:
       pickString(banking.account_holder)
       || (isUpdate ? existing?.account_holder_name : null),
@@ -1140,6 +1182,8 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
     status: formatMerchantStatus(vendor.is_active),
     avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
     address: vendor.shop_address || null,
+    latitude: vendor.latitude != null ? Number(vendor.latitude) : null,
+    longitude: vendor.longitude != null ? Number(vendor.longitude) : null,
     zone_id: zoneMeta.zone_id,
     zone_code: zoneMeta.zone_code,
     zone_name: zoneMeta.zone_name,
@@ -1150,6 +1194,8 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
       buildDetailKeyValue('phone', formatPhone(vendor.mobile_number)),
       buildDetailKeyValue('email', vendor.email),
       buildDetailKeyValue('address', vendor.shop_address),
+      buildDetailKeyValue('latitude', vendor.latitude),
+      buildDetailKeyValue('longitude', vendor.longitude),
       buildDetailKeyValue('aadhar_number', vendor.aadhar_number),
       buildDetailKeyValue('service_areas', vendor.service_area),
       buildDetailKeyValue('gst_number', vendor.gst_number),
@@ -1308,6 +1354,8 @@ export const createAdminMerchantService = async (body) => {
         tds_number,
         laundry_shop_name,
         shop_address,
+        latitude,
+        longitude,
         account_holder_name,
         bank_name,
         account_number,
@@ -1335,8 +1383,8 @@ export const createAdminMerchantService = async (body) => {
         is_active
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-        $13, $14, $15, $16, $17::date, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33,
+        $13, $14, $15, $16, $17, $18, $19::date, $20, $21, $22,
+        $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
         'active', TRUE
       )
       RETURNING id
@@ -1352,6 +1400,8 @@ export const createAdminMerchantService = async (body) => {
         payload.tds_number,
         payload.laundry_shop_name,
         payload.shop_address,
+        payload.latitude,
+        payload.longitude,
         payload.account_holder_name,
         payload.bank_name,
         payload.account_number,
@@ -1458,6 +1508,8 @@ export const updateAdminMerchantService = async (rawId, body) => {
       payload.tds_number,
       payload.laundry_shop_name,
       payload.shop_address,
+      payload.latitude,
+      payload.longitude,
       payload.account_holder_name,
       payload.bank_name,
       payload.account_number,
@@ -1506,31 +1558,33 @@ export const updateAdminMerchantService = async (rawId, body) => {
         tds_number = $7,
         laundry_shop_name = $8,
         shop_address = $9,
-        account_holder_name = $10,
-        bank_name = $11,
-        account_number = $12,
-        ifsc_code = $13,
-        service_area = $14,
-        business_type = $15,
-        registration_date = $16::date,
-        washing_machines = $17,
-        washing_capacity_kg = $18,
-        dryers = $19,
-        iron_stations = $20,
-        dry_cleaning_machines = $21,
-        detergents_used = $22,
-        fabric_conditioners = $23,
-        special_chemicals = $24,
-        special_handling = $25,
-        quality_checks = $26,
-        water_supply = $27,
-        power_backup = $28,
-        upi_id = $29,
-        max_wash_kg = $30,
-        max_dry_pcs = $31,
-        vendor_per_kg_amount = $32,
-        is_active = $33,
-        status = CASE WHEN $33 THEN 'active' ELSE 'inactive' END,
+        latitude = $10,
+        longitude = $11,
+        account_holder_name = $12,
+        bank_name = $13,
+        account_number = $14,
+        ifsc_code = $15,
+        service_area = $16,
+        business_type = $17,
+        registration_date = $18::date,
+        washing_machines = $19,
+        washing_capacity_kg = $20,
+        dryers = $21,
+        iron_stations = $22,
+        dry_cleaning_machines = $23,
+        detergents_used = $24,
+        fabric_conditioners = $25,
+        special_chemicals = $26,
+        special_handling = $27,
+        quality_checks = $28,
+        water_supply = $29,
+        power_backup = $30,
+        upi_id = $31,
+        max_wash_kg = $32,
+        max_dry_pcs = $33,
+        vendor_per_kg_amount = $34,
+        is_active = $35,
+        status = CASE WHEN $35 THEN 'active' ELSE 'inactive' END,
         updated_at = NOW()
         ${passwordClause}
       WHERE id = ${vendorIdParam}

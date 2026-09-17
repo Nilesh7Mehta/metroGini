@@ -2,6 +2,8 @@ import sql from "../../config/db.js";
 
 const HELPLINE_TYPES = ["user", "rider", "vendor"];
 
+const formatSupportId = (id) => `SUP-${String(id).padStart(3, "0")}`;
+
 export const resolveHelplineIdentity = (req, type) => {
   const normalized = String(type || "").toLowerCase();
 
@@ -53,7 +55,11 @@ export const submitNeedHelp = async ({
     [type, identityId, report_issue?.trim() || null, message.trim()],
   );
 
-  return rows[0];
+  const row = rows[0];
+  return {
+    ...row,
+    support_id: formatSupportId(row.id),
+  };
 };
 
 export const submitNeedHelpFromRequest = async (req, body) => {
