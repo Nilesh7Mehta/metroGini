@@ -339,7 +339,7 @@ export const notifyPickupUpdateForOrders = async (orderIds) => {
      LEFT JOIN users u ON u.id = o.user_id
      WHERE o.id = ANY($1::int[])
        AND o.pickup_otp IS NOT NULL
-       AND TRIM(o.pickup_otp) <> ''
+       AND TRIM(o.pickup_otp::text) <> ''
        AND NOT EXISTS (
          SELECT 1 FROM notifications n
          WHERE n.identity_id = o.user_id
