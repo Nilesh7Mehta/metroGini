@@ -39,17 +39,25 @@ export const sendGallaboxTemplate = async ({
   bodyValues = {},
   buttonValues,
 }) => {
+  const template = String(templateName || "").trim();
+
   if (!isGallaboxWhatsappEnabled()) {
+    console.warn(
+      `[gallabox] SKIP template=${template || "(none)"} reason=disabled_or_missing_credentials enabled=${process.env.GALLABOX_WHATSAPP_ENABLED} hasKey=${Boolean(process.env.GALLABOX_API_KEY?.trim())} hasSecret=${Boolean(process.env.GALLABOX_API_SECRET?.trim())} hasChannel=${Boolean(process.env.GALLABOX_CHANNEL_ID?.trim())}`,
+    );
     return { skipped: true, reason: "disabled_or_missing_credentials" };
   }
 
   const recipientPhone = normalizeMobile(phone);
   if (!recipientPhone) {
+    console.warn(
+      `[gallabox] SKIP template=${template || "(none)"} reason=invalid_phone rawPhone=${JSON.stringify(phone)}`,
+    );
     return { skipped: true, reason: "invalid_phone" };
   }
 
-  const template = String(templateName || "").trim();
   if (!template) {
+    console.warn(`[gallabox] SKIP reason=missing_template`);
     return { skipped: true, reason: "missing_template" };
   }
 
@@ -78,6 +86,10 @@ export const sendGallaboxTemplate = async ({
     },
   };
 
+  console.log(
+    `[gallabox] SENDING template=${template} to=${recipientPhone} bodyValues=${JSON.stringify(templatePayload.bodyValues)} buttonValues=${JSON.stringify(templatePayload.buttonValues || [])}`,
+  );
+
   try {
     const res = await fetch(getGallaboxMessagesUrl(), {
       method: "POST",
@@ -90,17 +102,24 @@ export const sendGallaboxTemplate = async ({
       signal: AbortSignal.timeout(getGallaboxTimeoutMs()),
     });
 
+    const text = await res.text().catch(() => "");
+
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
       console.error(
-        `[gallabox] ${template} failed status=${res.status} body=${text.slice(0, 300)}`,
+        `[gallabox] FAILED template=${template} to=${recipientPhone} status=${res.status} body=${text.slice(0, 500)}`,
       );
       return { skipped: false, ok: false, status: res.status, template };
     }
 
+    console.log(
+      `[gallabox] OK template=${template} to=${recipientPhone} status=${res.status} body=${text.slice(0, 300)}`,
+    );
     return { skipped: false, ok: true, template };
   } catch (err) {
-    console.error(`[gallabox] ${template} error:`, err.message);
+    console.error(
+      `[gallabox] ERROR template=${template} to=${recipientPhone}:`,
+      err.message,
+    );
     return { skipped: false, ok: false, error: err.message, template };
   }
 };
@@ -151,7 +170,17 @@ const payNowButtonValues = (orderId) => [
 /** Fire-and-forget — never throws to callers */
 export const sendGallaboxTemplateSafe = (opts) => {
   setImmediate(() => {
-    sendGallaboxTemplate(opts).catch(() => {});
+    sendGallaboxTemplate(opts)
+      .then((result) => {
+        if (result?.skipped) {
+          console.warn(
+            `[gallabox] async result SKIP template=${opts?.templateName} reason=${result.reason}`,
+          );
+        }
+      })
+      .catch((err) => {
+        console.error(`[gallabox] async unhandled:`, err?.message || err);
+      });
   });
 };
 
@@ -229,7 +258,13 @@ export const sendOrderBillPaymentSafe = ({
   amountPayable,
 }) => {
   const remaining = Number(amountPayable);
+  console.log(
+    `[gallabox] order_bill_payment trigger orderId=${orderId} mobile=${JSON.stringify(mobile)} remaining=${amountPayable} parsedRemaining=${remaining} weight=${weightKg} total=${totalBill} coupon=${couponCode}`,
+  );
   if (!Number.isFinite(remaining) || remaining <= 0) {
+    console.warn(
+      `[gallabox] SKIP order_bill_payment orderId=${orderId} reason=remaining_amount_not_positive remaining=${amountPayable}`,
+    );
     return;
   }
 
