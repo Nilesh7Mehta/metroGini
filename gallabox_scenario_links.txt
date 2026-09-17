@@ -18,20 +18,29 @@ ORDER LIFECYCLE (scenario order)
    Vars:      {{1}} name | {{2}} ORD-xxx
 
 
-3) AFTER RIDER COMPLETES PICKUP (pickup OTP verified → picked_up)
+3) AFTER RIDER ASSIGNED / PICKUP OTP TO SHARE
+   Template:  order_pickup_update
+   Trigger:   (1) Pickup morning cron IF rider already assigned
+              (2) Fallback: rider starts pickup (startPickup) if missed
+   Once:      once per order (deduped via "Order Pickup Update" notification)
+   Vars:      {{1}} pickup OTP
+   NOTE:      Not sent on orderSplit (rider assignment cron)
+
+
+4) AFTER RIDER COMPLETES PICKUP (pickup OTP verified → picked_up)
    Template:  pickup_completed
    Trigger:   Rider verify pickup OTP
    Vars:      none
 
 
-4) AFTER VENDOR FINALIZES WEIGHT / BILL (order_finalized)
+5) AFTER VENDOR FINALIZES WEIGHT / BILL (order_finalized)
    Template:  order_bill_payment
    Trigger:   Vendor finalize order (remaining_amount > 0)
    Vars:      {{1}} weight kg | {{2}} total bill | {{3}} coupon | {{4}} amount payable
    Button:    Pay Now → https://api.metrogini.com/api/pay/{orderId}
 
 
-5) PAYMENT REMINDER (still unpaid before delivery)
+6) PAYMENT REMINDER (still unpaid before delivery)
    Template:  payment_reminder
    Trigger:   (a) Hourly cron on delivery_date if unpaid
               (b) Vendor mark ready_for_delivery if unpaid
@@ -40,19 +49,25 @@ ORDER LIFECYCLE (scenario order)
    Button:    Pay Now → https://api.metrogini.com/api/pay/{orderId}
 
 
-6) AFTER REMAINING / FULL PAYMENT RECEIVED
+7) AFTER ORDER OUT FOR DELIVERY (rider picks up from vendor)
+   Template:  order_on_the_way
+   Trigger:   Rider pickupFromVendor → out_for_delivery
+   Vars:      {{1}} ORD-xxx | {{2}} delivery OTP
+
+
+8) AFTER REMAINING / FULL PAYMENT RECEIVED
    Template:  payment_received
    Trigger:   Razorpay webhook payment.captured (remaining/full — not advance)
    Vars:      {{1}} ORD-xxx
 
 
-7) AFTER ORDER DELIVERED (delivery OTP verified → delivered)
+9) AFTER ORDER DELIVERED (delivery OTP verified → delivered)
    Template:  order_delivered
    Trigger:   Rider verify delivery OTP
    Vars:      {{1}} ORD-xxx
 
 
-8) ONE-TIME CUSTOMER, NO REPEAT ORDER (reengagement)
+10) ONE-TIME CUSTOMER, NO REPEAT ORDER (reengagement)
    Template:  customer_reengagement_offer
    Trigger:   Daily cron 10:00 IST
    Audience:  exactly 1 delivered order
@@ -73,9 +88,11 @@ QUICK LOOKUP
 ================================================================================
 booking_wash_by_kilo          → after booking confirmed
 pickup_day_reminder           → morning of pickup day
+order_pickup_update           → pickup morning if rider assigned; else startPickup fallback
 pickup_completed              → after pickup OTP success
 order_bill_payment            → after vendor finalize (bill + pay link)
 payment_reminder              → unpaid, before/on delivery day (once)
+order_on_the_way              → rider picks up from vendor → out_for_delivery
 payment_received              → after remaining payment success
 order_delivered               → after delivery OTP success
 customer_reengagement_offer   → one-time customer @ 21 / 45 / 90 days

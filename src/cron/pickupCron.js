@@ -19,7 +19,7 @@ export const startPickupCron = () => {
       const today = new Date().toISOString().split("T")[0];
 
       const { rows } = await sql.query(
-        `SELECT o.id, o.user_id, o.order_code,
+        `SELECT o.id, o.user_id, o.order_code, o.assigned_rider_id,
                 u.full_name, u.mobile
          FROM orders o
          LEFT JOIN users u ON u.id = o.user_id
@@ -63,6 +63,14 @@ export const startPickupCron = () => {
           name: order.full_name,
           orderId: order.id,
         });
+
+        // Rider already assigned at booking → send OTP pickup update once
+        if (order.assigned_rider_id) {
+          const { notifyPickupUpdateForOrders } = await import(
+            "../services/whatsapp/gallaboxWhatsapp.service.js"
+          );
+          await notifyPickupUpdateForOrders([order.id]);
+        }
 
         console.log(`Order ${order.id} moved to out_for_pickup`);
       }

@@ -173,7 +173,10 @@ export const startDelivery = async (rider_id, order_id) => {
 
   // Generate / refresh pickup OTP and notify user (template 6)
   const { rows: orderRows } = await sql.query(
-    `SELECT user_id, order_code, pickup_otp FROM orders WHERE id = $1`,
+    `SELECT o.user_id, o.order_code, o.pickup_otp, u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = $1`,
     [order_id],
   );
   if (orderRows.length > 0) {
@@ -208,6 +211,38 @@ export const startDelivery = async (rider_id, order_id) => {
       { otp },
       { reference_type: "order", reference_id: order_id },
     );
+
+    const {
+      sendOrderPickupUpdateSafe,
+      ORDER_PICKUP_UPDATE_TITLE,
+    } = await import("../whatsapp/gallaboxWhatsapp.service.js");
+
+    // Fallback if morning cron missed (no rider assigned yet at that time)
+    const alreadySent = await sql.query(
+      `SELECT 1 FROM notifications
+       WHERE identity_id = $1 AND role = 'user'
+         AND reference_type = 'order' AND reference_id = $2
+         AND title = $3
+       LIMIT 1`,
+      [orderRows[0].user_id, order_id, ORDER_PICKUP_UPDATE_TITLE],
+    );
+    if (alreadySent.rows.length === 0) {
+      await createNotificationsBatch([
+        {
+          identity_id: orderRows[0].user_id,
+          role: "user",
+          title: ORDER_PICKUP_UPDATE_TITLE,
+          message: `Your rider has been assigned. Share OTP ${otp} at pickup.`,
+          reference_type: "order",
+          reference_id: order_id,
+        },
+      ]);
+      sendOrderPickupUpdateSafe({
+        mobile: orderRows[0].mobile,
+        name: orderRows[0].full_name,
+        otp,
+      });
+    }
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -636,7 +671,10 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
 
   // Notify user with delivery OTP (template 7 — at doorstep)
   const { rows: deliveryRows } = await sql.query(
-    `SELECT user_id, delivery_otp FROM orders WHERE id = $1`,
+    `SELECT o.user_id, o.delivery_otp, u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = $1`,
     [order_id],
   );
   if (deliveryRows.length > 0 && deliveryRows[0].delivery_otp) {
@@ -661,6 +699,16 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
       { otp: deliveryRows[0].delivery_otp },
       { reference_type: "order", reference_id: order_id },
     );
+
+    const { sendOrderOnTheWaySafe } = await import(
+      "../whatsapp/gallaboxWhatsapp.service.js"
+    );
+    sendOrderOnTheWaySafe({
+      mobile: deliveryRows[0].mobile,
+      name: deliveryRows[0].full_name,
+      orderId: order_id,
+      otp: deliveryRows[0].delivery_otp,
+    });
   }
 
   const timestamps = await fetchOrderTimestamps(sql, order_id);

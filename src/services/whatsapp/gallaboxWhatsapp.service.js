@@ -300,3 +300,92 @@ export const sendBookingWashByKiloSafe = ({
     },
   });
 };
+
+/** Template: order_pickup_update — {{1}} pickup OTP */
+export const sendOrderPickupUpdateSafe = ({ mobile, name, otp }) => {
+  const code = String(otp || "").trim();
+  if (!code) return;
+
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "order_pickup_update",
+    bodyValues: {
+      "1": code,
+    },
+  });
+};
+
+export const ORDER_PICKUP_UPDATE_TITLE = "Order Pickup Update";
+
+/**
+ * Send order_pickup_update once per order (deduped by notification title).
+ * Used by pickup morning cron; startPickup is fallback if this was missed.
+ */
+export const notifyPickupUpdateForOrders = async (orderIds) => {
+  const { default: sql } = await import("../../config/db.js");
+  const { createNotificationsBatch } = await import(
+    "../../utils/notificationHelper.js"
+  );
+
+  const ids = [
+    ...new Set(orderIds.map((id) => Number(id)).filter((n) => n > 0)),
+  ];
+  if (ids.length === 0) return;
+
+  const { rows } = await sql.query(
+    `SELECT o.id, o.user_id, o.pickup_otp, u.full_name, u.mobile
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.user_id
+     WHERE o.id = ANY($1::int[])
+       AND o.pickup_otp IS NOT NULL
+       AND TRIM(o.pickup_otp) <> ''
+       AND NOT EXISTS (
+         SELECT 1 FROM notifications n
+         WHERE n.identity_id = o.user_id
+           AND n.role = 'user'
+           AND n.reference_type = 'order'
+           AND n.reference_id = o.id
+           AND n.title = $2
+       )`,
+    [ids, ORDER_PICKUP_UPDATE_TITLE],
+  );
+
+  for (const order of rows) {
+    await createNotificationsBatch([
+      {
+        identity_id: order.user_id,
+        role: "user",
+        title: ORDER_PICKUP_UPDATE_TITLE,
+        message: `Your rider has been assigned. Share OTP ${order.pickup_otp} at pickup.`,
+        reference_type: "order",
+        reference_id: order.id,
+      },
+    ]);
+
+    sendOrderPickupUpdateSafe({
+      mobile: order.mobile,
+      name: order.full_name,
+      otp: order.pickup_otp,
+    });
+  }
+};
+
+/**
+ * Template: order_on_the_way
+ * {{1}} ORD-xxx, {{2}} delivery OTP
+ */
+export const sendOrderOnTheWaySafe = ({ mobile, name, orderId, otp }) => {
+  const code = String(otp || "").trim();
+  if (!code) return;
+
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "order_on_the_way",
+    bodyValues: {
+      "1": formatOrderDisplayId(orderId),
+      "2": code,
+    },
+  });
+};
