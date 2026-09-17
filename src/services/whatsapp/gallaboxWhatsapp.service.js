@@ -25,7 +25,11 @@ const displayName = (name) => {
  *   name?: string,
  *   templateName: string,
  *   bodyValues?: Record<string, string>,
- *   buttonValues?: Record<string, string | string[]>,
+ *   buttonValues?: Array<{
+ *     index: number,
+ *     sub_type: string,
+ *     parameters: Record<string, string>,
+ *   }> | Record<string, string | string[]>,
  * }} opts
  */
 export const sendGallaboxTemplate = async ({
@@ -56,13 +60,9 @@ export const sendGallaboxTemplate = async ({
     ),
   };
 
-  if (buttonValues && Object.keys(buttonValues).length > 0) {
-    templatePayload.buttonValues = Object.fromEntries(
-      Object.entries(buttonValues).map(([k, v]) => [
-        String(k),
-        Array.isArray(v) ? v.map((x) => String(x ?? "")) : String(v ?? ""),
-      ]),
-    );
+  const normalizedButtons = normalizeButtonValues(buttonValues);
+  if (normalizedButtons.length > 0) {
+    templatePayload.buttonValues = normalizedButtons;
   }
 
   const payload = {
@@ -104,6 +104,49 @@ export const sendGallaboxTemplate = async ({
     return { skipped: false, ok: false, error: err.message, template };
   }
 };
+
+/** Gallabox expects buttonValues as an array (uses .find internally). */
+const normalizeButtonValues = (buttonValues) => {
+  if (!buttonValues) return [];
+
+  if (Array.isArray(buttonValues)) {
+    return buttonValues.map((btn, i) => ({
+      index: Number(btn?.index ?? i),
+      sub_type: String(btn?.sub_type || "url"),
+      parameters: {
+        type: String(btn?.parameters?.type || "text"),
+        text: String(
+          btn?.parameters?.text ??
+            btn?.parameters?.payload ??
+            btn?.text ??
+            "",
+        ),
+      },
+    }));
+  }
+
+  // Legacy object map: { "0": "74" } → URL button array
+  return Object.entries(buttonValues).map(([k, v]) => ({
+    index: Number(k) || 0,
+    sub_type: "url",
+    parameters: {
+      type: "text",
+      text: Array.isArray(v) ? String(v[0] ?? "") : String(v ?? ""),
+    },
+  }));
+};
+
+/** Dynamic Pay Now URL suffix for /api/pay/{orderId} */
+const payNowButtonValues = (orderId) => [
+  {
+    index: 0,
+    sub_type: "url",
+    parameters: {
+      type: "text",
+      text: String(orderId),
+    },
+  },
+];
 
 /** Fire-and-forget — never throws to callers */
 export const sendGallaboxTemplateSafe = (opts) => {
@@ -201,9 +244,7 @@ export const sendOrderBillPaymentSafe = ({
       "4": formatMoneyValue(remaining),
     },
     // Dynamic CTA URL suffix for https://api.metrogini.com/api/pay/
-    buttonValues: {
-      "0": String(orderId),
-    },
+    buttonValues: payNowButtonValues(orderId),
   });
 };
 
@@ -231,9 +272,7 @@ export const sendPaymentReminderSafe = ({
       "1": formatOrderDisplayId(orderId),
       "2": formatMoneyValue(remaining),
     },
-    buttonValues: {
-      "0": String(orderId),
-    },
+    buttonValues: payNowButtonValues(orderId),
   });
 };
 
