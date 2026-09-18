@@ -280,12 +280,31 @@ const buildKpis = (selectedDate, orders) => {
   };
 };
 
+const toIsoDateTime = (value) => {
+  if (value == null || value === '') return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
+
 const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
   const shiftMeta = shiftByPickupSlot[order.pickup_slot_id];
   const shift = resolveShiftKey(shiftMeta?.shift_type || order.pickup_shift_name);
   const scheduledDate = isPickupOnDate(order, selectedDate)
     ? toDateStr(order.pickup_date)
     : toDateStr(order.delivery_date) || selectedDate;
+
+  const billing = buildOrderBillingPayload(order);
+  const totalAmount = Math.round(Number(billing.total_amount || getOrderTotal(order)));
+  const gstAmount = Math.round(Number(billing.gst || 0));
+  const couponCode = order.coupon_code || null;
+  const riderName = order.rider_name || null;
+  const pickupCompleted = PICKUP_COMPLETED_STATUSES.includes(order.status);
+  const deliveryCompleted = order.status === 'delivered';
+  const pickupTs = toIsoDateTime(order.pickup_completed_at);
+  const deliveryTs = toIsoDateTime(
+    order.delivery_completed_at || order.delivered_at,
+  );
 
   return {
     id: Number(order.id),
@@ -297,13 +316,33 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     shift,
     issue_type: resolveIssueType(order),
     est_fin: buildEstFin(order),
-    charges: getOrderTotal(order),
+    charges: totalAmount,
+    coupon_applied: couponCode,
+    coupon_code: couponCode,
+    gst: gstAmount,
+    gst_amount: gstAmount,
+    total_amount: totalAmount,
+    final_amount: totalAmount,
     pickup_status: resolvePickupStatus(order),
     delivery_status: resolveDeliveryStatus(order),
-    total_payable: getOrderTotal(order),
+    total_payable: totalAmount,
     balance_collected: getBalanceCollected(order),
     balance_payable: getBalancePayable(order),
     scheduled_date: scheduledDate,
+    order_date: toDateStr(order.created_at) || toDateStr(order.pickup_date),
+    created_at: toIsoDateTime(order.created_at),
+    pickup_date: toDateStr(order.pickup_date),
+    delivery_date: toDateStr(order.delivery_date),
+    assigned_rider: riderName,
+    rider_name: riderName,
+    pickup: {
+      rider: pickupCompleted || pickupTs ? riderName : null,
+      timestamp: pickupTs,
+    },
+    delivery: {
+      rider: deliveryCompleted || deliveryTs ? riderName : null,
+      timestamp: deliveryTs,
+    },
     special_instructions: {
       pickup: order.pickup_special_instruction ?? null,
       delivery: order.delivery_special_instruction ?? null,
@@ -349,9 +388,27 @@ const fetchOrdersForRange = async ({
       o.final_total,
       o.amount_paid,
       o.remaining_amount,
+      o.base_price_per_kg,
+      o.extra_price_per_kg,
+      o.flat_fee,
+      o.peak_extra_charge,
+      o.is_stained,
+      o.vendor_request_amount,
+      o.vendor_request_markup,
+      o.applied_coupon_id,
+      c.coupon_code,
+      c.discount_type,
+      c.discount_value,
+      c.minimum_amount_value,
+      c.maximum_amount_value,
+      o.assigned_rider_id,
+      r.full_name AS rider_name,
       o.out_for_pickup_at,
       o.pickup_started_at,
+      o.pickup_completed_at,
       o.out_for_delivery_at,
+      o.delivery_completed_at,
+      o.delivered_at,
       o.pickup_special_instruction,
       o.delivery_special_instruction,
       pickup_ts.shift_name AS pickup_shift_name,
@@ -361,6 +418,8 @@ const fetchOrdersForRange = async ({
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN time_slots pickup_ts ON pickup_ts.id = o.pickup_slot_id
+    LEFT JOIN riders r ON r.id = o.assigned_rider_id
+    LEFT JOIN coupons c ON c.id = o.applied_coupon_id
     ${ORDER_ZONE_JOINS}
     LEFT JOIN (
       SELECT

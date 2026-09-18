@@ -4,6 +4,7 @@ import {
   orderZoneCityFilterSql,
   resolveGeoFilters,
 } from '../../utils/adminGeoFilter.util.js';
+import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 
 const VALID_PERIODS = ['today', 'week', 'month'];
@@ -178,12 +179,30 @@ const fetchOrders = async (
       o.id,
       o.order_code,
       o.user_id,
+      u.full_name AS customer_name,
       o.service_id,
       o.payment_status,
       o.pickup_slot_id,
       o.pickup_date,
+      o.created_at,
       o.final_total,
       o.estimated_total,
+      o.actual_weight,
+      o.estimated_weight_min,
+      o.estimated_weight_max,
+      o.base_price_per_kg,
+      o.extra_price_per_kg,
+      o.flat_fee,
+      o.peak_extra_charge,
+      o.is_stained,
+      o.vendor_request_amount,
+      o.vendor_request_markup,
+      o.applied_coupon_id,
+      c.coupon_code,
+      c.discount_type,
+      c.discount_value,
+      c.minimum_amount_value,
+      c.maximum_amount_value,
       o.payment_completed_at,
       st.name AS service_type_name,
       lp.payment_method AS latest_payment_method,
@@ -193,7 +212,9 @@ const fetchOrders = async (
       pg.group_code AS zone_code,
       pg.name AS zone_name
     FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN service_types st ON st.id = o.service_type_id
+    LEFT JOIN coupons c ON c.id = o.applied_coupon_id
     LEFT JOIN user_address_details uad ON uad.id = o.address_id
     LEFT JOIN pincodes p ON p.pincode = uad.pincode
     LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
@@ -315,27 +336,66 @@ const fetchTopStats = async (start, end, pincodeGroupId, cityId) => {
   ];
 };
 
+const toDateStr = (value) => {
+  if (value == null) return null;
+  if (value instanceof Date) return formatDate(value);
+  const raw = String(value);
+  return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null;
+};
+
+const toIsoDateTime = (value) => {
+  if (value == null || value === '') return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
+
 const mapTransaction = (order) => {
   const paymentStatus = String(order.payment_status || 'pending').toLowerCase();
-  const finalAmount = getOrderAmount(order);
+  const billing = buildOrderBillingPayload(order);
+  const finalAmount = Math.round(Number(billing.total_amount || getOrderAmount(order)));
+  const gstAmount = Math.round(Number(billing.gst || 0));
+  const couponCode = order.coupon_code || null;
+  const couponDiscount = Math.round(
+    Number(billing.pricing_summary?.coupon_discount || 0),
+  );
   const advanceAmount = getAdvanceAmount(order);
   const remainingAmount = Math.max(0, finalAmount - advanceAmount);
-  
+  const createdAt =
+    order.payment_completed_at || order.latest_paid_at || order.created_at || order.pickup_date;
 
   return {
     id: Number(order.id),
     order_id: formatOrderId(order),
+    order_ref: Number(order.id),
+    order_db_id: Number(order.id),
     customer_id: formatCustomerId(order.user_id),
+    customer_name: order.customer_name || null,
     service_type: getServiceKey(order.service_id),
-    service_category: isExpressOrder(order.service_type_name) ? 'Express' : 'Standard',
-    amount: String(finalAmount),
+    service_category: isExpressOrder(order.service_type_name) ? 'express' : 'regular',
+    amount: finalAmount,
     remaining:
-      paymentStatus === 'partially_paid' ? String(remainingAmount) : null,
+      paymentStatus === 'partially_paid' || paymentStatus === 'pending'
+        ? remainingAmount
+        : paymentStatus === 'paid'
+          ? 0
+          : remainingAmount,
     payment_status: paymentStatus,
     method: normalizeMethod(order.latest_payment_method),
-    date: formatPaymentDate(
-      order.payment_completed_at || order.latest_paid_at || order.pickup_date,
-    ),
+    date: toDateStr(createdAt) || formatPaymentDate(createdAt),
+    created_at: toIsoDateTime(createdAt),
+    confirmed_weight:
+      order.actual_weight != null ? Number(order.actual_weight) : null,
+    actual_weight:
+      order.actual_weight != null ? Number(order.actual_weight) : null,
+    coupon_applied: couponCode,
+    coupon_code: couponCode,
+    discounted_amount: couponDiscount,
+    coupon_discount: couponDiscount,
+    gst: gstAmount,
+    gst_amount: gstAmount,
+    final_amount: finalAmount,
+    total_amount: finalAmount,
     zone_id: order.zone_id != null ? Number(order.zone_id) : null,
     zone_code: order.zone_code || null,
     zone_name: order.zone_name || null,

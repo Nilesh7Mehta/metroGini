@@ -648,10 +648,18 @@ const fetchVendors = async (isActiveFilter) => {
     `
     SELECT
       v.id,
+      v.owner_contact_name,
+      v.mobile_number,
+      v.email,
       v.laundry_shop_name,
       v.shop_address,
-      v.mobile_number,
-      v.is_active
+      v.pan_card_number,
+      v.account_holder_name,
+      v.bank_name,
+      v.account_number,
+      v.ifsc_code,
+      v.is_active,
+      ${VENDOR_PROFILE_COLUMNS}
     FROM vendors v
     ${whereClause}
     ORDER BY v.id DESC
@@ -1240,6 +1248,72 @@ const buildMerchantDetailResponse = (vendor, shiftSchedule = []) => {
   };
 };
 
+const mapAdminMerchantListRow = (vendor, zoneMeta, shiftSchedule, batches) => {
+  const ownerName = vendor.owner_contact_name || null;
+  const email = vendor.email || null;
+  const panNumber = vendor.pan_card_number || null;
+  const accountHolder = vendor.account_holder_name || null;
+  const accountNumber = vendor.account_number || null;
+  const ifscCode = vendor.ifsc_code || null;
+  const bank = vendor.bank_name || null;
+  const washingMachines =
+    vendor.washing_machines != null && vendor.washing_machines !== ''
+      ? Number(vendor.washing_machines)
+      : null;
+  const dryers =
+    vendor.dryers != null && vendor.dryers !== ''
+      ? Number(vendor.dryers)
+      : null;
+
+  return {
+    id: vendor.id,
+    merchant_id: formatMerchantId(vendor.id),
+    name: vendor.laundry_shop_name || 'N/A',
+    owner_name: ownerName,
+    location:
+      vendor.shop_address
+      || summarizeShiftScheduleLocation(shiftSchedule)
+      || 'N/A',
+    zone_id: zoneMeta.zone_id,
+    zone_code: zoneMeta.zone_code,
+    zone_name: zoneMeta.zone_name,
+    contact: formatPhone(vendor.mobile_number),
+    email,
+    status: formatMerchantStatus(vendor.is_active),
+    pan_number: panNumber,
+    account_number: accountNumber,
+    ifsc_code: ifscCode,
+    account_holder: accountHolder,
+    bank,
+    washing_machines: Number.isFinite(washingMachines) ? washingMachines : null,
+    dryers: Number.isFinite(dryers) ? dryers : null,
+    avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
+    shift_schedule: shiftSchedule,
+    batches,
+    business_details: [
+      buildDetailKeyValue('owner_name', ownerName),
+      buildDetailKeyValue('pan_number', panNumber),
+      buildDetailKeyValue('email', email),
+    ],
+    banking_details: [
+      buildDetailKeyValue('account_holder', accountHolder),
+      buildDetailKeyValue('account_number', accountNumber),
+      buildDetailKeyValue('ifsc_code', ifscCode),
+      buildDetailKeyValue('bank', bank),
+    ],
+    equipment_details: [
+      buildDetailKeyValue(
+        'washing_machines',
+        Number.isFinite(washingMachines) ? washingMachines : null,
+      ),
+      buildDetailKeyValue(
+        'dryers',
+        Number.isFinite(dryers) ? dryers : null,
+      ),
+    ],
+  };
+};
+
 export const getAdminMerchantsService = async (query = {}) => {
   const isActiveFilter = resolveVendorStatusFilter(query.status);
   const geoFilter = await resolveGeoFilters(query);
@@ -1279,26 +1353,15 @@ export const getAdminMerchantsService = async (query = {}) => {
 
       const zoneMeta = resolveMerchantZoneMeta(shiftSchedule, { pincodeGroupId });
 
-      return {
-        id: vendor.id,
-        merchant_id: formatMerchantId(vendor.id),
-        name: vendor.laundry_shop_name || 'N/A',
-        location:
-          vendor.shop_address
-          || summarizeShiftScheduleLocation(shiftSchedule)
-          || 'N/A',
-        zone_id: zoneMeta.zone_id,
-        zone_code: zoneMeta.zone_code,
-        zone_name: zoneMeta.zone_name,
-        contact: formatPhone(vendor.mobile_number),
-        status: formatMerchantStatus(vendor.is_active),
-        avatar_initials: getAvatarInitials(vendor.laundry_shop_name),
-        shift_schedule: shiftSchedule,
-        batches: buildMerchantBatches(
+      return mapAdminMerchantListRow(
+        vendor,
+        zoneMeta,
+        shiftSchedule,
+        buildMerchantBatches(
           ordersByVendor[vendor.id] || ordersByVendor[vendorId] || [],
           pickupShiftSlotIds,
         ),
-      };
+      );
     })
     .filter(Boolean);
 

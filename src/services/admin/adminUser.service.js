@@ -156,7 +156,7 @@ const validateUpdatePayload = (body) => {
 export const listAdminUsersService = async () => {
   const { rows } = await sql.query(
     `
-    SELECT id, full_name, email, status, role, permissions
+    SELECT id, full_name, email, mobile, status, role, permissions
     FROM users
     WHERE ${ADMIN_PANEL_ROLE_FILTER}
     ORDER BY id ASC
@@ -203,7 +203,7 @@ export const createAdminUserService = async (body) => {
         profile_completed
       )
       VALUES ($1, $2, $3, $4, $5::user_role, $6::jsonb, $7, FALSE, TRUE)
-      RETURNING id, full_name, email, status, role, permissions
+      RETURNING id, full_name, email, mobile, status, role, permissions
       `,
       [
         mobile,
@@ -278,7 +278,7 @@ export const updateAdminUserService = async (id, body) => {
       UPDATE users
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${values.length} AND ${ADMIN_PANEL_ROLE_FILTER}
-      RETURNING id, full_name, email, status, role, permissions
+      RETURNING id, full_name, email, mobile, status, role, permissions
       `,
       values,
     );

@@ -117,7 +117,8 @@ export const formatAdminUser = (row) => {
   return {
     id: Number(row.id),
     name: row.full_name || null,
-    email: row.email,
+    email: row.email || null,
+    phone: row.mobile || null,
     role,
     is_active: row.status === 'active',
     permissions: resolvePermissions(role, row.permissions),
