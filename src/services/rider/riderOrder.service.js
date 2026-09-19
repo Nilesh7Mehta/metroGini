@@ -22,6 +22,8 @@ import {
 
 const attachOrderTimestamps = (row) => ({
   ...row,
+  special_instructions: row.pickup_special_instruction ?? null,
+  delivery_instructions: row.delivery_special_instruction ?? null,
   timestamps: buildOrderTimestamps(row),
 });
 
@@ -499,6 +501,7 @@ export const fetchOrderHistory = async (rider_id, query) => {
   values.push(limit, offset);
   const { rows } = await sql.query(
     `SELECT o.id, o.status, o.created_at,
+            o.pickup_special_instruction, o.delivery_special_instruction,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,

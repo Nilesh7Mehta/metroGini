@@ -63,6 +63,12 @@ const formatOrderSequenceItem = (order) => ({
   pincode: order.pincode ?? null,
   latitude: Number(order.latitude),
   longitude: Number(order.longitude),
+  special_instructions:
+    order.special_instructions ?? order.pickup_special_instruction ?? null,
+  delivery_instructions:
+    order.delivery_instructions ?? order.delivery_special_instruction ?? null,
+  pickup_special_instruction: order.pickup_special_instruction ?? null,
+  delivery_special_instruction: order.delivery_special_instruction ?? null,
 });
 
 const buildLatLongList = (vendorPoint, optimizedStops) => [
