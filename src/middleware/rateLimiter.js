@@ -34,6 +34,15 @@ export const vendorAuthLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/** Public WhatsApp pay redirect — throttle token guessing */
+export const payRedirectLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many payment link requests. Please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Global API limiter — high enough for normal / continuous app use.
 // Only trips on aggressive spam from the same IP.
 export const apiLimiter = rateLimit({

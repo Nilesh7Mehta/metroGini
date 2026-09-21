@@ -1,13 +1,17 @@
 /**
- * Public WhatsApp Pay Now link: GET /api/pay/:orderId
+ * Public WhatsApp Pay Now link: GET /api/pay/:token
+ * Token is an opaque unguessable pay_token (not the numeric order id).
  * Creates (or reuses) a Razorpay Payment Link for remaining balance and redirects.
  */
+import crypto from "crypto";
 import sql from "../../../config/db.js";
 import razorpay from "../../../config/razorpay.js";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "../../../utils/status.js";
 import { formatOrderDisplayId } from "../../../utils/userNotificationTemplates.js";
 import { normalizeMobile } from "../../common/sms.service.js";
 import { throwHttpError } from "./razorpay.util.js";
+
+const PAY_TOKEN_RE = /^[a-f0-9]{32}$/i;
 
 const htmlPage = (title, message) => `<!DOCTYPE html>
 <html lang="en">
@@ -52,14 +56,64 @@ const isReusableLinkStatus = (status) => {
   return s === "created" || s === "active" || s === "";
 };
 
+const newPayToken = () => crypto.randomBytes(16).toString("hex");
+
 /**
- * Resolve a live Razorpay short_url for the order's remaining balance.
- * @returns {{ shortUrl: string } | { alreadyPaid: true } }
+ * Ensure order has an opaque pay_token for WhatsApp / public pay URLs.
+ * @returns {Promise<string>}
  */
-export const resolveOrderPaymentLink = async (orderId) => {
+export const ensureOrderPayToken = async (orderId) => {
   const id = Number(orderId);
   if (!Number.isInteger(id) || id <= 0) {
     throwHttpError("Invalid order id", 400);
+  }
+
+  const existing = await sql.query(
+    `SELECT pay_token FROM orders WHERE id = $1`,
+    [id],
+  );
+  if (!existing.rows[0]) throwHttpError("Order not found", 404);
+
+  const current = String(existing.rows[0].pay_token || "").trim();
+  if (PAY_TOKEN_RE.test(current)) return current.toLowerCase();
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const token = newPayToken();
+    try {
+      const { rows } = await sql.query(
+        `UPDATE orders
+         SET pay_token = $1, updated_at = NOW()
+         WHERE id = $2
+           AND (pay_token IS NULL OR TRIM(pay_token) = '')
+         RETURNING pay_token`,
+        [token, id],
+      );
+      if (rows[0]?.pay_token) return String(rows[0].pay_token).toLowerCase();
+
+      const again = await sql.query(
+        `SELECT pay_token FROM orders WHERE id = $1`,
+        [id],
+      );
+      const raced = String(again.rows[0]?.pay_token || "").trim();
+      if (PAY_TOKEN_RE.test(raced)) return raced.toLowerCase();
+    } catch (err) {
+      if (err.code !== "23505") throw err;
+    }
+  }
+
+  throwHttpError("Unable to create payment link token", 500);
+};
+
+/**
+ * Resolve a live Razorpay short_url from opaque pay_token.
+ * @returns {{ shortUrl: string } | { alreadyPaid: true } }
+ */
+export const resolveOrderPaymentLinkByToken = async (rawToken) => {
+  const token = String(rawToken || "").trim().toLowerCase();
+
+  // Reject guessable numeric order ids (old /api/pay/123 links)
+  if (!PAY_TOKEN_RE.test(token)) {
+    throwHttpError("Invalid or expired payment link", 404);
   }
 
   const { rows } = await sql.query(
@@ -68,13 +122,14 @@ export const resolveOrderPaymentLink = async (orderId) => {
             o.order_code, u.full_name, u.mobile, u.email
      FROM orders o
      LEFT JOIN users u ON u.id = o.user_id
-     WHERE o.id = $1`,
-    [id],
+     WHERE o.pay_token = $1`,
+    [token],
   );
 
-  if (!rows[0]) throwHttpError("Order not found", 404);
+  if (!rows[0]) throwHttpError("Invalid or expired payment link", 404);
 
   const order = rows[0];
+  const id = Number(order.id);
   const remaining = Math.max(0, Number(order.remaining_amount) || 0);
   const displayId = formatOrderDisplayId(order.id);
 
@@ -93,7 +148,6 @@ export const resolveOrderPaymentLink = async (orderId) => {
     throwHttpError("This order is not ready for remaining payment", 400);
   }
 
-  // Reuse existing active link when possible
   if (order.razorpay_payment_link_id) {
     try {
       const existing = await razorpay.paymentLink.fetch(
@@ -177,8 +231,8 @@ export const resolveOrderPaymentLink = async (orderId) => {
   return { shortUrl: link.short_url, displayId };
 };
 
-export const handlePayRedirect = async (orderId) => {
-  const result = await resolveOrderPaymentLink(orderId);
+export const handlePayRedirect = async (token) => {
+  const result = await resolveOrderPaymentLinkByToken(token);
 
   if (result.alreadyPaid) {
     return {
@@ -201,5 +255,5 @@ export const handlePayRedirect = async (orderId) => {
 export const payRedirectErrorPage = (status, message) => ({
   type: "html",
   status,
-  body: htmlPage(status === 404 ? "Order not found" : "Unable to pay", message),
+  body: htmlPage(status === 404 ? "Link not found" : "Unable to pay", message),
 });

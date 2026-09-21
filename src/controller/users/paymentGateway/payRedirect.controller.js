@@ -5,7 +5,7 @@ import {
 
 export const payRedirect = async (req, res, next) => {
   try {
-    const result = await handlePayRedirect(req.params.orderId);
+    const result = await handlePayRedirect(req.params.token);
 
     if (result.type === "redirect") {
       return res.redirect(result.status, result.location);

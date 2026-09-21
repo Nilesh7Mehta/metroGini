@@ -38,6 +38,7 @@ ORDER LIFECYCLE (scenario order)
    Trigger:   Vendor finalize order (remaining_amount > 0)
    Vars:      {{1}} weight kg | {{2}} total bill | {{3}} coupon | {{4}} amount payable
    Button:    Pay Now → Dynamic https://api.metrogini.com/api/pay/{{1}}
+              ({{1}} = opaque pay_token, NOT numeric order id)
 
 
 6) PAYMENT REMINDER (still unpaid before delivery)
@@ -47,6 +48,7 @@ ORDER LIFECYCLE (scenario order)
    Once:      once per order (deduped)
    Vars:      {{1}} ORD-xxx | {{2}} amount payable
    Button:    Pay Now → Dynamic https://api.metrogini.com/api/pay/{{1}}
+              ({{1}} = opaque pay_token, NOT numeric order id)
 
 
 7) AFTER ORDER OUT FOR DELIVERY (rider picks up from vendor)
@@ -78,7 +80,7 @@ ORDER LIFECYCLE (scenario order)
 ================================================================================
 PAY LINK (not a template — used by Pay Now buttons)
 ================================================================================
-URL:      GET /api/pay/:orderId   (no auth token)
+URL:      GET /api/pay/:token   (opaque pay_token; numeric order ids rejected)
 Action:   Creates/reuses Razorpay Payment Link for remaining_amount → redirect
 Used by:  order_bill_payment_clone, payment_reminder_clone
 

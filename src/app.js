@@ -15,7 +15,7 @@ import newVendorRoute from './routes/vendor/vendor.router.js';
 import newVendorOrderRoute from './routes/vendor/vendorOrder.router.js';
 import vendorNotificationRoute from './routes/vendor/vendorNotification.router.js';
 import whatsappRouter from './routes/whatsapp.router.js';
-import { apiLimiter } from './middleware/rateLimiter.js';
+import { apiLimiter, payRedirectLimiter } from './middleware/rateLimiter.js';
 import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import { startPaymentReminderCron } from "./cron/paymentReminderCron.js";
@@ -64,8 +64,8 @@ app.use(apiLogger);
 app.use(morgan("dev"));
 app.use('/api' , apiLimiter);
 
-/** WhatsApp Pay Now — public redirect to Razorpay Payment Link */
-app.get('/api/pay/:orderId', payRedirect);
+/** WhatsApp Pay Now — opaque token redirect to Razorpay Payment Link */
+app.get('/api/pay/:token', payRedirectLimiter, payRedirect);
 
 /** Force file download when ?download=1 is present on upload URLs. */
 const forceUploadDownload = (req, res, next) => {

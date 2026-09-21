@@ -155,14 +155,14 @@ const normalizeButtonValues = (buttonValues) => {
   }));
 };
 
-/** Dynamic Pay Now URL suffix for /api/pay/{orderId} */
-const payNowButtonValues = (orderId) => [
+/** Dynamic Pay Now URL suffix for /api/pay/{opaque pay_token} */
+const payNowButtonValues = (payToken) => [
   {
     index: 0,
     sub_type: "url",
     parameters: {
       type: "text",
-      text: String(orderId),
+      text: String(payToken || "").trim(),
     },
   },
 ];
@@ -182,6 +182,33 @@ export const sendGallaboxTemplateSafe = (opts) => {
         console.error(`[gallabox] async unhandled:`, err?.message || err);
       });
   });
+};
+
+const sendPayTemplateSafe = async ({
+  orderId,
+  phone,
+  name,
+  templateName,
+  bodyValues,
+}) => {
+  try {
+    const { ensureOrderPayToken } = await import(
+      "../users/payment/payRedirect.service.js"
+    );
+    const payToken = await ensureOrderPayToken(orderId);
+    sendGallaboxTemplateSafe({
+      phone,
+      name,
+      templateName,
+      bodyValues,
+      buttonValues: payNowButtonValues(payToken),
+    });
+  } catch (err) {
+    console.error(
+      `[gallabox] pay token failed template=${templateName} orderId=${orderId}:`,
+      err?.message || err,
+    );
+  }
 };
 
 /** Template: pickup_day_reminder — {{1}} name, {{2}} ORD-xxx */
@@ -246,7 +273,7 @@ const formatWeightValue = (value) => {
 /**
  * Template: order_bill_payment_clone (Dynamic Pay Now URL)
  * {{1}} weight kg, {{2}} total bill, {{3}} coupon code, {{4}} amount payable
- * Pay Now button dynamic suffix = order.id → /api/pay/{id}
+ * Pay Now button dynamic suffix = opaque pay_token → /api/pay/{token}
  */
 export const sendOrderBillPaymentSafe = ({
   mobile,
@@ -268,25 +295,28 @@ export const sendOrderBillPaymentSafe = ({
     return;
   }
 
-  sendGallaboxTemplateSafe({
-    phone: mobile,
-    name,
-    templateName: "order_bill_payment_clone",
-    bodyValues: {
-      "1": formatWeightValue(weightKg),
-      "2": formatMoneyValue(totalBill),
-      "3": String(couponCode || "").trim() || "NA",
-      "4": formatMoneyValue(remaining),
-    },
-    // Dynamic CTA URL suffix for https://api.metrogini.com/api/pay/
-    buttonValues: payNowButtonValues(orderId),
+  setImmediate(() => {
+    sendPayTemplateSafe({
+      orderId,
+      phone: mobile,
+      name,
+      templateName: "order_bill_payment_clone",
+      bodyValues: {
+        "1": formatWeightValue(weightKg),
+        "2": formatMoneyValue(totalBill),
+        "3": String(couponCode || "").trim() || "NA",
+        "4": formatMoneyValue(remaining),
+      },
+    }).catch((err) => {
+      console.error(`[gallabox] order_bill_payment_clone async:`, err?.message || err);
+    });
   });
 };
 
 /**
  * Template: payment_reminder_clone (Dynamic Pay Now URL)
  * {{1}} ORD-xxx, {{2}} amount payable
- * Pay Now button dynamic suffix = order.id → /api/pay/{id}
+ * Pay Now button dynamic suffix = opaque pay_token → /api/pay/{token}
  */
 export const sendPaymentReminderSafe = ({
   mobile,
@@ -299,15 +329,19 @@ export const sendPaymentReminderSafe = ({
     return;
   }
 
-  sendGallaboxTemplateSafe({
-    phone: mobile,
-    name,
-    templateName: "payment_reminder_clone",
-    bodyValues: {
-      "1": formatOrderDisplayId(orderId),
-      "2": formatMoneyValue(remaining),
-    },
-    buttonValues: payNowButtonValues(orderId),
+  setImmediate(() => {
+    sendPayTemplateSafe({
+      orderId,
+      phone: mobile,
+      name,
+      templateName: "payment_reminder_clone",
+      bodyValues: {
+        "1": formatOrderDisplayId(orderId),
+        "2": formatMoneyValue(remaining),
+      },
+    }).catch((err) => {
+      console.error(`[gallabox] payment_reminder_clone async:`, err?.message || err);
+    });
   });
 };
 
