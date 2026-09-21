@@ -207,6 +207,8 @@ const fetchOrders = async (
       st.name AS service_type_name,
       lp.payment_method AS latest_payment_method,
       lp.paid_at AS latest_paid_at,
+      lp.transaction_id AS latest_transaction_id,
+      lp.payment_row_id AS latest_payment_row_id,
       COALESCE(ap.advance_amount, 0) AS advance_amount,
       pg.id AS zone_id,
       pg.group_code AS zone_code,
@@ -219,7 +221,7 @@ const fetchOrders = async (
     LEFT JOIN pincodes p ON p.pincode = uad.pincode
     LEFT JOIN pincode_groups pg ON pg.id = p.pincode_group_id
     LEFT JOIN LATERAL (
-      SELECT payment_method, paid_at
+      SELECT payment_method, paid_at, transaction_id, id AS payment_row_id
       FROM payments
       WHERE order_id = o.id
         AND status = 'success'
@@ -350,6 +352,15 @@ const toIsoDateTime = (value) => {
   return date.toISOString();
 };
 
+const formatPaymentId = (order) => {
+  const tx = String(order.latest_transaction_id || '').trim();
+  if (tx) return tx;
+  if (order.latest_payment_row_id != null) {
+    return `PAY-${String(order.latest_payment_row_id).padStart(3, '0')}`;
+  }
+  return null;
+};
+
 const mapTransaction = (order) => {
   const paymentStatus = String(order.payment_status || 'pending').toLowerCase();
   const billing = buildOrderBillingPayload(order);
@@ -366,6 +377,7 @@ const mapTransaction = (order) => {
 
   return {
     id: Number(order.id),
+    payment_id: formatPaymentId(order),
     order_id: formatOrderId(order),
     order_ref: Number(order.id),
     order_db_id: Number(order.id),
