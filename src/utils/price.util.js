@@ -130,5 +130,6 @@ export const calculateOrderPricing = (order) => {
     final_total,
     advance_payment,
     remaining_payment,
+    base_price_per_kg: order.base_price_per_kg,
   };
 };

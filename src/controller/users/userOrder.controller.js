@@ -194,6 +194,7 @@ export const reviewOrder = async (req, res, next) => {
         remaining_payment: pricing.final_total.toFixed(2),
         total_payable_now: "0.00",
         approx_total: pricing.final_total.toFixed(2),
+        base_price_per_kg: pricing.base_price_per_kg,
       },
     });
   } catch (error) {
