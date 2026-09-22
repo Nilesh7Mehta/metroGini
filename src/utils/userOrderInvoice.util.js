@@ -154,8 +154,8 @@ const buildOrderReceiptPdf = (data) =>
       lineGap: 2,
     });
     const subtitle = isPaid
-      ? 'Here is your laundry order receipt.'
-      : 'Here is your laundry billing summary.';
+      ? 'Here is your order receipt.'
+      : 'Here is your billing summary.';
     doc.font(fonts.regular).fontSize(13);
     const subtitleH = doc.heightOfString(subtitle, { width: textMaxW });
 
@@ -439,7 +439,7 @@ export const ensureUserOrderInvoiceFile = async (
     : Math.round(Number(order.estimated_total || 0));
   const invoiceLines = [
     ...(laundryCharges > 0
-      ? [{ name: 'Laundry charges', amount: laundryCharges }]
+      ? [{ name: 'Wash charges', amount: laundryCharges }]
       : []),
     ...additiveCharges.map((charge) => ({
       name: charge.name,

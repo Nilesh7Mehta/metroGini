@@ -109,7 +109,7 @@ const buildReceiptShellEmailHtml = ({
   subtitle = "",
   bodyHtml,
   issued = formatIssuedDate(),
-  footerTagline = "Laundry",
+  footerTagline = "MetroGini",
   footerMeta = [],
 }) => {
   const safeHeading = escapeHtml(heading);
@@ -201,8 +201,8 @@ const buildInvoiceReceiptEmailHtml = ({
   const safeInvoiceId = escapeHtml(invoiceId);
   const greeting = `Thanks for choosing us, ${safeName}`;
   const subtitle = isPaid
-    ? "Here is your laundry order receipt."
-    : "Here is your laundry billing summary.";
+    ? "Here is your order receipt."
+    : "Here is your billing summary.";
   const total = formatInr(finalTotal);
   const advance = formatInr(advancePaid);
   const remaining = formatInr(remainingPaid);
@@ -338,7 +338,7 @@ const buildInvoiceReceiptEmailHtml = ({
           }
 
           ${buildEmailFooterHtml({
-            footerTagline: "Laundry · Order Receipt",
+            footerTagline: "MetroGini · Wash by Kilo · Order Receipt",
             footerMetaHtml: `<div style="font-size:11px;color:#99F6E4;margin-top:6px;">${safeInvoiceId}</div>
              <div style="font-size:10px;color:#99F6E4;margin-top:4px;">${safeOrderRef}</div>`,
           })}
@@ -487,7 +487,7 @@ export const sendOtpEmail = async ({ email, name, otp }) => {
       ${otpBoxHtml(otp)}
       <p style="margin:0;">If you did not request this OTP, you can safely ignore this email.</p>
     `,
-    footerTagline: "Laundry · Account OTP",
+    footerTagline: "MetroGini · Account OTP",
   });
 
   await sendEmail({
@@ -516,12 +516,12 @@ export const sendPickupOtpEmail = async ({
     subtitle: `Order ${safeOrderRef}`,
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
-      <p style="margin:0 0 12px;">Your laundry pickup for order <strong>${safeOrderRef}</strong> is scheduled for today.</p>
+      <p style="margin:0 0 12px;">Your pickup for order <strong>${safeOrderRef}</strong> is scheduled for today.</p>
       <p style="margin:0 0 12px;">Share this OTP with the rider when they arrive to hand over your clothes:</p>
       ${otpBoxHtml(otp)}
       <p style="margin:0;">Please keep your clothes ready for pickup.</p>
     `,
-    footerTagline: "Laundry · Pickup OTP",
+    footerTagline: "MetroGini · Wash by Kilo · Pickup OTP",
     footerMeta: [orderRef],
   });
 
@@ -552,11 +552,11 @@ export const sendDeliveryOtpEmail = async ({
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
       <p style="margin:0 0 12px;">Your order <strong>${safeOrderRef}</strong> is packed and ready for delivery.</p>
-      <p style="margin:0 0 12px;">Share this OTP with the rider when you receive your laundry:</p>
+      <p style="margin:0 0 12px;">Share this OTP with our rider when you receive your clothes:</p>
       ${otpBoxHtml(otp)}
       <p style="margin:0;">Do not share this OTP until you have received your order.</p>
     `,
-    footerTagline: "Laundry · Delivery OTP",
+    footerTagline: "MetroGini · Wash by Kilo · Delivery OTP",
     footerMeta: [orderRef],
   });
 
@@ -635,19 +635,19 @@ export const sendAdvancePaymentEmail = async ({
     subtitle: `Order ${safeOrderRef}`,
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
-      <p style="margin:0 0 12px;">Your laundry booking slot has been confirmed successfully.</p>
-      <p style="margin:0 0 12px;">Please have your laundry ready on the pickup date mentioned below.</p>
+      <p style="margin:0 0 12px;">Your wash by kilo booking has been confirmed successfully.</p>
+      <p style="margin:0 0 12px;">Please have your clothes ready for pickup.</p>
       <p style="margin:0 0 4px;"><strong>Pickup Date:</strong> ${pickupLabel}</p>
       <p style="margin:0 0 12px;"><strong>Delivery Date:</strong> ${deliveryLabel}</p>
-      <p style="margin:0;">Thank you for choosing our laundry service. We look forward to serving you!</p>
+      <p style="margin:0;">Thank you for choosing MetroGini for your clothing care. We look forward to serving you!</p>
     `,
-    footerTagline: "Laundry · Booking Confirmed",
+    footerTagline: "MetroGini · Wash by Kilo · Booking Confirmed",
     footerMeta: [orderRef],
   });
 
   await sendEmail({
     to: email,
-    subject: `Your laundry booking is confirmed — MetroGini`,
+    subject: `Your Wash by kilo Booking is Confirmed — MetroGini`,
     html,
     emailType: "advance_payment",
     referenceType: "order",
@@ -669,17 +669,17 @@ export const sendOrderCancelledEmail = async ({
     subtitle: `Order ${safeOrderRef}`,
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
-      <p style="margin:0 0 12px;">Your laundry order <strong>${safeOrderRef}</strong> has been cancelled successfully.</p>
+      <p style="margin:0 0 12px;">Your wash by kilo order <strong>${safeOrderRef}</strong> has been cancelled successfully.</p>
       <p style="margin:0 0 12px;">Pickup and delivery for this order will no longer take place.</p>
       <p style="margin:0;">We hope to serve you again soon.</p>
     `,
-    footerTagline: "Laundry · Order Cancelled",
+    footerTagline: "MetroGini · Wash by Kilo · Order Cancelled",
     footerMeta: [orderRef],
   });
 
   await sendEmail({
     to: email,
-    subject: `Your laundry order ${orderRef} has been cancelled — MetroGini`,
+    subject: `Your wash by kilo order ${orderRef} has been cancelled successfully - MetroGini`,
     html,
     emailType: "order_cancelled",
     referenceType: "order",
@@ -806,7 +806,7 @@ export const sendTestEmail = async ({ to, name }) => {
       <p style="margin:0 0 12px;">This is a test email from MetroGini. Your SMTP configuration is working correctly.</p>
       <p style="margin:0;">Sent at: ${escapeHtml(sentAt)} IST</p>
     `,
-    footerTagline: "Laundry · System Test",
+    footerTagline: "MetroGini · System Test",
   });
 
   await sendEmail({

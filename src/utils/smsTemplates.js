@@ -35,7 +35,7 @@ export const SMS_TEMPLATES = {
   },
   OTP_PICKUP: {
     template_id: "107728990003028494",
-    text: "Our rider has arrived for your laundry pickup! Please share OTP {#var#} with the rider to verify your pickup. MetroGini (Wash by Kilo)",
+    text: "Our rider has arrived for your pickup! Please share OTP {#var#} with the rider to verify your pickup. MetroGini (Wash by Kilo)",
     variables: ["otp"],
   },
 };

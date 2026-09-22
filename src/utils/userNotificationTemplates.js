@@ -110,7 +110,7 @@ export const accountCreatedTemplate = ({ name } = {}) => ({
   title: 'Welcome to Metrogini!',
   message: withOptionalLink(
     `Hi ${displayName(name)}, your account has been successfully created. ` +
-      `Say goodbye to laundry days and hello to fresh, clean clothes. ` +
+      `Say goodbye to wash days and hello to fresh, clean clothes. ` +
       `Book your very first pickup in the Metrogini App!`,
     APP_LINK,
     'Book First Pickup 👉',
@@ -163,7 +163,7 @@ export const weightInvoiceTemplate = ({
       : totalAmount;
 
   const baseMessage =
-    `Your laundry for Order ${orderRef(orderCode, orderId)} has been successfully sorted and weighed.\n` +
+    `Your order ${orderRef(orderCode, orderId)} has been successfully sorted and weighed.\n` +
     `Invoice Summary:\n` +
     `• Total Weight: ${formatWeight(weight)} kg\n` +
     `• Total Amount: Rs. ${money(totalAmount)}\n` +
@@ -209,7 +209,7 @@ export const orderReceivedTemplate = ({ orderId } = {}) => ({
 export const pickupOtpTemplate = ({ otp } = {}) => ({
   title: 'Rider arrived for pickup',
   message:
-    `Our rider has arrived for your laundry pickup! ` +
+    `Our rider has arrived for your pickup! ` +
     `Please share OTP ${otp} with the rider to verify your pickup.`,
   data: {
     type: 'pickup_otp',
@@ -218,9 +218,9 @@ export const pickupOtpTemplate = ({ otp } = {}) => ({
 
 /** 7) Delivery OTP at doorstep */
 export const deliveryOtpTemplate = ({ otp } = {}) => ({
-  title: 'Laundry at your doorstep!',
+  title: 'Your clothes at your doorstep!',
   message:
-    `Your fresh laundry is at your doorstep! ` +
+    `Your fresh clothes are at your doorstep! ` +
     `Please share OTP ${otp} with the rider to confirm delivery.`,
   data: {
     type: 'delivery_otp',

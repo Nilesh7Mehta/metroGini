@@ -1893,7 +1893,7 @@ export const finalizeOrderService = async (vendor_id, order_id) => {
   await createNotificationsBatch([{
     identity_id: order.user_id,
     role: 'user',
-    title: 'Your laundry has been weighed',
+    title: 'Your clothes have been weighed',
     message: 'The exact weight has been calculated. The final amount details are available in the app.',
     reference_type: 'order',
     reference_id: order_id,
@@ -1971,7 +1971,7 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
   await createNotificationsBatch([{
     identity_id: order.user_id,
     role: 'user',
-    title: 'Your laundry is ready',
+    title: 'Your order is ready',
     message: `Your order is packed and ready for delivery. Your delivery OTP is ${delivery_otp}. Please share it with the rider upon delivery.`,
     reference_type: 'order',
     reference_id: order_id,

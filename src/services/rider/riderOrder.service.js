@@ -289,7 +289,7 @@ export const verifyOtp = async (rider_id, order_id, otp) => {
       identity_id: pickedRows[0].user_id,
       role: 'user',
       title: 'Clothes Picked Up',
-      message: `Your clothes for order ${formatOrderDisplayId(order_id)} have been picked up and are on the way to the laundry.`,
+      message: `Your clothes for order ${formatOrderDisplayId(order_id)} have been picked up and are on the way to our Wash by Kilo facility.`,
       reference_type: 'order',
       reference_id: order_id,
     }]);
