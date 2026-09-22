@@ -105,6 +105,10 @@ export const formatUserOrder = (order) => {
         order.amount_paid != null ? parseFloat(order.amount_paid) : null,
       discount_price:
         order.discount_price != null ? parseFloat(order.discount_price) : null,
+      base_price_per_kg:
+        order.base_price_per_kg != null
+          ? parseFloat(order.base_price_per_kg)
+          : null,
       extra_price_per_kg:
         order.extra_price_per_kg != null
           ? parseFloat(order.extra_price_per_kg)
