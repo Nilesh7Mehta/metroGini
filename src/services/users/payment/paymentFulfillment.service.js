@@ -2,6 +2,7 @@ import { reserveSlotCapacity } from "../../common/slotAvailability.service.js";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "../../../utils/status.js";
 import { resolveVendorAndRider } from "./paymentAssignment.service.js";
 import { ADVANCE_AMOUNT, formatDate, throwHttpError } from "./razorpay.util.js";
+import { syncOrderAddressSnapshot } from "../../../utils/orderAddressSnapshot.util.js";
 
 export const isPaymentAlreadyProcessed = async (client, razorpayPaymentId) => {
   const { rows } = await client.query(
@@ -130,6 +131,9 @@ export const fulfillAdvancePayment = async ({
   }
 
   if (!order.pickup_date) throwHttpError("Pickup date is required before payment");
+
+  // Freeze address/pincode at booking so later edits cannot change ops routing
+  await syncOrderAddressSnapshot(client, orderId, order.address_id);
 
   const { vendor_id, rider_id, shift_id } = await resolveVendorAndRider(client, {
     ...assignmentMeta,

@@ -47,8 +47,16 @@ export const fetchTodayOrders = async (rider_id) => {
         u.full_name AS customer_name,
         u.id AS customer_id,
         u.mobile AS customer_number,
-        a.complete_address, a.pincode,
-        a.latitude, a.longitude,
+        COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+          a.latitude
+        ) AS latitude,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+          a.longitude
+        ) AS longitude,
         v.laundry_shop_name AS vendor_name,
         v.shop_address AS vendor_address,
         v.latitude AS vendor_latitude,
@@ -56,7 +64,7 @@ export const fetchTodayOrders = async (rider_id) => {
      FROM orders o
      JOIN time_slots ts ON ts.id = o.pickup_slot_id
      JOIN users u ON u.id = o.user_id
-     JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN user_address_details a ON a.id = o.address_id
      LEFT JOIN vendors v ON v.id = o.vendor_id
      WHERE o.assigned_rider_id = $1
        AND o.pickup_date = CURRENT_DATE
@@ -92,10 +100,16 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
         u.full_name AS customer_name,
         u.id AS customer_id,
         u.mobile AS customer_number,
-        a.complete_address,
-        a.pincode,
-        a.latitude,
-        a.longitude,
+        COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+          a.latitude
+        ) AS latitude,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+          a.longitude
+        ) AS longitude,
         v.laundry_shop_name AS vendor_name,
         v.shop_address AS shop_address,
         v.shop_address AS vendor_address,
@@ -104,7 +118,7 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
      FROM orders o
      JOIN time_slots ts ON ts.id = o.delivery_slot_id
      JOIN users u ON u.id = o.user_id
-     JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN user_address_details a ON a.id = o.address_id
      LEFT JOIN vendors v ON v.id = o.vendor_id
      WHERE o.assigned_rider_id = $1
        AND o.delivery_date = CURRENT_DATE
@@ -508,11 +522,11 @@ export const fetchOrderHistory = async (rider_id, query) => {
             o.updated_at, o.otp_generated_at,
             u.full_name AS customer_name,
             st.name AS service_type,
-            uad.complete_address
+            COALESCE(o.address_snapshot->>'complete_address', uad.complete_address) AS complete_address
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
      INNER JOIN service_types st ON st.id = o.service_type_id
-     INNER JOIN user_address_details uad ON uad.id = o.address_id
+     LEFT JOIN user_address_details uad ON uad.id = o.address_id
      WHERE ${where}
      ORDER BY o.id DESC
      LIMIT $${index} OFFSET $${index + 1}`,

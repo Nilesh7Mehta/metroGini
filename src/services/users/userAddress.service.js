@@ -16,6 +16,39 @@ const getUserNameEmail = async (userId) => {
 };
 
 /**
+ * Address used by any non-terminal order must not be edited/deleted
+ * (pincode drives zone, pricing, rider/vendor assignment).
+ */
+const findActiveOrderForAddress = async (addressId, userId) => {
+  const { rows } = await sql.query(
+    `SELECT id, status
+     FROM orders
+     WHERE address_id = $1
+       AND user_id = $2
+       AND status NOT IN ('delivered', 'cancelled')
+     ORDER BY id DESC
+     LIMIT 1`,
+    [addressId, userId],
+  );
+  return rows[0] || null;
+};
+
+const activeAddressOrderError = (order, action) => ({
+  statusCode: 400,
+  body: {
+    success: false,
+    message:
+      action === "edit"
+        ? "This address is linked to an active order and cannot be edited (pincode and location are locked for the ongoing order). Complete or cancel the order first."
+        : "This address is linked to an active order. Complete or cancel the order before deleting it.",
+    data: {
+      order_id: Number(order.id),
+      order_status: order.status,
+    },
+  },
+});
+
+/**
  * Sync name/email onto users table (one profile for many addresses).
  * Only updates fields that are explicitly sent as non-empty values.
  */
@@ -234,6 +267,23 @@ export const addAddress = async ({ userId, body }) => {
 
 // Update Address
 export const updateAddress = async ({ userId, addressId, body }) => {
+  const existing = await sql.query(
+    `SELECT id FROM user_address_details WHERE id = $1 AND user_id = $2`,
+    [addressId, userId],
+  );
+
+  if (existing.rows.length === 0) {
+    return {
+      statusCode: 404,
+      body: { success: false, message: "Address not found or not accessible" },
+    };
+  }
+
+  const activeOrder = await findActiveOrderForAddress(addressId, userId);
+  if (activeOrder) {
+    return activeAddressOrderError(activeOrder, "edit");
+  }
+
   const validated = validateAddressBody(body);
   if (validated.error) {
     return {
@@ -328,6 +378,36 @@ export const updateAddress = async ({ userId, addressId, body }) => {
 
 // Delete Address
 export const deleteAddress = async ({ userId, addressId }) => {
+  const existing = await sql.query(
+    `SELECT id, is_selected FROM user_address_details WHERE id = $1 AND user_id = $2`,
+    [addressId, userId],
+  );
+
+  if (existing.rows.length === 0) {
+    return {
+      statusCode: 404,
+      body: { success: false, message: "Address not found or not accessible" },
+    };
+  }
+
+  if (existing.rows[0].is_selected) {
+    return {
+      statusCode: 400,
+      body: {
+        success: false,
+        message:
+          "Default address cannot be deleted. Set another address as default first.",
+      },
+    };
+  }
+
+  // Keep address while any open order still depends on it
+  // (FK would SET NULL and break rider/pickup flows).
+  const activeOrder = await findActiveOrderForAddress(addressId, userId);
+  if (activeOrder) {
+    return activeAddressOrderError(activeOrder, "delete");
+  }
+
   const deleteQuery = `
     DELETE FROM user_address_details
     WHERE id = $1 AND user_id = $2

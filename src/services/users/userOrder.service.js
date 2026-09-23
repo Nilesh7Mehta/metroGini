@@ -22,6 +22,10 @@ import {
   getCompletedOrderCount,
   resolveLoyaltyCoupon,
 } from "../../utils/loyaltyCoupon.util.js";
+import {
+  fetchAddressSnapshotById,
+  syncOrderAddressSnapshot,
+} from "../../utils/orderAddressSnapshot.util.js";
 
 export const createDraftOrderService = async ({
   user_id,
@@ -37,7 +41,11 @@ export const createDraftOrderService = async ({
     }
 
     const addressResult = await client.query(
-      `SELECT id, pincode FROM user_address_details WHERE user_id = $1 AND is_selected = true LIMIT 1`,
+      `SELECT id, pincode, address_type, complete_address, floor, landmark,
+              receiver_name, contact_number, latitude, longitude
+       FROM user_address_details
+       WHERE user_id = $1 AND is_selected = true
+       LIMIT 1`,
       [user_id],
     );
     const address = addressResult.rows[0];
@@ -46,6 +54,11 @@ export const createDraftOrderService = async ({
 
     await assertPincodeServiceable(address.pincode);
     const addressId = address.id;
+    const addressSnapshot = await fetchAddressSnapshotById(client, addressId);
+    if (!addressSnapshot) {
+      throw { status: 400, message: "Please select a valid delivery address" };
+    }
+    const snapshotJson = JSON.stringify(addressSnapshot);
 
     const { min: min_weight, max: max_weight } =
       getEstimatedWeightRangeFromClothesCount(clothes_count);
@@ -61,14 +74,15 @@ export const createDraftOrderService = async ({
     if (existingDraft.rows.length > 0) {
       const updateResult = await client.query(
         `UPDATE orders SET service_id=$1, clothes_count=$2, estimated_weight_min=$3,
-         estimated_weight_max=$4, address_id=$5, updated_at=NOW()
-         WHERE id=$6 RETURNING id`,
+         estimated_weight_max=$4, address_id=$5, address_snapshot=$6::jsonb, updated_at=NOW()
+         WHERE id=$7 RETURNING id`,
         [
           service_id,
           clothes_count,
           min_weight,
           max_weight,
           addressId,
+          snapshotJson,
           existingDraft.rows[0].id,
         ],
       );
@@ -76,9 +90,18 @@ export const createDraftOrderService = async ({
     } else {
       const insertResult = await client.query(
         `INSERT INTO orders (user_id, service_id, clothes_count, estimated_weight_min,
-         estimated_weight_max, address_id, status, order_code)
-         VALUES ($1,$2,$3,$4,$5,$6,'draft',$7) RETURNING id`,
-        [user_id, service_id, clothes_count, min_weight, max_weight, addressId, order_code],
+         estimated_weight_max, address_id, address_snapshot, status, order_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'draft',$8) RETURNING id`,
+        [
+          user_id,
+          service_id,
+          clothes_count,
+          min_weight,
+          max_weight,
+          addressId,
+          snapshotJson,
+          order_code,
+        ],
       );
       orderId = insertResult.rows[0].id;
     }
@@ -785,7 +808,10 @@ const fetchReviewOrderRow = async (db, orderId, userId) => {
             TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
             TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
             delivery_slot.start_time AS delivery_start, delivery_slot.end_time AS delivery_end,
-            ua.complete_address AS full_address,
+            COALESCE(
+              o.address_snapshot->>'complete_address',
+              ua.complete_address
+            ) AS full_address,
             ts.is_peak, ts.peak_extra_charge,
             c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value,
             c.minimum_amount_value, c.maximum_amount_value

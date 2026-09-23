@@ -138,22 +138,42 @@ const getAdminDisplayStatus = (status) => {
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
 const mapOrderAddress = (order) => {
-  if (!order.address_id) return null;
+  const snapshot =
+    order.address_snapshot && typeof order.address_snapshot === 'object'
+      ? order.address_snapshot
+      : null;
+
+  const completeAddress =
+    snapshot?.complete_address || order.complete_address || null;
+  const pincode = snapshot?.pincode || order.address_pincode || null;
+
+  if (!order.address_id && !completeAddress && !pincode) return null;
 
   return {
-    id: Number(order.address_id),
-    address_type: order.address_type || null,
-    complete_address: order.complete_address || null,
-    floor: order.address_floor || null,
-    landmark: order.address_landmark || null,
-    receiver_name: order.address_receiver_name || null,
-    contact_number: order.address_contact_number || null,
+    id: order.address_id != null ? Number(order.address_id) : null,
+    address_type: snapshot?.address_type || order.address_type || null,
+    complete_address: completeAddress,
+    floor: snapshot?.floor || order.address_floor || null,
+    landmark: snapshot?.landmark || order.address_landmark || null,
+    receiver_name:
+      snapshot?.receiver_name || order.address_receiver_name || null,
+    contact_number:
+      snapshot?.contact_number || order.address_contact_number || null,
     latitude:
-      order.address_latitude != null ? Number(order.address_latitude) : null,
+      snapshot?.latitude != null
+        ? Number(snapshot.latitude)
+        : order.address_latitude != null
+          ? Number(order.address_latitude)
+          : null,
     longitude:
-      order.address_longitude != null ? Number(order.address_longitude) : null,
-    pincode: order.address_pincode || null,
+      snapshot?.longitude != null
+        ? Number(snapshot.longitude)
+        : order.address_longitude != null
+          ? Number(order.address_longitude)
+          : null,
+    pincode,
     is_selected: Boolean(order.address_is_selected),
+    from_snapshot: Boolean(snapshot),
   };
 };
 
@@ -636,6 +656,7 @@ const fetchAdminOrderById = async (orderId) => {
       o.vendor_id,
       o.assigned_rider_id,
       o.address_id,
+      o.address_snapshot,
       u.full_name AS customer_name,
       u.mobile AS customer_mobile,
       u.email AS customer_email,
@@ -645,15 +666,21 @@ const fetchAdminOrderById = async (orderId) => {
       delivery_ts.shift_name AS delivery_shift_name,
       r.full_name AS rider_name,
       v.laundry_shop_name AS vendor_name,
-      uad.address_type,
-      uad.complete_address,
-      uad.floor AS address_floor,
-      uad.landmark AS address_landmark,
-      uad.receiver_name AS address_receiver_name,
-      uad.contact_number AS address_contact_number,
-      uad.latitude AS address_latitude,
-      uad.longitude AS address_longitude,
-      uad.pincode AS address_pincode,
+      COALESCE(o.address_snapshot->>'address_type', uad.address_type) AS address_type,
+      COALESCE(o.address_snapshot->>'complete_address', uad.complete_address) AS complete_address,
+      COALESCE(o.address_snapshot->>'floor', uad.floor) AS address_floor,
+      COALESCE(o.address_snapshot->>'landmark', uad.landmark) AS address_landmark,
+      COALESCE(o.address_snapshot->>'receiver_name', uad.receiver_name) AS address_receiver_name,
+      COALESCE(o.address_snapshot->>'contact_number', uad.contact_number) AS address_contact_number,
+      COALESCE(
+        NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+        uad.latitude
+      ) AS address_latitude,
+      COALESCE(
+        NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+        uad.longitude
+      ) AS address_longitude,
+      COALESCE(o.address_snapshot->>'pincode', uad.pincode) AS address_pincode,
       uad.is_selected AS address_is_selected
     FROM orders o
     JOIN users u ON o.user_id = u.id

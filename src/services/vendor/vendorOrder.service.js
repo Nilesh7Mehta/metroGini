@@ -1472,7 +1472,7 @@ export const getOrderDetailsService = async (vendor_id, order_id) => {
       o.service_id,
       u.full_name AS customer_name,
       u.profile_image AS customer_image,
-      ua.complete_address AS address,
+      COALESCE(o.address_snapshot->>'complete_address', ua.complete_address) AS address,
       o.estimated_weight_min,
       o.estimated_weight_max,
       o.clothes_count,
