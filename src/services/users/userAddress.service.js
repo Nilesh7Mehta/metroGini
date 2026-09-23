@@ -227,11 +227,19 @@ export const addAddress = async ({ userId, body }) => {
     throw error;
   }
 
+  // New address always becomes the default; clear any previous default first
+  await sql.query(
+    `UPDATE user_address_details
+     SET is_selected = FALSE
+     WHERE user_id = $1 AND is_selected = TRUE`,
+    [userId],
+  );
+
   const result = await sql.query(
     `INSERT INTO user_address_details
        (user_id, address_type, complete_address, floor, landmark, receiver_name,
-        contact_number, latitude, longitude, pincode)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        contact_number, latitude, longitude, pincode, is_selected)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)
      RETURNING id`,
     [
       userId,
