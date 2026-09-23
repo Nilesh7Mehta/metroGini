@@ -115,6 +115,29 @@ export const formatUserOrder = (order) => {
           : null,
     },
     payment_status: order.payment_status || "pending",
+    coupon: order.coupon_id || order.coupon_code
+      ? {
+          id: order.coupon_id != null ? Number(order.coupon_id) : null,
+          coupon_code: order.coupon_code ?? null,
+          discount_type: order.discount_type ?? null,
+          discount_value:
+            order.discount_value != null
+              ? parseFloat(order.discount_value)
+              : null,
+          minimum_amount_value:
+            order.minimum_amount_value != null
+              ? parseFloat(order.minimum_amount_value)
+              : null,
+          maximum_amount_value:
+            order.maximum_amount_value != null
+              ? parseFloat(order.maximum_amount_value)
+              : null,
+          discount_amount:
+            order.discount_price != null
+              ? parseFloat(order.discount_price)
+              : null,
+        }
+      : null,
     timestamps: buildOrderTimestamps(order),
     rider: order.rider_id
     ? {

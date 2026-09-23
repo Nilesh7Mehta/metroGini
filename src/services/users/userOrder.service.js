@@ -1149,6 +1149,7 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
     `SELECT o.id, o.status,o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue, o.vendor_amount_per_kg, o.base_price_per_kg, o.extra_price_per_kg,
             o.is_damaged, o.damage_count, o.damage_images,
             o.pickup_special_instruction, o.delivery_special_instruction,
+            o.applied_coupon_id,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
             o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
             o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
@@ -1160,12 +1161,19 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
             TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
             r.id AS rider_id,
             r.full_name AS rider_name,
-            r.mobile_number AS rider_number
+            r.mobile_number AS rider_number,
+            c.id AS coupon_id,
+            c.coupon_code,
+            c.discount_type,
+            c.discount_value,
+            c.minimum_amount_value,
+            c.maximum_amount_value
      FROM orders o
      JOIN services s ON o.service_id=s.id
      LEFT JOIN time_slots pickup_slot ON o.pickup_slot_id=pickup_slot.id
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
      LEFT JOIN riders r ON r.id = o.assigned_rider_id
+     LEFT JOIN coupons c ON c.id = o.applied_coupon_id
      WHERE o.id = $1 AND o.user_id = $2`,
     [order_id, user_id],
   );
