@@ -29,6 +29,17 @@ export const verifyOTP = async (req, res, next) => {
   }
 };
 
+export const deleteAccount = async (req, res, next) => {
+  try {
+    const { statusCode, body } = await userAuthService.deleteAccount({
+      userId: req.user.id,
+    });
+    return res.status(statusCode).json(body);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const resendOtp = async (req, res, next) => {
   try {
     const { statusCode, body } = await userAuthService.resendOtp({

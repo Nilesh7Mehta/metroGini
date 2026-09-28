@@ -249,6 +249,7 @@ export const verifyOTP = async ({ mobile, otp }) => {
     `UPDATE users
      SET terms_and_condition = TRUE,
          is_mobile_verified = TRUE,
+         is_deleted = FALSE,
          otp = NULL,
          otp_expires_at = NULL,
          otp_attempts = 0
@@ -311,6 +312,12 @@ export const refreshAccessToken = async ({ refresh_token }) => {
   );
 
   const user = userResult.rows[0];
+  if (!user) {
+    return { statusCode: 403, body: { success: false, message: "Invalid refresh token" } };
+  }
+  if (user.is_deleted) {
+    return { statusCode: 403, body: { success: false, message: "Account deleted" } };
+  }
 
   const newAccessToken = jwt.sign(
     { id: user.id, mobile: user.mobile },
@@ -343,5 +350,29 @@ export const logout = async ({ refresh_token }) => {
   return {
     statusCode: 200,
     body: { success: true, message: "Logged out successfully" },
+  };
+};
+
+export const deleteAccount = async ({ userId }) => {
+  const { rows } = await sql.query(
+    `UPDATE users
+     SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND role::text = 'user'
+     RETURNING id`,
+    [userId],
+  );
+
+  if (rows.length === 0) {
+    return {
+      statusCode: 404,
+      body: { success: false, message: "User not found" },
+    };
+  }
+
+  await sql.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
+
+  return {
+    statusCode: 200,
+    body: { success: true, message: "Account deleted" },
   };
 };

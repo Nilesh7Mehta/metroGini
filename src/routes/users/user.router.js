@@ -15,6 +15,7 @@ router.post('/resend-otp', sendOtpLimiter, userController.resendOtp);
 
 router.post('/refresh-token', userController.refreshAccessToken);
 router.post('/logout', userController.logout);
+router.delete('/account', authenticate, isUser, userController.deleteAccount);
 
 router.get('/profile', authenticate, isUser, userController.getProfile);
 router.put("/profile",authenticate, profileUpload.single("profile_image"), userController.updateProfile);
