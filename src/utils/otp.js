@@ -3,6 +3,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const DUMMY_AUTH_MOBILE = "9999988888";
+export const DUMMY_AUTH_MOBILES = [
+  "9999988888",
+  "7900053243",
+  "9004186460",
+];
 export const DUMMY_AUTH_OTP = "1234";
 
 const parsedOtpExpiryMinutes = Number(process.env.OTP_EXPIRY);
@@ -16,16 +21,15 @@ export const OTP_RESEND_COOLDOWN_SECONDS = 0;
 export const OTP_MAX_ATTEMPTS = 5;
 
 export const isDummyAuthMobile = (mobile) =>
-  String(mobile || "").trim() === DUMMY_AUTH_MOBILE;
+  DUMMY_AUTH_MOBILES.includes(String(mobile || "").trim());
 
 export const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
-/** Test mobile always gets fixed OTP; all others get a random OTP. */
+/** Test mobiles always get fixed OTP; all others get a random OTP. */
 export const resolveAuthOtpForMobile = (mobile) => {
-  const normalized = String(mobile || "").trim();
-  if (normalized === DUMMY_AUTH_MOBILE) return DUMMY_AUTH_OTP;
+  if (isDummyAuthMobile(mobile)) return DUMMY_AUTH_OTP;
   return generateOTP();
 };
 
