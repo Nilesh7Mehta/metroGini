@@ -48,6 +48,11 @@ export const fetchTodayOrders = async (rider_id) => {
         u.id AS customer_id,
         u.mobile AS customer_number,
         COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'floor', a.floor) AS floor,
+        COALESCE(o.address_snapshot->>'landmark', a.landmark) AS landmark,
+        COALESCE(o.address_snapshot->>'address_type', a.address_type) AS address_type,
+        COALESCE(o.address_snapshot->>'receiver_name', a.receiver_name) AS receiver_name,
+        COALESCE(o.address_snapshot->>'contact_number', a.contact_number) AS contact_number,
         COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
         COALESCE(
           NULLIF(o.address_snapshot->>'latitude', '')::double precision,
@@ -101,6 +106,11 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
         u.id AS customer_id,
         u.mobile AS customer_number,
         COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'floor', a.floor) AS floor,
+        COALESCE(o.address_snapshot->>'landmark', a.landmark) AS landmark,
+        COALESCE(o.address_snapshot->>'address_type', a.address_type) AS address_type,
+        COALESCE(o.address_snapshot->>'receiver_name', a.receiver_name) AS receiver_name,
+        COALESCE(o.address_snapshot->>'contact_number', a.contact_number) AS contact_number,
         COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
         COALESCE(
           NULLIF(o.address_snapshot->>'latitude', '')::double precision,
@@ -522,7 +532,12 @@ export const fetchOrderHistory = async (rider_id, query) => {
             o.updated_at, o.otp_generated_at,
             u.full_name AS customer_name,
             st.name AS service_type,
-            COALESCE(o.address_snapshot->>'complete_address', uad.complete_address) AS complete_address
+            COALESCE(o.address_snapshot->>'complete_address', uad.complete_address) AS complete_address,
+            COALESCE(o.address_snapshot->>'floor', uad.floor) AS floor,
+            COALESCE(o.address_snapshot->>'landmark', uad.landmark) AS landmark,
+            COALESCE(o.address_snapshot->>'address_type', uad.address_type) AS address_type,
+            COALESCE(o.address_snapshot->>'receiver_name', uad.receiver_name) AS receiver_name,
+            COALESCE(o.address_snapshot->>'contact_number', uad.contact_number) AS contact_number
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
      INNER JOIN service_types st ON st.id = o.service_type_id
