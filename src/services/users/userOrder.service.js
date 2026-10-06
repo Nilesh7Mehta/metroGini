@@ -1208,7 +1208,7 @@ export const getCurrentUserOrdersService = async ({ user_id, limit = 3 }) => {
 
 export const getUserOrderByIdService = async ({ user_id, order_id }) => {
   const result = await sql.query(
-    `SELECT o.id, o.status, o.pickup_otp, o.delivery_otp, o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue, o.vendor_amount_per_kg, o.base_price_per_kg, o.extra_price_per_kg,
+    `SELECT o.id, o.status, o.pickup_otp, o.delivery_otp, o.amount_paid, o.remaining_amount, o.discount_price ,o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max, o.actual_weight, o.estimated_total, o.final_total, o.is_stained, o.vendor_request_amount, o.vendor_request_markup, o.vendor_revenue, o.vendor_amount_per_kg, o.base_price_per_kg, o.extra_price_per_kg,
             o.is_damaged, o.damage_count, o.damage_images, o.stain_images,
             o.pickup_special_instruction, o.delivery_special_instruction,
             o.applied_coupon_id,

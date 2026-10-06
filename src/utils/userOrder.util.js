@@ -83,6 +83,10 @@ export const formatUserOrder = (order) => {
     item_details: {
       clothes_count: order.clothes_count,
       estimated_weight: `${order.estimated_weight_min} - ${order.estimated_weight_max} kg`,
+      final_weight:
+        order.actual_weight != null && order.actual_weight !== ""
+          ? parseFloat(order.actual_weight)
+          : null,
     },
     pricing: {
       estimated_total:
@@ -119,31 +123,15 @@ export const formatUserOrder = (order) => {
         order.extra_price_per_kg != null
           ? parseFloat(order.extra_price_per_kg)
           : null,
+      coupon: order.coupon_code
+        ? {
+            coupon_code: order.coupon_code,
+            discount_type: order.discount_type,
+            discount_value: order.discount_value,
+          }
+        : null,
     },
     payment_status: order.payment_status || "pending",
-    coupon: order.coupon_id || order.coupon_code
-      ? {
-          id: order.coupon_id != null ? Number(order.coupon_id) : null,
-          coupon_code: order.coupon_code ?? null,
-          discount_type: order.discount_type ?? null,
-          discount_value:
-            order.discount_value != null
-              ? parseFloat(order.discount_value)
-              : null,
-          minimum_amount_value:
-            order.minimum_amount_value != null
-              ? parseFloat(order.minimum_amount_value)
-              : null,
-          maximum_amount_value:
-            order.maximum_amount_value != null
-              ? parseFloat(order.maximum_amount_value)
-              : null,
-          discount_amount:
-            order.discount_price != null
-              ? parseFloat(order.discount_price)
-              : null,
-        }
-      : null,
     timestamps: buildOrderTimestamps(order),
     rider: order.rider_id
     ? {
