@@ -390,6 +390,8 @@ export const finalizeOrderService = async ({ order_id, user_id }) => {
     ],
   );
 
+  await refreshAppliedCouponDiscount(sql, order_id, user_id);
+
   const received = orderReceivedTemplate({ orderId: order_id });
   await createNotificationsBatch([
     {
@@ -561,6 +563,8 @@ export const completeOrderService = async ({
       ],
     );
 
+    await refreshAppliedCouponDiscount(client, order_id, user_id);
+
     await client.query("COMMIT");
 
     const timestamps = await fetchOrderTimestamps(sql, order_id);
@@ -649,10 +653,13 @@ const resolveDraftGrossAmount = async (client, orderRow) => {
   };
 
   const { gross_total: calculatedAmount } = calculateOrderPricing(pricingOrder);
+  // Use the live weight × rate total. A previously saved estimated_total can
+  // belong to an older kg band and then cap a per-kg coupon (₹15/kg) too low.
+  const storedEstimate = Number(orderRow.estimated_total);
   const orderAmount =
-    orderRow.estimated_total != null
-      ? Number(orderRow.estimated_total)
-      : calculatedAmount;
+    Number.isFinite(calculatedAmount) && calculatedAmount > 0
+      ? calculatedAmount
+      : storedEstimate;
 
   if (!orderAmount || Number.isNaN(orderAmount) || orderAmount <= 0) {
     throw {
@@ -781,6 +788,7 @@ const persistCouponOnOrder = async (
     maximum_amount_value: coupon.maximum_amount_value,
     estimated_weight_min: pricingOrder.estimated_weight_min,
     estimated_weight_max: pricingOrder.estimated_weight_max,
+    actual_weight: order.actual_weight,
   });
 
   await client.query(
@@ -798,6 +806,49 @@ const persistCouponOnOrder = async (
     discount,
     approx_total: net_total,
   };
+};
+
+/** Rewrite discount_price from the current kg band and zone rate. */
+const refreshAppliedCouponDiscount = async (client, orderId, userId) => {
+  const order = await loadOrderForCouponMutation(client, orderId, userId);
+  if (!order?.applied_coupon_id || !order.discount_type) return null;
+
+  const isPostWeigh =
+    order.actual_weight != null && Number(order.actual_weight) > 0;
+
+  if (isPostWeigh) {
+    const totals = computeFinalTotalsFromOrder(order);
+    await client.query(
+      `UPDATE orders
+       SET discount_price = $1,
+           final_total = $2,
+           remaining_amount = $3,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [totals.discount, totals.final_total, totals.remaining_amount, orderId],
+    );
+    return totals.discount;
+  }
+
+  const { orderAmount, pricingOrder } = await resolveDraftGrossAmount(
+    client,
+    order,
+  );
+  const { discount } = applyCouponDiscount(orderAmount, {
+    applied_coupon_id: order.applied_coupon_id,
+    discount_type: order.discount_type,
+    discount_value: order.discount_value,
+    minimum_amount_value: order.minimum_amount_value,
+    maximum_amount_value: order.maximum_amount_value,
+    estimated_weight_min: pricingOrder.estimated_weight_min,
+    estimated_weight_max: pricingOrder.estimated_weight_max,
+  });
+
+  await client.query(
+    `UPDATE orders SET discount_price = $1, updated_at = NOW() WHERE id = $2`,
+    [discount, orderId],
+  );
+  return discount;
 };
 
 const fetchReviewOrderRow = async (db, orderId, userId) => {
@@ -870,6 +921,15 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
           if (!autoErr?.status || autoErr.status >= 500) throw autoErr;
         }
       }
+    }
+
+    if (order.applied_coupon_id) {
+      const discount = await refreshAppliedCouponDiscount(
+        client,
+        order.id,
+        user_id,
+      );
+      if (discount != null) order.discount_price = discount;
     }
 
     await client.query("COMMIT");
