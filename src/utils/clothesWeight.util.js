@@ -1,7 +1,7 @@
 const WEIGHT_TIERS = [
-  { minClothes: 10, maxClothes: 14, minKg: 3.0, maxKg: 5.0 },
-  { minClothes: 15, maxClothes: 18, minKg: 5.0, maxKg: 7.0 },
-  { minClothes: 19, maxClothes: 25, minKg: 8.0, maxKg: 11.0 },
+  { minClothes: 10, maxClothes: 14, minKg: 3.0, maxKg: 4.0 },
+  { minClothes: 15, maxClothes: 20, minKg: 5.0, maxKg: 6.0 },
+  { minClothes: 21, maxClothes: 25, minKg: 7.0, maxKg: 8.0 },
 ];
 
 export const getEstimatedWeightRangeFromClothesCount = (clothes_count) => {

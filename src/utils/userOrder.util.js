@@ -57,6 +57,9 @@ export const formatUserOrder = (order) => {
   return {
     order_id: order.id,
     status: order.status,
+    pickup_otp: order.pickup_otp != null ? String(order.pickup_otp) : null,
+    delivery_otp:
+      order.delivery_otp != null ? String(order.delivery_otp) : null,
     service_name: order.service_name,
     service_image: order.service_image,
     is_stained: order.is_stained,

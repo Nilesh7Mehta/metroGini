@@ -12,6 +12,7 @@ const SENSITIVE_KEYS = new Set([
   "refreshtoken",
   "authorization",
   "pan_card_number",
+  "pickup_otp",
   "delivery_otp",
   "jwt",
   "secret",
