@@ -491,8 +491,9 @@ const fetchEarliestPendingDeliveryDate = async (
 };
 
 /**
- * Current task deadline = next laundry schedule slot, or the earliest
- * pending delivery date from today onward when that is sooner.
+ * Current task deadline = earliest delivery date of orders already handed
+ * to this vendor. The next laundry shift is only a fallback when nothing
+ * has been received yet, so an open evening shift does not hide them.
  */
 const resolveCurrentTaskDeadline = async (vendor_id) => {
   const scheduleRow = await fetchNextScheduleRow(vendor_id);
@@ -502,13 +503,7 @@ const resolveCurrentTaskDeadline = async (vendor_id) => {
   });
 
   let deadlineDate = null;
-  if (earliestUpcomingPending && scheduleRow) {
-    const scheduleDate = formatPgDate(scheduleRow.next_date);
-    deadlineDate =
-      earliestUpcomingPending <= scheduleDate
-        ? earliestUpcomingPending
-        : scheduleDate;
-  } else if (earliestUpcomingPending) {
+  if (earliestUpcomingPending) {
     deadlineDate = earliestUpcomingPending;
   } else if (scheduleRow) {
     deadlineDate = formatPgDate(scheduleRow.next_date);
