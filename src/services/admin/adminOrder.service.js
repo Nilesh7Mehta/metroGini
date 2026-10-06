@@ -337,6 +337,7 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     receiver_contact_number: order.receiver_contact_number || null,
     service_type: getServiceKey(order.service_id),
     status: getAdminDisplayStatus(order.status),
+    payment_status: order.payment_status || 'pending',
     shift,
     issue_type: resolveIssueType(order),
     est_fin: buildEstFin(order),
