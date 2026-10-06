@@ -7,7 +7,7 @@ import {
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 
-const VALID_PERIODS = ['today', 'week', 'month'];
+const VALID_PERIODS = ['today', 'yesterday', 'week', 'month'];
 const VALID_PAYMENT_STATUSES = [
   'paid',
   'partially_paid',
@@ -26,6 +26,13 @@ const formatDate = (date) => date.toLocaleDateString('en-CA');
 
 const getDateRange = (period) => {
   const now = new Date();
+
+  if (period === 'yesterday') {
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const day = formatDate(yesterday);
+    return { start: day, end: day };
+  }
 
   if (period === 'week') {
     const day = now.getDay();
@@ -190,6 +197,7 @@ const fetchOrders = async (
       o.final_total,
       o.estimated_total,
       o.actual_weight,
+      o.actual_clothes_count,
       o.estimated_weight_min,
       o.estimated_weight_max,
       o.base_price_per_kg,
@@ -385,6 +393,11 @@ const mapTransaction = (order) => {
     order_db_id: Number(order.id),
     customer_id: formatCustomerId(order.user_id),
     customer_name: order.customer_name || null,
+    clothes_confirmed: Number(order.actual_clothes_count) > 0,
+    actual_clothes_count:
+      order.actual_clothes_count != null
+        ? Number(order.actual_clothes_count)
+        : null,
     receiver_name: order.receiver_name || null,
     receiver_contact_number: order.receiver_contact_number || null,
     service_type: getServiceKey(order.service_id),
