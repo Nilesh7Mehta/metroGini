@@ -338,9 +338,12 @@ const buildOverviewDays = (rangeStart, rangeEnd, orders) => {
   let date = rangeStart;
 
   while (date <= rangeEnd) {
+    const counts = countDayTasks(orders, date);
     days.push({
       date,
-      total_tasks: countDayTasks(orders, date).total_tasks,
+      total_tasks: counts.total_tasks,
+      pickup_count: counts.total_pickups,
+      delivery_count: counts.total_deliveries,
     });
     date = addDays(date, 1);
   }

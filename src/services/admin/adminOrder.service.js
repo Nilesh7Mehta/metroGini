@@ -257,6 +257,8 @@ const buildDays = (selectedDate, orders) => {
     days.push({
       date,
       total_plan: pickupToday + deliveryToday,
+      pickup_count: pickupToday,
+      delivery_count: deliveryToday,
     });
   }
 
