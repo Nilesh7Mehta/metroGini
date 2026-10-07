@@ -181,11 +181,12 @@ const resolveIssueType = (order) => {
   const opsIssue = resolveOpsIssueType(order);
   if (opsIssue) return opsIssue;
 
+  // Default actual_clothes_count is 0 until the vendor confirms clothes.
   if (
-    order.actual_clothes_count != null &&
+    Number(order.actual_clothes_count) > 0 &&
     order.clothes_count != null &&
-    order.clothes_count > 0 &&
-    Math.abs(order.actual_clothes_count - order.clothes_count) >= 3
+    Number(order.clothes_count) > 0 &&
+    Math.abs(Number(order.actual_clothes_count) - Number(order.clothes_count)) >= 3
   ) {
     return 'count_mismatch';
   }
@@ -193,19 +194,39 @@ const resolveIssueType = (order) => {
   return null;
 };
 
+const weightIsFinalized = (order) =>
+  order.actual_weight != null && String(order.actual_weight).trim() !== '';
+
 const buildEstFin = (order) => {
   const isWash = Number(order.service_id) === 1;
 
   if (isWash) {
     const est = getEstimatedKg(order.estimated_weight_min, order.estimated_weight_max);
-    const fin = order.actual_weight != null ? Number(order.actual_weight) : est;
-    return `${est}kg/${fin}kg`;
+    if (!weightIsFinalized(order)) return `${est}kg/—`;
+    return `${est}kg/${Number(order.actual_weight)}kg`;
   }
 
   const est = Number(order.clothes_count || 0);
-  const fin = Number(order.actual_clothes_count ?? order.clothes_count ?? 0);
-  return `${est}/${fin} Items`;
+  if (!(Number(order.actual_clothes_count) > 0)) return `${est}/— Items`;
+  return `${est}/${Number(order.actual_clothes_count)} Items`;
 };
+
+const VENDOR_FINISHED_STATUSES = [
+  'order_finalized',
+  'ready_for_delivery',
+  'out_for_delivery',
+  'delivered',
+];
+
+/** Vendor has confirmed clothes, finalized weight, or moved the order ahead. */
+const vendorHasStarted = (order) => {
+  if (Number(order.actual_clothes_count) > 0) return true;
+  if (weightIsFinalized(order)) return true;
+  return VENDOR_FINISHED_STATUSES.includes(order.status);
+};
+
+const isAttentionRequired = (order, selectedDate) =>
+  isDeliveryOnDate(order, selectedDate) && !vendorHasStarted(order);
 
 const getOrderTotal = (order) =>
   Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
@@ -299,6 +320,8 @@ const buildKpis = (selectedDate, orders) => {
     failed_delivery: deliveryOrders.filter(
       (o) => resolveDeliveryStatus(o) === 'failed',
     ).length,
+    attention_required: deliveryOrders.filter((o) => isAttentionRequired(o, selectedDate))
+      .length,
   };
 };
 
@@ -335,6 +358,8 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     customer_name: order.customer_name || null,
     receiver_name: order.receiver_name || null,
     receiver_contact_number: order.receiver_contact_number || null,
+    vendor_name: order.vendor_name || null,
+    vendor_contact_number: order.vendor_contact_number || null,
     service_type: getServiceKey(order.service_id),
     status: getAdminDisplayStatus(order.status),
     payment_status: order.payment_status || 'pending',
@@ -360,6 +385,7 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     delivery_date: toDateStr(order.delivery_date),
     assigned_rider: riderName,
     rider_name: riderName,
+    rider_contact_number: order.rider_contact_number || null,
     pickup: {
       rider: pickupCompleted || pickupTs ? riderName : null,
       timestamp: pickupTs,
@@ -399,6 +425,8 @@ const fetchOrdersForRange = async ({
       u.full_name AS customer_name,
       COALESCE(o.address_snapshot->>'receiver_name', uad.receiver_name) AS receiver_name,
       COALESCE(o.address_snapshot->>'contact_number', uad.contact_number) AS receiver_contact_number,
+      v.laundry_shop_name AS vendor_name,
+      v.mobile_number AS vendor_contact_number,
       o.pickup_slot_id,
       o.pickup_date,
       o.delivery_date,
@@ -430,6 +458,7 @@ const fetchOrdersForRange = async ({
       c.maximum_amount_value,
       o.assigned_rider_id,
       r.full_name AS rider_name,
+      r.mobile_number AS rider_contact_number,
       o.out_for_pickup_at,
       o.pickup_started_at,
       o.pickup_completed_at,
@@ -446,6 +475,7 @@ const fetchOrdersForRange = async ({
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN time_slots pickup_ts ON pickup_ts.id = o.pickup_slot_id
     LEFT JOIN riders r ON r.id = o.assigned_rider_id
+    LEFT JOIN vendors v ON v.id = o.vendor_id
     LEFT JOIN coupons c ON c.id = o.applied_coupon_id
     ${ORDER_ZONE_JOINS}
     LEFT JOIN (
@@ -515,7 +545,40 @@ export const getAdminOrdersService = async (query = {}) => {
     isActiveOnDate(order, selectedDate),
   );
 
-  const mappedOrders = selectedOrders.map((order) =>
+  const paymentStatus = String(query.payment_status || '').trim().toLowerCase();
+  const ticker = String(query.ticker || '').trim().toLowerCase();
+  const issueType = String(query.issue_type || '').trim().toLowerCase();
+
+  const listOrders = selectedOrders.filter((order) => {
+    const paid = String(order.payment_status || 'pending').toLowerCase() === 'paid';
+    if (paymentStatus === 'paid' && !paid) return false;
+    if (paymentStatus === 'unpaid' && paid) return false;
+
+    if (ticker === 'pickup' && !isPickupOnDate(order, selectedDate)) return false;
+    if (ticker === 'delivery' && !isDeliveryOnDate(order, selectedDate)) return false;
+    if (
+      ticker === 'failed_pickup' &&
+      !(isPickupOnDate(order, selectedDate) && resolvePickupStatus(order) === 'failed')
+    ) {
+      return false;
+    }
+    if (
+      ticker === 'failed_delivery' &&
+      !(isDeliveryOnDate(order, selectedDate) && resolveDeliveryStatus(order) === 'failed')
+    ) {
+      return false;
+    }
+    if (ticker === 'attention_required' && !isAttentionRequired(order, selectedDate)) {
+      return false;
+    }
+    if (ticker === 'balance_collected' && getBalanceCollected(order) <= 0) return false;
+    if (ticker === 'balance_pending' && getBalancePayable(order) <= 0) return false;
+
+    if (issueType && resolveIssueType(order) !== issueType) return false;
+    return true;
+  });
+
+  const mappedOrders = listOrders.map((order) =>
     mapAdminOrderRow(order, selectedDate, shiftByPickupSlot),
   );
   const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);

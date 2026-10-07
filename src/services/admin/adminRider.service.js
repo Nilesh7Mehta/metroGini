@@ -329,8 +329,23 @@ const countDayTasks = (orders, dateStr) => {
     deliveries_completed: deliveriesCompleted,
     pending_tasks: pendingTasks,
     failed_tasks: failedTasks,
+    attention_required: deliveryOrders.filter(
+      (o) => resolveDeliveryStatus(o) !== 'completed',
+    ).length,
     total_tasks: pickupOrders.length + deliveryOrders.length,
   };
+};
+
+const uniqueContactList = (values) => {
+  const seen = new Set();
+  const items = [];
+  for (const value of values) {
+    const text = value == null ? '' : String(value).trim();
+    if (!text || /^n\/?a$/i.test(text) || seen.has(text)) continue;
+    seen.add(text);
+    items.push(text);
+  }
+  return items.length ? items.join(', ') : null;
 };
 
 const buildOverviewDays = (rangeStart, rangeEnd, orders) => {
@@ -405,12 +420,15 @@ const fetchRiderScheduleOrders = async ({
       o.out_for_delivery_at,
       st.name AS service_type_name,
       ts.shift_name AS pickup_shift_name,
+      v.laundry_shop_name AS vendor_name,
+      v.mobile_number AS vendor_contact_number,
       ir.issue_type AS open_issue_type,
       oc.reason_type AS cancel_reason_type
     FROM orders o
     LEFT JOIN users u ON u.id = o.user_id
     LEFT JOIN service_types st ON o.service_type_id = st.id
     LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
+    LEFT JOIN vendors v ON v.id = o.vendor_id
     ${ORDER_ZONE_JOINS}
     LEFT JOIN LATERAL (
       SELECT issue_type
@@ -1421,13 +1439,18 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         pincodeGroupId,
       });
       const stats = countDayTasks(riderOrders, selectedDate);
+      const openDeliveries = riderOrders.filter(
+        (order) =>
+          isDeliveryOnDate(order, selectedDate)
+          && resolveDeliveryStatus(order) !== 'completed',
+      );
 
       return {
         id: Number(rider.id),
         rider_id: formatRiderId(rider.id),
         name: rider.full_name || 'N/A',
         location: rider.residential_address || rider.zone || 'N/A',
-        contact: formatPhone(rider.mobile_number),
+        contact: rider.mobile_number ? formatPhone(rider.mobile_number) : null,
         status: formatRiderStatus(rider.is_active),
         shift:
           zoneMeta.shift
@@ -1444,6 +1467,11 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         deliveries_completed: stats.deliveries_completed,
         pending_tasks: stats.pending_tasks,
         failed_tasks: stats.failed_tasks,
+        attention_required: openDeliveries.length,
+        vendor_name: uniqueContactList(openDeliveries.map((order) => order.vendor_name)),
+        vendor_contact_number: uniqueContactList(
+          openDeliveries.map((order) => order.vendor_contact_number),
+        ),
         lot: buildRiderLotCode(Number(rider.id), pickupShiftSlotIds, riderOrders),
       };
     })
@@ -1455,7 +1483,21 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         || a.id - b.id,
     );
 
-  const { items: pageRiders, pagination } = paginateArray(overviewRiders, query);
+  const ticker = String(query.ticker || '').trim().toLowerCase();
+  const matchesTicker = (row) => {
+    if (!ticker || ticker === 'active_riders') return true;
+    if (ticker === 'total_pickups') return row.total_pickups > 0;
+    if (ticker === 'pickups_completed') return row.pickups_completed > 0;
+    if (ticker === 'total_deliveries') return row.total_deliveries > 0;
+    if (ticker === 'deliveries_completed') return row.deliveries_completed > 0;
+    if (ticker === 'pending_tasks') return row.pending_tasks > 0;
+    if (ticker === 'failed_tasks') return row.failed_tasks > 0;
+    if (ticker === 'attention_required') return row.attention_required > 0;
+    return true;
+  };
+  const listRiders = overviewRiders.filter(matchesTicker);
+
+  const { items: pageRiders, pagination } = paginateArray(listRiders, query);
 
   return {
     filters: {
@@ -1482,6 +1524,8 @@ export const getAdminRidersOverviewService = async (query = {}) => {
       deliveries_completed: dayKpis.deliveries_completed,
       pending_tasks: dayKpis.pending_tasks,
       failed_tasks: dayKpis.failed_tasks,
+      attention_required: overviewRiders.filter((row) => row.attention_required > 0)
+        .length,
     },
     riders: pageRiders,
     pagination,
