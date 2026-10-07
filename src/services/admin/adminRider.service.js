@@ -378,7 +378,7 @@ const fetchRiderScheduleOrders = async ({
   const params = [rangeStart, rangeEnd, pincodeGroupId, cityId];
   const conditions = [
     `o.assigned_rider_id IS NOT NULL`,
-    `o.status <> 'draft'`,
+    `o.status NOT IN ('draft', 'cancelled')`,
     `(
       o.pickup_date BETWEEN $1::date AND $2::date
       OR o.delivery_date BETWEEN $1::date AND $2::date
@@ -1526,8 +1526,10 @@ export const getAdminRidersOverviewService = async (query = {}) => {
       deliveries_completed: dayKpis.deliveries_completed,
       pending_tasks: dayKpis.pending_tasks,
       failed_tasks: dayKpis.failed_tasks,
-      attention_required: overviewRiders.filter((row) => row.attention_required > 0)
-        .length,
+      attention_required: overviewRiders.reduce(
+        (sum, row) => sum + Number(row.attention_required || 0),
+        0,
+      ),
     },
     riders: pageRiders,
     pagination,

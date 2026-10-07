@@ -562,9 +562,10 @@ export const getAdminOrdersService = async (query = {}) => {
     ) {
       return false;
     }
-    if (ticker === 'attention_required' && !classifyAttention(order, selectedDate)) {
-      return false;
-    }
+    const attention = classifyAttention(order, selectedDate);
+    if (ticker === 'attention_required' && !attention) return false;
+    if (ticker === 'attention_rider' && attention?.party !== 'rider') return false;
+    if (ticker === 'attention_vendor' && attention?.party !== 'vendor') return false;
     if (ticker === 'balance_collected' && getBalanceCollected(order) <= 0) return false;
     if (ticker === 'balance_pending' && getBalancePayable(order) <= 0) return false;
 

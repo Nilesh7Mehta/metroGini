@@ -1853,8 +1853,14 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     selected_date: selectedDate,
     kpis: {
       ...buildOverviewKpis(selectedOrders),
-      attention_required: merchants.filter((row) => row.attention_required > 0).length,
-      attention_orders: merchants.reduce((sum, row) => sum + row.attention_required, 0),
+      attention_required: merchants.reduce(
+        (sum, row) => sum + Number(row.attention_required || 0),
+        0,
+      ),
+      attention_orders: merchants.reduce(
+        (sum, row) => sum + Number(row.attention_required || 0),
+        0,
+      ),
     },
     merchants: pageMerchants,
     pagination,
