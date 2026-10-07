@@ -14,6 +14,7 @@ import {
   resolveGeoFilters,
   scheduleMatchesGeo,
 } from '../../utils/adminGeoFilter.util.js';
+import { classifyAttention, collectAttention } from '../../utils/attention.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 import { DEFAULT_USER_PROFILE_IMAGE } from '../../constants/userProfile.js';
@@ -417,6 +418,7 @@ const fetchRiderScheduleOrders = async ({
       o.final_total,
       o.out_for_pickup_at,
       o.pickup_started_at,
+      o.vendor_received_at,
       o.out_for_delivery_at,
       st.name AS service_type_name,
       ts.shift_name AS pickup_shift_name,
@@ -1439,10 +1441,9 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         pincodeGroupId,
       });
       const stats = countDayTasks(riderOrders, selectedDate);
-      const openDeliveries = riderOrders.filter(
-        (order) =>
-          isDeliveryOnDate(order, selectedDate)
-          && resolveDeliveryStatus(order) !== 'completed',
+      const riderAttention = collectAttention(riderOrders, selectedDate, 'rider');
+      const riderIssueOrders = riderOrders.filter(
+        (order) => classifyAttention(order, selectedDate)?.party === 'rider',
       );
 
       return {
@@ -1467,10 +1468,11 @@ export const getAdminRidersOverviewService = async (query = {}) => {
         deliveries_completed: stats.deliveries_completed,
         pending_tasks: stats.pending_tasks,
         failed_tasks: stats.failed_tasks,
-        attention_required: openDeliveries.length,
-        vendor_name: uniqueContactList(openDeliveries.map((order) => order.vendor_name)),
+        attention_required: riderAttention.count,
+        attention_reasons: riderAttention.reasons,
+        vendor_name: uniqueContactList(riderIssueOrders.map((order) => order.vendor_name)),
         vendor_contact_number: uniqueContactList(
-          openDeliveries.map((order) => order.vendor_contact_number),
+          riderIssueOrders.map((order) => order.vendor_contact_number),
         ),
         lot: buildRiderLotCode(Number(rider.id), pickupShiftSlotIds, riderOrders),
       };

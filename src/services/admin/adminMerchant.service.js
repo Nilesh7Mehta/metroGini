@@ -16,6 +16,7 @@ import {
   scheduleMatchesGeo,
 } from '../../utils/adminGeoFilter.util.js';
 import { validateVendorFields } from '../../utils/vendorValidation.js';
+import { collectAttention } from '../../utils/attention.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 
@@ -1791,6 +1792,7 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
       if (!vendor) return null;
 
       const vendorOrders = ordersByVendor[vendorId] || [];
+      const vendorAttention = collectAttention(vendorOrders, selectedDate, 'vendor');
       const shiftSchedule = scheduleMap.get(vendorId) || [];
       const zoneMeta = resolveMerchantZoneMeta(shiftSchedule, {
         dayOfWeek,
@@ -1816,6 +1818,8 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
         total_orders: vendorOrders.length,
         total_kg: Math.round(getWashLoadKg(vendorOrders)),
         total_pieces: Math.round(getOrderPieces(vendorOrders)),
+        attention_required: vendorAttention.count,
+        attention_reasons: vendorAttention.reasons,
         utilization: buildBatchUtilization(vendorOrders),
         lot: buildMerchantLotCode(Number(vendor.id), pickupShiftSlotIds, vendorOrders),
       };
@@ -1823,7 +1827,12 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     .filter(Boolean)
     .sort((a, b) => b.total_orders - a.total_orders || a.id - b.id);
 
-  const { items: pageMerchants, pagination } = paginateArray(merchants, query);
+  const ticker = String(query.ticker || '').trim().toLowerCase();
+  const listMerchants = ticker === 'attention_required'
+    ? merchants.filter((row) => row.attention_required > 0)
+    : merchants;
+
+  const { items: pageMerchants, pagination } = paginateArray(listMerchants, query);
 
   return {
     filters: {
@@ -1842,7 +1851,11 @@ export const getAdminMerchantsOverviewService = async (query = {}) => {
     },
     days: buildOverviewDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,
-    kpis: buildOverviewKpis(selectedOrders),
+    kpis: {
+      ...buildOverviewKpis(selectedOrders),
+      attention_required: merchants.filter((row) => row.attention_required > 0).length,
+      attention_orders: merchants.reduce((sum, row) => sum + row.attention_required, 0),
+    },
     merchants: pageMerchants,
     pagination,
   };

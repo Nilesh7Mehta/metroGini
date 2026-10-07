@@ -6,6 +6,7 @@ import {
 } from '../../utils/adminGeoFilter.util.js';
 import { buildOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { buildOrderBillingPayload } from '../../utils/orderBilling.util.js';
+import { classifyAttention } from '../../utils/attention.util.js';
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 import { getPickupShiftConfig } from '../common/pickupShiftSlots.service.js';
@@ -211,23 +212,6 @@ const buildEstFin = (order) => {
   return `${est}/${Number(order.actual_clothes_count)} Items`;
 };
 
-const VENDOR_FINISHED_STATUSES = [
-  'order_finalized',
-  'ready_for_delivery',
-  'out_for_delivery',
-  'delivered',
-];
-
-/** Vendor has confirmed clothes, finalized weight, or moved the order ahead. */
-const vendorHasStarted = (order) => {
-  if (Number(order.actual_clothes_count) > 0) return true;
-  if (weightIsFinalized(order)) return true;
-  return VENDOR_FINISHED_STATUSES.includes(order.status);
-};
-
-const isAttentionRequired = (order, selectedDate) =>
-  isDeliveryOnDate(order, selectedDate) && !vendorHasStarted(order);
-
 const getOrderTotal = (order) =>
   Math.round(Number(order.final_total ?? order.estimated_total ?? 0));
 
@@ -320,8 +304,13 @@ const buildKpis = (selectedDate, orders) => {
     failed_delivery: deliveryOrders.filter(
       (o) => resolveDeliveryStatus(o) === 'failed',
     ).length,
-    attention_required: deliveryOrders.filter((o) => isAttentionRequired(o, selectedDate))
-      .length,
+    attention_required: dayOrders.filter((o) => classifyAttention(o, selectedDate)).length,
+    attention_rider: dayOrders.filter(
+      (o) => classifyAttention(o, selectedDate)?.party === 'rider',
+    ).length,
+    attention_vendor: dayOrders.filter(
+      (o) => classifyAttention(o, selectedDate)?.party === 'vendor',
+    ).length,
   };
 };
 
@@ -339,6 +328,7 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     ? toDateStr(order.pickup_date)
     : toDateStr(order.delivery_date) || selectedDate;
 
+  const attention = classifyAttention(order, selectedDate);
   const billing = buildOrderBillingPayload(order);
   const totalAmount = Math.round(Number(billing.total_amount || getOrderTotal(order)));
   const gstAmount = Math.round(Number(billing.gst || 0));
@@ -365,6 +355,9 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     payment_status: order.payment_status || 'pending',
     shift,
     issue_type: resolveIssueType(order),
+    attention_party: attention?.party || null,
+    attention_code: attention?.code || null,
+    attention_label: attention?.label || null,
     est_fin: buildEstFin(order),
     charges: totalAmount,
     coupon_applied: couponCode,
@@ -462,6 +455,7 @@ const fetchOrdersForRange = async ({
       o.out_for_pickup_at,
       o.pickup_started_at,
       o.pickup_completed_at,
+      o.vendor_received_at,
       o.out_for_delivery_at,
       o.delivery_completed_at,
       o.delivered_at,
@@ -499,7 +493,7 @@ const fetchOrdersForRange = async ({
       ORDER BY cancelled_at DESC
       LIMIT 1
     ) oc ON TRUE
-    WHERE o.status <> 'draft'
+    WHERE o.status NOT IN ('draft', 'cancelled')
       AND (
         o.pickup_date BETWEEN $1::date AND $2::date
         OR o.delivery_date BETWEEN $1::date AND $2::date
@@ -568,7 +562,7 @@ export const getAdminOrdersService = async (query = {}) => {
     ) {
       return false;
     }
-    if (ticker === 'attention_required' && !isAttentionRequired(order, selectedDate)) {
+    if (ticker === 'attention_required' && !classifyAttention(order, selectedDate)) {
       return false;
     }
     if (ticker === 'balance_collected' && getBalanceCollected(order) <= 0) return false;
