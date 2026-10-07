@@ -566,6 +566,30 @@ export const getAdminOrdersService = async (query = {}) => {
     if (ticker === 'attention_required' && !attention) return false;
     if (ticker === 'attention_rider' && attention?.party !== 'rider') return false;
     if (ticker === 'attention_vendor' && attention?.party !== 'vendor') return false;
+
+    const attentionFilter = String(query.attention || '').trim().toLowerCase();
+    if (attentionFilter === 'any' && !attention) return false;
+    if (
+      attentionFilter
+      && attentionFilter !== 'any'
+      && attention?.code !== attentionFilter
+    ) {
+      return false;
+    }
+
+    const statusFilter = String(query.order_status || '').trim().toLowerCase();
+    if (statusFilter) {
+      const displayStatus = getAdminDisplayStatus(order.status);
+      const statusAliases = {
+        in_processing: ['in_process', 'in_processing'],
+        in_progress: ['in_process', 'in_processing'],
+        ready_for_dispatch: ['ready_for_delivery'],
+      };
+      const accepted = statusAliases[statusFilter] || [statusFilter];
+      if (!accepted.includes(order.status) && !accepted.includes(displayStatus)) {
+        return false;
+      }
+    }
     if (ticker === 'balance_collected' && getBalanceCollected(order) <= 0) return false;
     if (ticker === 'balance_pending' && getBalancePayable(order) <= 0) return false;
 
