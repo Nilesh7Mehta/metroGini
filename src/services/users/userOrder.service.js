@@ -1140,7 +1140,7 @@ export const getUserOrdersService = async ({
 
   const result = await sql.query(
     `SELECT o.id, o.status, o.payment_status, o.clothes_count, o.estimated_weight_min, o.estimated_weight_max,
-            o.pickup_otp, o.delivery_otp,o.actual_weight,
+            o.pickup_otp, o.delivery_otp,o.actual_weight,o.final_total,
             o.amount_paid, o.remaining_amount, o.discount_price,o.estimated_total,
             o.pickup_special_instruction, o.delivery_special_instruction,
             o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
