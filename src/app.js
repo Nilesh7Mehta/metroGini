@@ -108,10 +108,18 @@ app.use((err, req, res, next) => {
   logApiError(err, req);
 
   if (err.code === "LIMIT_FILE_SIZE") {
+    const bytes = Number(err.limit);
+    const limitLabel =
+      Number.isFinite(bytes) && bytes > 0
+        ? bytes >= 1024 * 1024
+          ? `${Math.round(bytes / (1024 * 1024))}MB`
+          : `${Math.round(bytes / 1024)}KB`
+        : "10MB";
+
     return res.status(400).json({
       code: 400,
       success: false,
-      message: "Image must be 10MB or smaller",
+      message: `Image must be ${limitLabel} or smaller`,
     });
   }
 

@@ -34,7 +34,7 @@ const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const cityUpload = createUploader("cities", 500 * 1024);
 const serviceUpload = createUploader("services", 500 * 1024);
 const knowAboutUsUpload = createUploader("know-about-us", 500 * 1024);
-const howWeWorkUpload = createUploader("how-we-work", 500 * 1024);
+const howWeWorkUpload = createUploader("how-we-work", 10 * 1024 * 1024);
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
 router.get('/profile', authenticate, isAdmin, adminController.getProfile);
