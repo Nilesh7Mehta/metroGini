@@ -2,11 +2,10 @@ import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
-import { PAYMENT_TYPE } from "../../utils/status.js";
 import { sendUserEmailSafe, sendPickupOtpEmail } from "../common/email.service.js";
 import { sendOtpSmsIfEnabled, sendSmsToUserSafe } from "../common/sms.service.js";
 import { isSmsEnabled } from "../../config/sms.js";
-import { createRazorpayOrder } from "../users/payment/razorpayCheckout.service.js";
+import { createRemainingPaymentQr } from "./riderPaymentQr.service.js";
 import {
   generateOTP,
   otpMatches,
@@ -620,7 +619,7 @@ export const collectPaymentService = async (rider_id, order_id) => {
 
 export const createRiderPaymentOrderService = async (rider_id, order_id) => {
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
+    `SELECT o.id, o.status, o.assigned_rider_id,
             o.final_total, o.payment_status, o.amount_paid, o.remaining_amount
      FROM orders o
      WHERE o.id = $1`,
@@ -658,23 +657,22 @@ export const createRiderPaymentOrderService = async (rider_id, order_id) => {
     throw { status: 400, message: 'No remaining amount to collect' };
   }
 
-  const checkout = await createRazorpayOrder({
+  const qr = await createRemainingPaymentQr({
     orderId: order_id,
-    userId: order.user_id,
-    body: {
-      payment_type: PAYMENT_TYPE.REMAINING,
-      amount: amount_to_collect,
-    },
+    amountRupees: amount_to_collect,
   });
 
   return {
     order_id: parseInt(order_id, 10),
     amount_to_collect,
-    key_id: checkout.key_id,
-    razorpay_order_id: checkout.order_id,
-    amount: checkout.amount,
-    currency: checkout.currency,
-    payment_type: checkout.payment_type,
+    amount: qr.amount,
+    currency: qr.currency,
+    qr_id: qr.qr_id,
+    image_url: qr.image_url,
+    image_content: qr.image_content,
+    status: qr.status,
+    close_by: qr.close_by,
+    payment_type: qr.payment_type,
   };
 };
 
