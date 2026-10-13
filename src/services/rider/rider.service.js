@@ -397,3 +397,36 @@ export const getRosterService = async (rider_id) => {
   return [...byDay.values()].map(({ _keys, ...day }) => day);
 };
 
+export const getTodayShiftsService = async (rider_id) => {
+  const { rows } = await sql.query(
+    `SELECT
+       TO_CHAR(today.d, 'YYYY-MM-DD') AS shift_date,
+       s.id AS shift_id,
+       s.shift_name,
+       TO_CHAR(s.start_time, 'HH24:MI') AS start_time,
+       TO_CHAR(s.end_time, 'HH24:MI') AS end_time
+     FROM (SELECT CURRENT_DATE AS d) today
+     LEFT JOIN rider_group_shift_schedule rgss
+       ON rgss.rider_id = $1
+      AND rgss.day_of_week = EXTRACT(ISODOW FROM today.d)::int
+     LEFT JOIN shifts s
+       ON s.id = rgss.shift_id
+      AND s.status = TRUE
+     GROUP BY today.d, s.id, s.shift_name, s.start_time, s.end_time
+     ORDER BY s.start_time ASC NULLS LAST, s.id ASC NULLS LAST`,
+    [rider_id],
+  );
+
+  return {
+    date: rows[0]?.shift_date ?? null,
+    shifts: rows
+      .filter((row) => row.shift_id != null)
+      .map((row) => ({
+        shift_id: row.shift_id,
+        shift: row.shift_name,
+        start_time: row.start_time,
+        end_time: row.end_time,
+      })),
+  };
+};
+

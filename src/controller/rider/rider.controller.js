@@ -7,6 +7,7 @@ import {
   updateProfileService,
   getProfileService,
   getRosterService,
+  getTodayShiftsService,
 } from "../../services/rider/rider.service.js";
 
 export const loginOrVerify = async (req, res, next) => {
@@ -125,6 +126,25 @@ export const getProfile = async (req, res, next) => {
     res
       .status(200)
       .json({ success: true, message: "Profile fetched successfully", data });
+  } catch (error) {
+    if (error.status)
+      return res
+        .status(error.status)
+        .json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+export const getTodayShifts = async (req, res, next) => {
+  try {
+    if (!req.user.rider_id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    const data = await getTodayShiftsService(req.user.rider_id);
+    res.status(200).json({
+      success: true,
+      message: "Today's shifts retrieved successfully",
+      data,
+    });
   } catch (error) {
     if (error.status)
       return res

@@ -28,6 +28,7 @@ router.post('/goActive' , authenticate, riderController.goActive);
 router.post('/terms-and-conditions' , authenticate , riderController.acceptTerms);
 router.post('/updateProfile' , authenticate , handleRiderImageUpload, riderController.updateProfile);
 router.get('/getProfile' , authenticate , riderController.getProfile);
+router.get('/todayShifts' , authenticate , riderController.getTodayShifts);
 router.get('/roster' , authenticate , riderController.getRoster);
 
 router.post('/needRiderHelp' ,authenticate ,  helplineController.needHelpAsRider);
