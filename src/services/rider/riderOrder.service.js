@@ -26,7 +26,17 @@ const attachOrderTimestamps = (row) => ({
   timestamps: buildOrderTimestamps(row),
 });
 
-export const fetchTodayOrders = async (rider_id) => {
+/** Optional shift name. Matches time_slots.shift_name when provided. */
+const shiftNameFilter = (shift) => {
+  const value = shift != null ? String(shift).trim() : "";
+  if (!value) return { sql: "", params: [] };
+  return {
+    sql: `AND LOWER(TRIM(ts.shift_name)) = LOWER(TRIM($2))`,
+    params: [value],
+  };
+};
+
+export const fetchTodayOrders = async (rider_id, shift) => {
   // const ready = await checkRiderReady(rider_id);
   // if (!ready)
   //   throw {
@@ -34,6 +44,7 @@ export const fetchTodayOrders = async (rider_id) => {
   //     message: "Rider must select shift and go online first",
   //   };
 
+  const shiftFilter = shiftNameFilter(shift);
   const { rows } = await sql.query(
     `SELECT
         o.id, TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
@@ -73,19 +84,21 @@ export const fetchTodayOrders = async (rider_id) => {
      WHERE o.assigned_rider_id = $1
        AND o.pickup_date = CURRENT_DATE
        AND o.status IN ('out_for_pickup', 'pickup_in_progress','in_process' , 'picked_up')
+       ${shiftFilter.sql}
      ORDER BY o.id DESC`,
-    [rider_id],
+    [rider_id, ...shiftFilter.params],
   );
   return rows.map(attachOrderTimestamps);
 };
 
-export const fetchTodayDeliveryOrders = async (rider_id) => {
+export const fetchTodayDeliveryOrders = async (rider_id, shift) => {
   // const ready = await checkRiderReady(rider_id);
   // if (!ready)
   //   throw {
   //     status: 400,
   //     message: "Rider must select shift and go online first",
   //   };
+  const shiftFilter = shiftNameFilter(shift);
   const { rows } = await sql.query(
     `SELECT
         o.id,
@@ -132,40 +145,142 @@ export const fetchTodayDeliveryOrders = async (rider_id) => {
      WHERE o.assigned_rider_id = $1
        AND o.delivery_date = CURRENT_DATE
       AND o.status IN ('ready_for_delivery', 'out_for_delivery', 'delivered')
+      ${shiftFilter.sql}
      ORDER BY o.id DESC`,
-    [rider_id],
+    [rider_id, ...shiftFilter.params],
   );
   return rows.map(attachOrderTimestamps);
 };
 
-export const fetchDashboardCount = async (rider_id) => {
+export const fetchRiderOrderDetail = async (rider_id, order_id) => {
+  const id = Number(order_id);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: "Invalid order id" };
+  }
+
+  const { rows } = await sql.query(
+    `SELECT
+        o.id,
+        TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+        o.status,
+        o.vendor_id,
+        o.payment_status,
+        o.pickup_special_instruction,
+        o.delivery_special_instruction,
+        o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+        o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+        o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+        o.created_at, o.updated_at, o.otp_generated_at,
+        ts.start_time,
+        ts.end_time,
+        u.full_name AS customer_name,
+        u.id AS customer_id,
+        u.mobile AS customer_number,
+        COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'floor', a.floor) AS floor,
+        COALESCE(o.address_snapshot->>'landmark', a.landmark) AS landmark,
+        COALESCE(o.address_snapshot->>'address_type', a.address_type) AS address_type,
+        COALESCE(o.address_snapshot->>'receiver_name', a.receiver_name) AS receiver_name,
+        COALESCE(o.address_snapshot->>'contact_number', a.contact_number) AS contact_number,
+        COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+          a.latitude
+        ) AS latitude,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+          a.longitude
+        ) AS longitude,
+        v.laundry_shop_name AS vendor_name,
+        v.shop_address AS shop_address,
+        v.shop_address AS vendor_address,
+        v.latitude AS vendor_latitude,
+        v.longitude AS vendor_longitude
+     FROM orders o
+     LEFT JOIN time_slots ts ON ts.id = o.delivery_slot_id
+     JOIN users u ON u.id = o.user_id
+     LEFT JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN vendors v ON v.id = o.vendor_id
+     WHERE o.id = $1
+       AND o.assigned_rider_id = $2`,
+    [id, rider_id],
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Order not found" };
+  }
+
+  return attachOrderTimestamps(rows[0]);
+};
+
+export const fetchDashboardCount = async (rider_id, shift) => {
   const { rows } = await sql.query(
     `SELECT
     COUNT(*) FILTER (
-        WHERE status IN ('out_for_pickup','pickup_in_progress')
-          AND pickup_date = CURRENT_DATE
+        WHERE o.status IN ('out_for_pickup','pickup_in_progress')
+          AND o.pickup_date = CURRENT_DATE
+          AND LOWER(TRIM(pickup_ts.shift_name)) = LOWER(TRIM($2))
     ) AS pending_pickup,
 
     COUNT(*) FILTER (
-        WHERE status = 'in_process'
-          AND pickup_date = CURRENT_DATE
+        WHERE o.status = 'in_process'
+          AND o.pickup_date = CURRENT_DATE
+          AND LOWER(TRIM(pickup_ts.shift_name)) = LOWER(TRIM($2))
     ) AS completed_pickup,
 
     COUNT(*) FILTER (
-        WHERE status IN ('ready_for_delivery', 'out_for_delivery')
-          AND delivery_date = CURRENT_DATE
+        WHERE o.status IN ('ready_for_delivery', 'out_for_delivery')
+          AND o.delivery_date = CURRENT_DATE
+          AND LOWER(TRIM(delivery_ts.shift_name)) = LOWER(TRIM($2))
     ) AS pending_drop,
 
     COUNT(*) FILTER (
-        WHERE status = 'delivered'
-          AND delivery_date = CURRENT_DATE
+        WHERE o.status = 'delivered'
+          AND o.delivery_date = CURRENT_DATE
+          AND LOWER(TRIM(delivery_ts.shift_name)) = LOWER(TRIM($2))
     ) AS completed_drop
 
-    FROM orders
-    WHERE assigned_rider_id = $1;`,
-    [rider_id],
+    FROM orders o
+    LEFT JOIN time_slots pickup_ts ON pickup_ts.id = o.pickup_slot_id
+    LEFT JOIN time_slots delivery_ts ON delivery_ts.id = o.delivery_slot_id
+    WHERE o.assigned_rider_id = $1`,
+    [rider_id, String(shift || "").trim()],
   );
   return rows[0];
+};
+
+/** Last 7 days, excluding today. No shift filter. */
+const MISSED_PICKUP_STATUSES = [
+  "out_for_pickup",
+  "pickup_in_progress",
+  "picked_up",
+  "in_process",
+  "at_vendor",
+];
+const MISSED_DROP_STATUSES = ["ready_for_delivery", "out_for_delivery"];
+
+export const fetchMissingOrderCounts = async (rider_id) => {
+  const { rows } = await sql.query(
+    `SELECT
+        COUNT(*) FILTER (
+          WHERE o.pickup_date >= (CURRENT_DATE - INTERVAL '7 days')::date
+            AND o.pickup_date < CURRENT_DATE
+            AND o.status = ANY($2::text[])
+        ) AS missing_pickup,
+        COUNT(*) FILTER (
+          WHERE o.delivery_date >= (CURRENT_DATE - INTERVAL '7 days')::date
+            AND o.delivery_date < CURRENT_DATE
+            AND o.status = ANY($3::text[])
+        ) AS missing_drop
+     FROM orders o
+     WHERE o.assigned_rider_id = $1`,
+    [rider_id, MISSED_PICKUP_STATUSES, MISSED_DROP_STATUSES],
+  );
+
+  return {
+    missing_pickup: Number(rows[0]?.missing_pickup || 0),
+    missing_drop: Number(rows[0]?.missing_drop || 0),
+  };
 };
 
 export const startDelivery = async (rider_id, order_id) => {
@@ -472,12 +587,61 @@ export const handoverToVendorService = async (rider_id, order_id, vendor_id) => 
   };
 };
 
-export const fetchOrderHistory = async (rider_id, query) => {
-  const { order_type, status, time_filter, page = 1, limit = 10 } = query;
-  const offset = (page - 1) * limit;
+const HISTORY_PERIOD_SQL = {
+  today: `(o.pickup_date = CURRENT_DATE OR o.delivery_date = CURRENT_DATE)`,
+  this_week: `(
+    (o.pickup_date >= date_trunc('week', CURRENT_DATE)::date
+      AND o.pickup_date < date_trunc('week', CURRENT_DATE)::date + 7)
+    OR
+    (o.delivery_date >= date_trunc('week', CURRENT_DATE)::date
+      AND o.delivery_date < date_trunc('week', CURRENT_DATE)::date + 7)
+  )`,
+  this_month: `(
+    (o.pickup_date >= date_trunc('month', CURRENT_DATE)::date
+      AND o.pickup_date < (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date)
+    OR
+    (o.delivery_date >= date_trunc('month', CURRENT_DATE)::date
+      AND o.delivery_date < (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date)
+  )`,
+};
 
-  let conditions = [`o.assigned_rider_id = $1`];
-  let values = [rider_id];
+const resolveHistoryPeriod = (query = {}) => {
+  const raw = String(query.period ?? query.time_filter ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (!raw || raw === "all") return null;
+
+  const aliases = {
+    today: "today",
+    this_week: "this_week",
+    week: "this_week",
+    this_month: "this_month",
+    month: "this_month",
+  };
+  const period = aliases[raw];
+  if (!period) {
+    throw {
+      status: 400,
+      message: "period must be today, this_week, or this_month",
+    };
+  }
+  return period;
+};
+
+const parseHistoryPage = (query = {}) => {
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(query.limit, 10) || 10, 1), 50);
+  return { page, limit, offset: (page - 1) * limit };
+};
+
+export const fetchOrderHistory = async (rider_id, query = {}) => {
+  const { order_type, status } = query;
+  const { page, limit, offset } = parseHistoryPage(query);
+  const period = resolveHistoryPeriod(query);
+
+  const conditions = [`o.assigned_rider_id = $1`];
+  const values = [rider_id];
   let index = 2;
 
   if (order_type === "regular") {
@@ -489,71 +653,232 @@ export const fetchOrderHistory = async (rider_id, query) => {
     values.push("Express Service");
   }
 
-  if (status === "pending") {
+  if (status != null && String(status).trim() !== "") {
     conditions.push(`o.status = $${index++}`);
-    values.push("out_for_pickup");
-  }
-  if (status === "in_process") {
-    conditions.push(`o.status = $${index++}`);
-    values.push("active");
-  }
-  if (status === "delivered") {
-    conditions.push(`o.status = $${index++}`);
-    values.push("done");
+    values.push(String(status).trim());
   }
 
-  if (time_filter === "today")
-    conditions.push(`DATE(o.created_at) = CURRENT_DATE`);
-  if (time_filter === "7days")
-    conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '7 days'`);
-  if (time_filter === "30days")
-    conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '30 days'`);
-  if (time_filter === "6months")
-    conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '6 months'`);
-  if (time_filter === "1year")
-    conditions.push(`o.created_at >= CURRENT_DATE - INTERVAL '1 year'`);
+  if (period) conditions.push(HISTORY_PERIOD_SQL[period]);
 
   const where = conditions.join(" AND ");
+  const joins = `
+     FROM orders o
+     LEFT JOIN time_slots ts ON ts.id = o.pickup_slot_id
+     INNER JOIN users u ON u.id = o.user_id
+     LEFT JOIN service_types st ON st.id = o.service_type_id
+     LEFT JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN vendors v ON v.id = o.vendor_id`;
 
   const { rows: countRows } = await sql.query(
-    `SELECT COUNT(*) FROM orders o INNER JOIN service_types st ON st.id = o.service_type_id WHERE ${where}`,
+    `SELECT COUNT(*) ${joins} WHERE ${where}`,
     values,
   );
-  const total = parseInt(countRows[0].count);
+  const total = parseInt(countRows[0].count, 10);
 
-  values.push(limit, offset);
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.created_at,
-            o.pickup_special_instruction, o.delivery_special_instruction,
-            o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
-            o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
-            o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
-            o.updated_at, o.otp_generated_at,
-            u.full_name AS customer_name,
-            st.name AS service_type,
-            COALESCE(o.address_snapshot->>'complete_address', uad.complete_address) AS complete_address,
-            COALESCE(o.address_snapshot->>'floor', uad.floor) AS floor,
-            COALESCE(o.address_snapshot->>'landmark', uad.landmark) AS landmark,
-            COALESCE(o.address_snapshot->>'address_type', uad.address_type) AS address_type,
-            COALESCE(o.address_snapshot->>'receiver_name', uad.receiver_name) AS receiver_name,
-            COALESCE(o.address_snapshot->>'contact_number', uad.contact_number) AS contact_number
-     FROM orders o
-     INNER JOIN users u ON u.id = o.user_id
-     INNER JOIN service_types st ON st.id = o.service_type_id
-     LEFT JOIN user_address_details uad ON uad.id = o.address_id
+    `SELECT
+        o.id, TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date, o.status, o.vendor_id,
+        o.pickup_special_instruction, o.delivery_special_instruction,
+        o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+        o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+        o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+        o.created_at, o.updated_at, o.otp_generated_at,
+        ts.start_time, ts.end_time,
+        u.full_name AS customer_name,
+        u.id AS customer_id,
+        u.mobile AS customer_number,
+        COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'floor', a.floor) AS floor,
+        COALESCE(o.address_snapshot->>'landmark', a.landmark) AS landmark,
+        COALESCE(o.address_snapshot->>'address_type', a.address_type) AS address_type,
+        COALESCE(o.address_snapshot->>'receiver_name', a.receiver_name) AS receiver_name,
+        COALESCE(o.address_snapshot->>'contact_number', a.contact_number) AS contact_number,
+        COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+          a.latitude
+        ) AS latitude,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+          a.longitude
+        ) AS longitude,
+        v.laundry_shop_name AS vendor_name,
+        v.shop_address AS vendor_address,
+        v.latitude AS vendor_latitude,
+        v.longitude AS vendor_longitude
+     ${joins}
      WHERE ${where}
      ORDER BY o.id DESC
      LIMIT $${index} OFFSET $${index + 1}`,
-    values,
+    [...values, limit, offset],
   );
 
   return {
     total,
-    page: parseInt(page),
-    limit: parseInt(limit),
+    page,
+    limit,
+    has_more: page * limit < total,
     data: rows.map(attachOrderTimestamps),
   };
 };
+
+const MISSED_PERIOD_INTERVAL = {
+  "7days": "7 days",
+  month: "1 month",
+};
+
+const resolveMissedPeriod = (query = {}) => {
+  const raw = String(query.period ?? "7days")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (["7days", "7_days", "last_7_days", "week"].includes(raw)) return "7days";
+  if (["month", "1month", "1_month", "30days"].includes(raw)) return "month";
+  throw { status: 400, message: "period must be 7days or month" };
+};
+
+const toMissedOrder = (row, issueType) => {
+  const isDrop = issueType === "missed_drop";
+  return attachOrderTimestamps({
+    id: row.id,
+    pickup_date: row.pickup_date,
+    delivery_date: row.delivery_date,
+    status: row.status,
+    vendor_id: row.vendor_id,
+    payment_status: row.payment_status,
+    pickup_special_instruction: row.pickup_special_instruction,
+    delivery_special_instruction: row.delivery_special_instruction,
+    booked_at: row.booked_at,
+    out_for_pickup_at: row.out_for_pickup_at,
+    pickup_started_at: row.pickup_started_at,
+    pickup_completed_at: row.pickup_completed_at,
+    vendor_received_at: row.vendor_received_at,
+    order_finalized_at: row.order_finalized_at,
+    ready_for_delivery_at: row.ready_for_delivery_at,
+    out_for_delivery_at: row.out_for_delivery_at,
+    delivery_completed_at: row.delivery_completed_at,
+    cancelled_at: row.cancelled_at,
+    payment_completed_at: row.payment_completed_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    otp_generated_at: row.otp_generated_at,
+    start_time: isDrop ? row.delivery_start_time : row.pickup_start_time,
+    end_time: isDrop ? row.delivery_end_time : row.pickup_end_time,
+    customer_name: row.customer_name,
+    customer_id: row.customer_id,
+    customer_number: row.customer_number,
+    complete_address: row.complete_address,
+    floor: row.floor,
+    landmark: row.landmark,
+    address_type: row.address_type,
+    receiver_name: row.receiver_name,
+    contact_number: row.contact_number,
+    pincode: row.pincode,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    vendor_name: row.vendor_name,
+    vendor_address: row.vendor_address,
+    vendor_latitude: row.vendor_latitude,
+    vendor_longitude: row.vendor_longitude,
+    issue_type: issueType,
+  });
+};
+
+const fetchMissedOrders = async (rider_id, query = {}, issueType) => {
+  const period = resolveMissedPeriod(query);
+  const { page, limit, offset } = parseHistoryPage(query);
+  const interval = MISSED_PERIOD_INTERVAL[period];
+  const isDrop = issueType === "missed_drop";
+  const dateColumn = isDrop ? "o.delivery_date" : "o.pickup_date";
+  const statuses = isDrop ? MISSED_DROP_STATUSES : MISSED_PICKUP_STATUSES;
+
+  const { rows } = await sql.query(
+    `SELECT
+        o.id,
+        TO_CHAR(o.pickup_date, 'YYYY-MM-DD') AS pickup_date,
+        TO_CHAR(o.delivery_date, 'YYYY-MM-DD') AS delivery_date,
+        o.status,
+        o.vendor_id,
+        o.payment_status,
+        o.pickup_special_instruction,
+        o.delivery_special_instruction,
+        o.booked_at, o.out_for_pickup_at, o.pickup_started_at, o.pickup_completed_at,
+        o.vendor_received_at, o.order_finalized_at, o.ready_for_delivery_at,
+        o.out_for_delivery_at, o.delivery_completed_at, o.cancelled_at, o.payment_completed_at,
+        o.created_at, o.updated_at, o.otp_generated_at,
+        pts.start_time AS pickup_start_time,
+        pts.end_time AS pickup_end_time,
+        dts.start_time AS delivery_start_time,
+        dts.end_time AS delivery_end_time,
+        u.full_name AS customer_name,
+        u.id AS customer_id,
+        u.mobile AS customer_number,
+        COALESCE(o.address_snapshot->>'complete_address', a.complete_address) AS complete_address,
+        COALESCE(o.address_snapshot->>'floor', a.floor) AS floor,
+        COALESCE(o.address_snapshot->>'landmark', a.landmark) AS landmark,
+        COALESCE(o.address_snapshot->>'address_type', a.address_type) AS address_type,
+        COALESCE(o.address_snapshot->>'receiver_name', a.receiver_name) AS receiver_name,
+        COALESCE(o.address_snapshot->>'contact_number', a.contact_number) AS contact_number,
+        COALESCE(o.address_snapshot->>'pincode', a.pincode) AS pincode,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'latitude', '')::double precision,
+          a.latitude
+        ) AS latitude,
+        COALESCE(
+          NULLIF(o.address_snapshot->>'longitude', '')::double precision,
+          a.longitude
+        ) AS longitude,
+        v.laundry_shop_name AS vendor_name,
+        v.shop_address AS vendor_address,
+        v.latitude AS vendor_latitude,
+        v.longitude AS vendor_longitude,
+        TO_CHAR((CURRENT_DATE - INTERVAL '${interval}')::date, 'YYYY-MM-DD') AS date_from,
+        TO_CHAR((CURRENT_DATE - INTERVAL '1 day')::date, 'YYYY-MM-DD') AS date_to
+     FROM orders o
+     LEFT JOIN time_slots pts ON pts.id = o.pickup_slot_id
+     LEFT JOIN time_slots dts ON dts.id = o.delivery_slot_id
+     JOIN users u ON u.id = o.user_id
+     LEFT JOIN user_address_details a ON a.id = o.address_id
+     LEFT JOIN vendors v ON v.id = o.vendor_id
+     WHERE o.assigned_rider_id = $1
+       AND ${dateColumn} >= (CURRENT_DATE - INTERVAL '${interval}')::date
+       AND ${dateColumn} < CURRENT_DATE
+       AND o.status = ANY($2::text[])
+     ORDER BY o.id DESC`,
+    [rider_id, statuses],
+  );
+
+  const missed = rows.map((row) => toMissedOrder(row, issueType));
+  const pageItems = missed.slice(offset, offset + limit);
+
+  const bounds =
+    rows[0] ||
+    (
+      await sql.query(
+        `SELECT
+           TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') AS as_of_date,
+           TO_CHAR((CURRENT_DATE - INTERVAL '${interval}')::date, 'YYYY-MM-DD') AS date_from,
+           TO_CHAR((CURRENT_DATE - INTERVAL '1 day')::date, 'YYYY-MM-DD') AS date_to`,
+      )
+    ).rows[0];
+
+  return {
+    period,
+    date_from: bounds?.date_from ?? null,
+    date_to: bounds?.date_to ?? null,
+    total: missed.length,
+    page,
+    limit,
+    has_more: page * limit < missed.length,
+    data: pageItems,
+  };
+};
+
+export const fetchMissedPickups = (rider_id, query) =>
+  fetchMissedOrders(rider_id, query, "missed_pickup");
+
+export const fetchMissedDrops = (rider_id, query) =>
+  fetchMissedOrders(rider_id, query, "missed_drop");
 
 export const collectPaymentService = async (rider_id, order_id) => {
   const { rows } = await sql.query(

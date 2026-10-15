@@ -1,11 +1,15 @@
 import {
   fetchTodayOrders,
   fetchTodayDeliveryOrders,
+  fetchRiderOrderDetail,
   fetchDashboardCount,
+  fetchMissingOrderCounts,
   startDelivery,
   verifyOtp,
   resendOtp,
   fetchOrderHistory,
+  fetchMissedPickups,
+  fetchMissedDrops,
   handoverToVendorService,
   collectPaymentService,
   createRiderPaymentOrderService,
@@ -13,9 +17,33 @@ import {
   verifyDeliveryOtpService,
 } from "../../services/rider/riderOrder.service.js";
 import { getOptimizedRiderRoute } from "../../services/rider/riderRoute.service.js";
+const readRequiredShift = (req, res) => {
+  const shift = String(req.query.shift || "").trim();
+  if (!shift) {
+    res.status(400).json({ status: false, message: "shift is required" });
+    return null;
+  }
+  return shift;
+};
+
 export const getTodayOrderList = async (req, res, next) => {
   try {
-    const data = await fetchTodayOrders(req.user.rider_id);
+    const shift = readRequiredShift(req, res);
+    if (!shift) return;
+    const data = await fetchTodayOrders(req.user.rider_id, shift);
+    return res.status(200).json({ status: true, data });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ status: false, message: err.message });
+    next(err);
+  }
+};
+
+export const getRiderOrderDetail = async (req, res, next) => {
+  try {
+    const data = await fetchRiderOrderDetail(req.user.rider_id, req.params.id);
     return res.status(200).json({ status: true, data });
   } catch (err) {
     if (err.status)
@@ -28,7 +56,9 @@ export const getTodayOrderList = async (req, res, next) => {
 
 export const getTodayDeliveryOrderList = async (req, res, next) => {
   try {
-    const data = await fetchTodayDeliveryOrders(req.user.rider_id);
+    const shift = readRequiredShift(req, res);
+    if (!shift) return;
+    const data = await fetchTodayDeliveryOrders(req.user.rider_id, shift);
     return res.status(200).json({ status: true, data });
   } catch (err) {
     if (err.status)
@@ -42,7 +72,9 @@ export const getTodayDeliveryOrderList = async (req, res, next) => {
 /** Today's pickup + delivery stops — Google Routes optimized sequence. */
 export const getOptimizedRoute = async (req, res, next) => {
   try {
-    const data = await getOptimizedRiderRoute(req.user.rider_id);
+    const shift = readRequiredShift(req, res);
+    if (!shift) return;
+    const data = await getOptimizedRiderRoute(req.user.rider_id, shift);
     return res.status(200).json({
       success: true,
       orderSequence: data.orderSequence,
@@ -59,9 +91,18 @@ export const getOptimizedRoute = async (req, res, next) => {
 
 export const getDashboardCount = async (req, res, next) => {
   try {
-    const data = await fetchDashboardCount(req.user.rider_id);
-    return res.status(200).json({ status: true, data });
+    const shift = readRequiredShift(req, res);
+    if (!shift) return;
+    const [data, missing] = await Promise.all([
+      fetchDashboardCount(req.user.rider_id, shift),
+      fetchMissingOrderCounts(req.user.rider_id),
+    ]);
+    return res.status(200).json({ status: true, data: { ...data, ...missing } });
   } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ status: false, message: err.message });
     next(err);
   }
 };
@@ -145,7 +186,7 @@ export const handoverToVendor = async (req, res , next) => {
 
 export const getOrderHistory = async (req, res, next) => {
   try {
-    const { total, page, limit, data } = await fetchOrderHistory(
+    const { total, page, limit, has_more, data } = await fetchOrderHistory(
       req.user.rider_id,
       req.query,
     );
@@ -154,10 +195,41 @@ export const getOrderHistory = async (req, res, next) => {
       page,
       limit,
       total_orders: total,
-      total_pages: Math.ceil(total / limit),
+      total_pages: limit > 0 ? Math.ceil(total / limit) : 0,
+      has_more,
       data,
     });
   } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+export const getMissedPickups = async (req, res, next) => {
+  try {
+    const data = await fetchMissedPickups(req.user.rider_id, req.query);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+export const getMissedDrops = async (req, res, next) => {
+  try {
+    const data = await fetchMissedDrops(req.user.rider_id, req.query);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    if (err.status)
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
     next(err);
   }
 };

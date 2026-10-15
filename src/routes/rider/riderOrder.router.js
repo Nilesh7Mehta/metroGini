@@ -5,6 +5,7 @@ import { sendOtpLimiter, verifyOtpLimiter } from '../../middleware/rateLimiter.j
 const router = express.Router();
 router.get('/getTodayOrder' , authenticate , riderOrderController.getTodayOrderList);
 router.get('/getTodayDeliveryOrders', authenticate, riderOrderController.getTodayDeliveryOrderList);
+router.get('/orderDetail/:id', authenticate, riderOrderController.getRiderOrderDetail);
 router.get('/optimizedRoute', authenticate, riderOrderController.getOptimizedRoute);
 router.get('/getDashboardCount' , authenticate , riderOrderController.getDashboardCount);
 
@@ -20,6 +21,8 @@ router.post('/completeDelivery', authenticate, verifyOtpLimiter, riderOrderContr
 
 //getOrderHistory
 router.get('/getOrderHistory' , authenticate , riderOrderController.getOrderHistory);
+router.get('/missedPickups', authenticate, riderOrderController.getMissedPickups);
+router.get('/missedDrops', authenticate, riderOrderController.getMissedDrops);
 
 
 export default router;

@@ -24,33 +24,25 @@ const toStop = (order, routeLeg) => ({
   stop_address: formatStopAddress(order),
 });
 
+const isActionableStop = (stop) =>
+  stop.route_leg === "pickup"
+    ? PICKUP_STATUSES.has(stop.status)
+    : DELIVERY_STATUSES.has(stop.status);
+
 /**
- * Collect today's actionable pickup + delivery stops for one rider.
- * Pickup + delivery are mixed in one route.
+ * Today's pickup + delivery stops for one rider, mixed in one list.
+ * Status filtering is applied later, and only to the map points.
  */
-const collectTodayStops = async (rider_id) => {
+const collectTodayStops = async (rider_id, shift) => {
   const [pickupOrders, deliveryOrders] = await Promise.all([
-    fetchTodayOrders(rider_id),
-    fetchTodayDeliveryOrders(rider_id),
+    fetchTodayOrders(rider_id, shift),
+    fetchTodayDeliveryOrders(rider_id, shift),
   ]);
 
-  const pickupStops = pickupOrders
-    .filter((o) => PICKUP_STATUSES.has(o.status))
-    .map((o) => toStop(o, "pickup"));
-
-  const deliveryStops = deliveryOrders
-    .filter((o) => DELIVERY_STATUSES.has(o.status))
-    .map((o) => toStop(o, "delivery"));
-
-  // Fallback: if filters empty (all done / edge statuses), use full today lists
-  if (!pickupStops.length && !deliveryStops.length) {
-    return [
-      ...pickupOrders.map((o) => toStop(o, "pickup")),
-      ...deliveryOrders.map((o) => toStop(o, "delivery")),
-    ];
-  }
-
-  return [...pickupStops, ...deliveryStops];
+  return [
+    ...pickupOrders.map((order) => toStop(order, "pickup")),
+    ...deliveryOrders.map((order) => toStop(order, "delivery")),
+  ];
 };
 
 const formatOrderSequenceItem = (order) => ({
@@ -168,14 +160,22 @@ const buildOptimizedStops = async (stops) => {
  * Start/end = vendor lat/long (not rider GPS).
  *
  * @param {number} rider_id
+ * @param {string} shift time_slots.shift_name for today's pickup and delivery stops
  */
-export const getOptimizedRiderRoute = async (rider_id) => {
-  const stops = await collectTodayStops(rider_id);
-  const optimized = await buildOptimizedStops(stops);
+export const getOptimizedRiderRoute = async (rider_id, shift) => {
+  const stops = await collectTodayStops(rider_id, shift);
+  const routeStops = stops.filter(isActionableStop);
+  const optimized = await buildOptimizedStops(routeStops);
+  const routedIds = new Set(optimized.orderSequence.map((order) => order.id));
 
   return {
     success: true,
-    orderSequence: optimized.orderSequence,
+    orderSequence: [
+      ...optimized.orderSequence,
+      ...stops
+        .filter((stop) => !routedIds.has(stop.id))
+        .map(formatOrderSequenceItem),
+    ],
     latlong: optimized.latlong,
   };
 };
