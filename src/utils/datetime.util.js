@@ -32,7 +32,8 @@ const formatDateParts = (date) => {
   return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 };
 
-const parseToDate = (value) => {
+export const parseToDate = (value) => {
+  if (value == null || value === '') return null;
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
   }

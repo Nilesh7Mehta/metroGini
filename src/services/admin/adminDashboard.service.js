@@ -1,4 +1,5 @@
-import sql from '../../config/db.js';
+import sql, { APP_TIMEZONE } from '../../config/db.js';
+import { parseToDate } from '../../utils/datetime.util.js';
 import {
   ORDER_ZONE_JOINS,
   orderZoneCityFilterSql,
@@ -14,20 +15,20 @@ const INACTIVE_USER_TICKERS = {
   inactive_users_60: 60,
 };
 
-const formatDate = (date) => date.toLocaleDateString('en-CA');
+const formatDate = (date) =>
+  date.toLocaleDateString('en-CA', { timeZone: APP_TIMEZONE });
 
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
+// DB timestamps are naive IST wall-clock strings; parseToDate pins them to IST.
 const toIsoOrNull = (value) => {
-  if (value == null) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  const date = parseToDate(value);
+  return date ? date.toISOString() : null;
 };
 
 const daysBetween = (fromDate, toDate = new Date()) => {
-  if (!fromDate) return null;
-  const from = fromDate instanceof Date ? fromDate : new Date(fromDate);
-  if (Number.isNaN(from.getTime())) return null;
+  const from = parseToDate(fromDate);
+  if (!from) return null;
 
   const fromDay = new Date(`${formatDate(from)}T12:00:00`);
   const toDay = new Date(`${formatDate(toDate)}T12:00:00`);
@@ -444,6 +445,7 @@ const mapUserListRow = (row) => ({
   name: row.full_name || null,
   phone_number: row.mobile || null,
   email: row.email || null,
+  account_status: row.account_status || 'active',
   registered_at: toIsoOrNull(row.registered_at),
   ordered: Boolean(row.ordered),
   order_count: Number(row.order_count) || 0,
@@ -451,6 +453,13 @@ const mapUserListRow = (row) => ({
   draft_count: Number(row.draft_count) || 0,
   latest_order_id: row.latest_order_id != null ? Number(row.latest_order_id) : null,
   latest_order_code: row.latest_order_code || null,
+  latest_order_status: row.latest_order_status || null,
+  latest_order_payment_status: row.latest_order_payment_status || null,
+  latest_order_amount: row.latest_order_amount != null
+    ? Math.round(Number(row.latest_order_amount) || 0)
+    : null,
+  latest_order_at: toIsoOrNull(row.latest_order_at),
+  last_activity_at: toIsoOrNull(row.last_activity_at || row.registered_at),
 });
 
 const fetchDashboardUsersList = async (
@@ -468,10 +477,16 @@ const fetchDashboardUsersList = async (
         u.full_name,
         u.mobile,
         u.email,
+        u.status AS account_status,
         u.created_at AS registered_at,
         COUNT(*)::int AS draft_count,
         (ARRAY_AGG(o.id ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_id,
-        (ARRAY_AGG(o.order_code ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_code
+        (ARRAY_AGG(o.order_code ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_code,
+        (ARRAY_AGG(o.status ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_status,
+        (ARRAY_AGG(o.payment_status ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_payment_status,
+        (ARRAY_AGG(COALESCE(o.final_total, o.estimated_total, 0) ORDER BY o.created_at DESC, o.id DESC))[1] AS latest_order_amount,
+        MAX(o.created_at) AS latest_order_at,
+        MAX(o.created_at) AS last_activity_at
       FROM orders o
       JOIN users u ON u.id = o.user_id
       ${ORDER_ZONE_JOINS}
@@ -485,8 +500,8 @@ const fetchDashboardUsersList = async (
           )
         )
         AND ${orderZoneCityFilterSql(3, 4)}
-      GROUP BY u.id, u.full_name, u.mobile, u.email, u.created_at
-      ORDER BY draft_count DESC, u.full_name ASC, u.id ASC
+      GROUP BY u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
+      ORDER BY latest_order_at DESC, u.id DESC
       `,
       [dateFrom, dateTo, pincodeGroupId, cityId],
     );
@@ -507,6 +522,10 @@ const fetchDashboardUsersList = async (
       SELECT
         o.id,
         o.user_id,
+        o.order_code,
+        o.status,
+        o.payment_status,
+        o.created_at,
         COALESCE(o.final_total, o.estimated_total, 0) AS order_total
       FROM orders o
       ${ORDER_ZONE_JOINS}
@@ -523,6 +542,19 @@ const fetchDashboardUsersList = async (
       FROM period_orders
       WHERE user_id IS NOT NULL
       GROUP BY user_id
+    ),
+    latest_order AS (
+      SELECT DISTINCT ON (user_id)
+        user_id,
+        id,
+        order_code,
+        status,
+        payment_status,
+        order_total,
+        created_at
+      FROM period_orders
+      WHERE user_id IS NOT NULL
+      ORDER BY user_id, created_at DESC, id DESC
     ),
     users_with_orders AS (
       SELECT user_id FROM order_stats
@@ -548,15 +580,24 @@ const fetchDashboardUsersList = async (
       u.full_name,
       u.mobile,
       u.email,
+      u.status AS account_status,
       u.created_at AS registered_at,
       (owo.user_id IS NOT NULL) AS ordered,
       COALESCE(os.order_count, 0) AS order_count,
-      COALESCE(os.order_spend, 0) AS order_spend
+      COALESCE(os.order_spend, 0) AS order_spend,
+      lo.id AS latest_order_id,
+      lo.order_code AS latest_order_code,
+      lo.status AS latest_order_status,
+      lo.payment_status AS latest_order_payment_status,
+      lo.order_total AS latest_order_amount,
+      lo.created_at AS latest_order_at,
+      GREATEST(u.created_at, lo.created_at) AS last_activity_at
     FROM listed_users lu
     JOIN users u ON u.id = lu.user_id
     LEFT JOIN users_with_orders owo ON owo.user_id = lu.user_id
     LEFT JOIN order_stats os ON os.user_id = lu.user_id
-    ORDER BY ordered DESC, order_count DESC, u.full_name ASC, u.id ASC
+    LEFT JOIN latest_order lo ON lo.user_id = lu.user_id
+    ORDER BY last_activity_at DESC NULLS LAST, u.id DESC
     `,
     [dateFrom, dateTo, pincodeGroupId, cityId],
   );
