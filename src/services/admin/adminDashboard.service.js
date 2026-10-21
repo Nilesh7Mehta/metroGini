@@ -41,29 +41,21 @@ const resolveDateFilters = (query = {}) => {
   const hasFrom = dateFrom != null && dateFrom !== '';
   const hasTo = dateTo != null && dateTo !== '';
 
-  if (hasFrom !== hasTo) {
-    throw {
-      status: 400,
-      message: 'date_from and date_to must be provided together',
-    };
-  }
-
-  if (!hasFrom) {
-    return { dateFrom: null, dateTo: null };
-  }
-
-  if (!DATE_RE.test(dateFrom) || !DATE_RE.test(dateTo)) {
+  if ((hasFrom && !DATE_RE.test(dateFrom)) || (hasTo && !DATE_RE.test(dateTo))) {
     throw {
       status: 400,
       message: 'date_from and date_to must be in YYYY-MM-DD format',
     };
   }
 
-  if (dateFrom > dateTo) {
+  if (hasFrom && hasTo && dateFrom > dateTo) {
     throw { status: 400, message: 'date_from must be on or before date_to' };
   }
 
-  return { dateFrom, dateTo };
+  return {
+    dateFrom: hasFrom ? dateFrom : null,
+    dateTo: hasTo ? dateTo : null,
+  };
 };
 
 const parseInactiveTicker = (ticker) => {
@@ -131,13 +123,8 @@ const fetchDashboardMetrics = async (
       ${ORDER_ZONE_JOINS}
       WHERE o.status = 'draft'
         AND o.user_id IS NOT NULL
-        AND (
-          ($1::date IS NULL AND $2::date IS NULL)
-          OR (
-            o.created_at::date >= $1::date
-            AND o.created_at::date <= $2::date
-          )
-        )
+        AND ($1::date IS NULL OR o.created_at::date >= $1::date)
+        AND ($2::date IS NULL OR o.created_at::date <= $2::date)
         AND ${orderZoneCityFilterSql(3, 5)}
     ),
     users_with_orders AS (
@@ -148,11 +135,8 @@ const fetchDashboardMetrics = async (
     registered_in_period AS (
       SELECT fu.id AS user_id
       FROM filtered_users fu
-      WHERE ($1::date IS NULL AND $2::date IS NULL)
-        OR (
-          fu.created_at::date >= $1::date
-          AND fu.created_at::date <= $2::date
-        )
+      WHERE ($1::date IS NULL OR fu.created_at::date >= $1::date)
+        AND ($2::date IS NULL OR fu.created_at::date <= $2::date)
     ),
     registered_or_ordered AS (
       SELECT user_id FROM registered_in_period
@@ -492,16 +476,11 @@ const fetchDashboardUsersList = async (
       ${ORDER_ZONE_JOINS}
       WHERE o.status = 'draft'
         AND o.user_id IS NOT NULL
-        AND (
-          ($1::date IS NULL AND $2::date IS NULL)
-          OR (
-            o.created_at::date >= $1::date
-            AND o.created_at::date <= $2::date
-          )
-        )
+        AND ($1::date IS NULL OR o.created_at::date >= $1::date)
+        AND ($2::date IS NULL OR o.created_at::date <= $2::date)
         AND ${orderZoneCityFilterSql(3, 4)}
       GROUP BY u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
-      ORDER BY latest_order_at DESC, u.id DESC
+      ORDER BY latest_order_at ASC, u.id ASC
       `,
       [dateFrom, dateTo, pincodeGroupId, cityId],
     );
@@ -562,11 +541,8 @@ const fetchDashboardUsersList = async (
     registered_in_period AS (
       SELECT fu.id AS user_id
       FROM filtered_users fu
-      WHERE ($1::date IS NULL AND $2::date IS NULL)
-        OR (
-          fu.created_at::date >= $1::date
-          AND fu.created_at::date <= $2::date
-        )
+      WHERE ($1::date IS NULL OR fu.created_at::date >= $1::date)
+        AND ($2::date IS NULL OR fu.created_at::date <= $2::date)
     ),
     listed_users AS (
       SELECT user_id FROM users_with_orders
