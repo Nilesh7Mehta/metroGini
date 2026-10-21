@@ -573,7 +573,7 @@ const fetchDashboardUsersList = async (
     LEFT JOIN users_with_orders owo ON owo.user_id = lu.user_id
     LEFT JOIN order_stats os ON os.user_id = lu.user_id
     LEFT JOIN latest_order lo ON lo.user_id = lu.user_id
-    ORDER BY last_activity_at DESC NULLS LAST, u.id DESC
+    ORDER BY u.created_at DESC, u.id DESC
     `,
     [dateFrom, dateTo, pincodeGroupId, cityId],
   );
