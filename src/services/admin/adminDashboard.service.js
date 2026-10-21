@@ -480,7 +480,7 @@ const fetchDashboardUsersList = async (
         AND ($2::date IS NULL OR o.created_at::date <= $2::date)
         AND ${orderZoneCityFilterSql(3, 4)}
       GROUP BY u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
-      ORDER BY latest_order_at ASC, u.id ASC
+      ORDER BY latest_order_at DESC, u.id DESC
       `,
       [dateFrom, dateTo, pincodeGroupId, cityId],
     );
