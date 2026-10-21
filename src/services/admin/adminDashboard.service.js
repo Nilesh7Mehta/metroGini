@@ -6,6 +6,7 @@ import {
   resolveGeoFilters,
   userZoneCityExistsSql,
 } from '../../utils/adminGeoFilter.util.js';
+import { getAttentionCounts } from './adminOrder.service.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -613,6 +614,10 @@ export const getAdminDashboardService = async (query = {}) => {
     },
     tickers: buildTickers(metrics),
   };
+
+  if (!query.ticker) {
+    data.attention = await getAttentionCounts({ pincodeGroupId, cityId });
+  }
 
   if (inactiveTicker) {
     data.ticker = inactiveTicker.ticker;

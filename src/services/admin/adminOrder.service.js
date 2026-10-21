@@ -516,6 +516,30 @@ const fetchOrdersForRange = async ({
   return rows;
 };
 
+/** Open attention counts across all dates — same rules as the attention list without a date. */
+export const getAttentionCounts = async ({ pincodeGroupId = null, cityId = null } = {}) => {
+  const today = formatDate(new Date());
+  const orders = await fetchOrdersForRange({
+    rangeStart: '2000-01-01',
+    rangeEnd: today,
+    pincodeGroupId,
+    cityId,
+    excludeDelivered: true,
+  });
+
+  const counts = {};
+  let total = 0;
+  for (const order of orders) {
+    const attentionDate = resolveAttentionDate(order, today);
+    if (!attentionDate) continue;
+    const { code } = classifyAttention(order, attentionDate, today);
+    counts[code] = (counts[code] || 0) + 1;
+    total += 1;
+  }
+
+  return { total, counts };
+};
+
 export const getAdminOrdersService = async (query = {}) => {
   const { selectedDate, hasExplicitDate, dateFrom, dateTo, shift } =
     resolveListFilters(query);
