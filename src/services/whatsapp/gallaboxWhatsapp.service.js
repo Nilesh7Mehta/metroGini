@@ -362,6 +362,16 @@ export const sendCustomerReengagementOfferSafe = ({
   });
 };
 
+/** Template: abandoned_cart_reminder — no body variables, static URL buttons */
+export const sendAbandonedCartReminderSafe = ({ mobile, name }) => {
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "abandoned_cart_reminder",
+    bodyValues: {},
+  });
+};
+
 const formatWhatsappDate = (value) => {
   if (value == null || value === "") return "—";
   const raw = String(value).trim();

@@ -20,6 +20,7 @@ import { apiLogger, logApiError } from './middleware/apiLogger.middleware.js';
 import { startPickupCron } from "./cron/pickupCron.js";
 import { startPaymentReminderCron } from "./cron/paymentReminderCron.js";
 import { startReengagementCron } from "./cron/reengagementCron.js";
+import { startAbandonedCartCron } from "./cron/abandonedCartCron.js";
 import "./cron/vendorDeadlineCron.js";
 import "./cron/deliveryRescheduleCron.js";
 import { AssignOrderToRider } from './cron/orderSplitCron.js';
@@ -27,6 +28,7 @@ import { payRedirect } from './controller/users/paymentGateway/payRedirect.contr
 startPickupCron();
 startPaymentReminderCron();
 startReengagementCron();
+startAbandonedCartCron();
 AssignOrderToRider();
 const app = express();
 const jsonParser = express.json();
