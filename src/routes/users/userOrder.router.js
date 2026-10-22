@@ -55,5 +55,10 @@ router.post('/:id/cancelService' , userOrderController.cancelService);
 //report oder
 router.post('/report-order' , userOrderController.reportOrderIssue);
 
+// post-delivery customer review (rating + text)
+router.post('/:id/order-review', userOrderController.submitOrderReview);
+router.put('/:id/order-review', userOrderController.updateOrderReview);
+router.get('/:id/order-review', userOrderController.getOrderReview);
+
 
 export default router;

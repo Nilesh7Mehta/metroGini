@@ -7,7 +7,7 @@ export const getUserNotificationsService = async (userId, { category, page, limi
   const params = [userId];
 
   if (category === 'orders') {
-    conditions.push(`n.reference_type = 'order'`);
+    conditions.push(`n.reference_type IN ('order', 'order_review')`);
   } else if (category === 'auth') {
     conditions.push(`n.reference_type = 'auth'`);
   }

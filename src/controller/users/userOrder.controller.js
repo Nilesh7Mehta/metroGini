@@ -17,6 +17,9 @@ import {
   cancelServiceService,
   reportOrderIssueService,
   verifyOrderByCodeService,
+  submitOrderReviewService,
+  updateOrderReviewService,
+  getOrderReviewService,
 } from "../../services/users/userOrder.service.js";
 
 const handleError = (error, res, next) => {
@@ -351,6 +354,50 @@ export const reportOrderIssue = async (req, res, next) => {
     return res
       .status(201)
       .json({ success: true, message: "Issue reported successfully", data });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const submitOrderReview = async (req, res, next) => {
+  try {
+    const data = await submitOrderReviewService({
+      user_id: req.user.id,
+      order_id: req.params.id,
+      rating: req.body?.rating,
+      review_text: req.body?.review_text,
+    });
+    return res
+      .status(201)
+      .json({ success: true, message: "Thank you for your review", data });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const updateOrderReview = async (req, res, next) => {
+  try {
+    const data = await updateOrderReviewService({
+      user_id: req.user.id,
+      order_id: req.params.id,
+      rating: req.body?.rating,
+      review_text: req.body?.review_text,
+    });
+    return res
+      .status(200)
+      .json({ success: true, message: "Review updated successfully", data });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const getOrderReview = async (req, res, next) => {
+  try {
+    const data = await getOrderReviewService({
+      user_id: req.user.id,
+      order_id: req.params.id,
+    });
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     handleError(error, res, next);
   }

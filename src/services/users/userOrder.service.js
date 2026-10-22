@@ -1,5 +1,5 @@
 import sql from "../../config/db.js";
-import { fetchOrderTimestamps } from "../../utils/datetime.util.js";
+import { fetchOrderTimestamps, formatDateTime } from "../../utils/datetime.util.js";
 import {
   applyCouponDiscount,
   calculateOrderPricing,
@@ -1563,6 +1563,179 @@ export const reportOrderIssueService = async ({
   );
 
   return rows[0];
+};
+
+const MAX_REVIEW_TEXT_LENGTH = 1000;
+
+const parseReviewOrderId = (raw) => {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw { status: 400, message: "Invalid order id" };
+  }
+  return id;
+};
+
+const parseReviewRating = (rating) => {
+  const parsed = Number(rating);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+    throw { status: 400, message: "rating must be a whole number between 1 and 5" };
+  }
+  return parsed;
+};
+
+const parseReviewText = (reviewText) => {
+  const text = reviewText == null ? null : String(reviewText).trim() || null;
+  if (text && text.length > MAX_REVIEW_TEXT_LENGTH) {
+    throw {
+      status: 400,
+      message: `review_text must be at most ${MAX_REVIEW_TEXT_LENGTH} characters`,
+    };
+  }
+  return text;
+};
+
+const mapOrderReview = (row) => ({
+  id: row.id,
+  order_id: row.order_id,
+  rating: Number(row.rating),
+  review_text: row.review_text,
+  vendor_id: row.vendor_id,
+  rider_id: row.rider_id,
+  created_at: formatDateTime(row.created_at),
+  updated_at: formatDateTime(row.updated_at),
+});
+
+export const submitOrderReviewService = async ({
+  user_id,
+  order_id,
+  rating,
+  review_text,
+}) => {
+  const orderId = parseReviewOrderId(order_id);
+  const parsedRating = parseReviewRating(rating);
+  const text = parseReviewText(review_text);
+
+  const { rows: orderRows } = await sql.query(
+    `SELECT id, status, vendor_id, assigned_rider_id
+     FROM orders
+     WHERE id = $1 AND user_id = $2`,
+    [orderId, user_id],
+  );
+  if (orderRows.length === 0) throw { status: 404, message: "Order not found" };
+
+  const order = orderRows[0];
+  if (order.status !== "delivered") {
+    throw { status: 400, message: "You can review an order only after it is delivered" };
+  }
+
+  const { rows } = await sql.query(
+    `INSERT INTO order_reviews (order_id, user_id, vendor_id, rider_id, rating, review_text)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (order_id) DO NOTHING
+     RETURNING *`,
+    [order.id, user_id, order.vendor_id, order.assigned_rider_id, parsedRating, text],
+  );
+  if (rows.length === 0) {
+    throw { status: 409, message: "You have already reviewed this order" };
+  }
+
+  return mapOrderReview(rows[0]);
+};
+
+export const updateOrderReviewService = async ({
+  user_id,
+  order_id,
+  rating,
+  review_text,
+}) => {
+  const orderId = parseReviewOrderId(order_id);
+
+  const hasRating = rating !== undefined;
+  const hasText = review_text !== undefined;
+  if (!hasRating && !hasText) {
+    throw { status: 400, message: "Provide rating and/or review_text to update" };
+  }
+
+  const sets = [];
+  const params = [orderId, user_id];
+
+  if (hasRating) {
+    params.push(parseReviewRating(rating));
+    sets.push(`rating = $${params.length}`);
+  }
+  if (hasText) {
+    params.push(parseReviewText(review_text));
+    sets.push(`review_text = $${params.length}`);
+  }
+
+  const { rows } = await sql.query(
+    `UPDATE order_reviews
+     SET ${sets.join(", ")}, updated_at = NOW()
+     WHERE order_id = $1 AND user_id = $2
+     RETURNING *`,
+    params,
+  );
+  if (rows.length === 0) {
+    throw { status: 404, message: "Review not found for this order" };
+  }
+
+  return mapOrderReview(rows[0]);
+};
+
+export const getOrderReviewService = async ({ user_id, order_id }) => {
+  const orderId = parseReviewOrderId(order_id);
+
+  const { rows } = await sql.query(
+    `SELECT
+       o.id AS order_id,
+       o.order_code,
+       o.status,
+       o.delivery_completed_at,
+       v.laundry_shop_name AS vendor_name,
+       r.full_name AS rider_name,
+       orv.id AS review_id,
+       orv.rating,
+       orv.review_text,
+       orv.vendor_id AS review_vendor_id,
+       orv.rider_id AS review_rider_id,
+       orv.created_at AS review_created_at,
+       orv.updated_at AS review_updated_at
+     FROM orders o
+     LEFT JOIN vendors v ON v.id = o.vendor_id
+     LEFT JOIN riders r ON r.id = o.assigned_rider_id
+     LEFT JOIN order_reviews orv ON orv.order_id = o.id
+     WHERE o.id = $1 AND o.user_id = $2`,
+    [orderId, user_id],
+  );
+  if (rows.length === 0) throw { status: 404, message: "Order not found" };
+
+  const row = rows[0];
+  const review = row.review_id
+    ? mapOrderReview({
+        id: row.review_id,
+        order_id: row.order_id,
+        rating: row.rating,
+        review_text: row.review_text,
+        vendor_id: row.review_vendor_id,
+        rider_id: row.review_rider_id,
+        created_at: row.review_created_at,
+        updated_at: row.review_updated_at,
+      })
+    : null;
+
+  return {
+    order: {
+      order_id: row.order_id,
+      order_code: row.order_code,
+      status: row.status,
+      delivered_at: formatDateTime(row.delivery_completed_at),
+      vendor_name: row.vendor_name,
+      rider_name: row.rider_name,
+    },
+    is_reviewed: Boolean(review),
+    can_review: row.status === "delivered" && !review,
+    review,
+  };
 };
 
 const parseOrderId = (raw) => {

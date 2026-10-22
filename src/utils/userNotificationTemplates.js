@@ -237,6 +237,7 @@ export const ratingRequestTemplate = ({ orderId } = {}) => ({
   ),
   data: {
     type: 'rating_request',
+    screen: 'OrderReview',
     order_id: orderId != null ? String(orderId) : '',
     ...(RATING_LINK ? { rating_link: RATING_LINK } : {}),
     ...(APP_LINK ? { app_link: APP_LINK } : {}),

@@ -254,8 +254,6 @@ const MISSED_PICKUP_STATUSES = [
   "out_for_pickup",
   "pickup_in_progress",
   "picked_up",
-  "in_process",
-  "at_vendor",
 ];
 const MISSED_DROP_STATUSES = ["ready_for_delivery", "out_for_delivery"];
 
@@ -1114,7 +1112,7 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     role: 'user',
     title: rating.title,
     message: rating.message,
-    reference_type: 'order',
+    reference_type: 'order_review',
     reference_id: order_id,
     data: rating.data,
   }]);
