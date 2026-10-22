@@ -2,7 +2,11 @@ import sql from "../../config/db.js";
 import { checkRiderReady } from "../../models/riders/rider.model.js";
 import { buildOrderTimestamps, fetchOrderTimestamps } from "../../utils/datetime.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
-import { sendUserEmailSafe, sendPickupOtpEmail } from "../common/email.service.js";
+import {
+  sendUserEmailSafe,
+  sendPickupOtpEmail,
+  sendOrderDeliveredEmail,
+} from "../common/email.service.js";
 import { sendOtpSmsIfEnabled, sendSmsToUserSafe } from "../common/sms.service.js";
 import { isSmsEnabled } from "../../config/sms.js";
 import { createRemainingPaymentQr } from "./riderPaymentQr.service.js";
@@ -1075,7 +1079,7 @@ export const pickupFromVendorService = async (rider_id, order_id) => {
 
 export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
   const { rows } = await sql.query(
-    `SELECT o.id, o.status, o.assigned_rider_id, o.user_id,
+    `SELECT o.id, o.order_code, o.status, o.assigned_rider_id, o.user_id,
             o.delivery_otp, o.payment_status, o.final_total,
             u.full_name, u.mobile
      FROM orders o
@@ -1120,6 +1124,11 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
   sendSmsToUserSafe(order.user_id, SMS_TEMPLATE_KEYS.DELIVERY_SUCCESS, {}, {
     reference_type: "order",
     reference_id: order_id,
+  });
+
+  sendUserEmailSafe(order.user_id, sendOrderDeliveredEmail, {
+    orderId: order.id,
+    orderCode: order.order_code,
   });
 
   const { sendOrderDeliveredSafe } = await import(

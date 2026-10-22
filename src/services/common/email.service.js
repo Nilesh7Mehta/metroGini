@@ -570,6 +570,38 @@ export const sendDeliveryOtpEmail = async ({
   });
 };
 
+export const sendOrderDeliveredEmail = async ({
+  email,
+  name,
+  orderId,
+  orderCode,
+}) => {
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : orderCode || "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const html = buildReceiptShellEmailHtml({
+    heading: "Order Delivered",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">Your wash by kilo order <strong>${safeOrderRef}</strong> has been delivered successfully.</p>
+      <p style="margin:0 0 12px;">Thank you for choosing MetroGini! We hope you love your freshly washed and ironed clothes.</p>
+      <p style="margin:0;">We'd love your feedback — please take a moment to rate us in the MetroGini App.</p>
+    `,
+    footerTagline: "MetroGini · Wash by Kilo · Order Delivered",
+    footerMeta: [orderRef],
+  });
+
+  await sendEmail({
+    to: email,
+    subject: `Your wash by kilo order ${orderRef} has been delivered — MetroGini`,
+    html,
+    emailType: "order_delivered",
+    referenceType: "order",
+    referenceId: orderId,
+  });
+};
+
 const formatEmailDate = (value) => {
   if (value == null || value === "") return "—";
 
