@@ -251,10 +251,10 @@ const isDeliveryOnDate = (order, dateStr) =>
 const isActiveOnDate = (order, dateStr) =>
   isPickupOnDate(order, dateStr) || isDeliveryOnDate(order, dateStr);
 
-/** Latest pickup/delivery day (up to asOf) on which the order needs attention. */
+/** Delivery or pickup day (past, today, or upcoming) on which the order needs attention. */
 const resolveAttentionDate = (order, asOf) =>
   [toDateStr(order.delivery_date), toDateStr(order.pickup_date)]
-    .filter((dateStr) => dateStr && dateStr <= asOf)
+    .filter(Boolean)
     .find((dateStr) => classifyAttention(order, dateStr, asOf)) ?? null;
 
 const buildDays = (selectedDate, orders) => {
@@ -503,7 +503,8 @@ const fetchOrdersForRange = async ({
     WHERE o.status NOT IN ('draft', 'cancelled')
       ${excludeDelivered ? `AND o.status <> 'delivered'` : ''}
       AND (
-        o.pickup_date BETWEEN $1::date AND $2::date
+        $1::date IS NULL
+        OR o.pickup_date BETWEEN $1::date AND $2::date
         OR o.delivery_date BETWEEN $1::date AND $2::date
       )
       AND ${orderZoneCityFilterSql(3, 4)}
@@ -520,8 +521,8 @@ const fetchOrdersForRange = async ({
 export const getAttentionCounts = async ({ pincodeGroupId = null, cityId = null } = {}) => {
   const today = formatDate(new Date());
   const orders = await fetchOrdersForRange({
-    rangeStart: '2000-01-01',
-    rangeEnd: today,
+    rangeStart: null,
+    rangeEnd: null,
     pincodeGroupId,
     cityId,
     excludeDelivered: true,
@@ -561,8 +562,8 @@ export const getAdminOrdersService = async (query = {}) => {
   }
 
   const orders = await fetchOrdersForRange({
-    rangeStart: allDates ? '2000-01-01' : selectedDate,
-    rangeEnd: allDates ? selectedDate : addDays(selectedDate, DAYS_WINDOW - 1),
+    rangeStart: allDates ? null : selectedDate,
+    rangeEnd: allDates ? null : addDays(selectedDate, DAYS_WINDOW - 1),
     pincodeGroupId,
     cityId,
     shiftSlotIds,
