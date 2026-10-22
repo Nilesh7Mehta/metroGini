@@ -17,6 +17,14 @@ const VALID_PAYMENT_STATUSES = [
 ];
 const GST_RATE = 0.18;
 
+// Vendor has confirmed the order: weight for wash-by-kilo, piece count for dry clean (service 2).
+const VENDOR_CONFIRMED_SQL = `(
+  CASE
+    WHEN o.service_id = 2 THEN COALESCE(o.actual_clothes_count, 0) > 0
+    ELSE COALESCE(o.actual_weight, 0) > 0
+  END
+)`;
+
 const SERVICE_CONFIG = {
   1: { key: 'wash_by_kilo' },
   2: { key: 'dry_clean' },
@@ -289,6 +297,7 @@ const fetchTopStats = async (start, end, pincodeGroupId, cityId) => {
       WHERE o.pickup_date BETWEEN $1::date AND $2::date
         AND o.status NOT IN ('draft', 'cancelled')
         AND ${orderZoneCityFilterSql(3, 4)}
+        AND ${VENDOR_CONFIRMED_SQL}
     )
     SELECT
       COUNT(*)::int AS total_orders,

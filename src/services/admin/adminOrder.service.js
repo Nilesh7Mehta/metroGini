@@ -198,6 +198,11 @@ const resolveIssueType = (order) => {
 const weightIsFinalized = (order) =>
   order.actual_weight != null && String(order.actual_weight).trim() !== '';
 
+const isVendorConfirmed = (order) =>
+  Number(order.service_id) === 2
+    ? Number(order.actual_clothes_count) > 0
+    : Number(order.actual_weight) > 0;
+
 const buildEstFin = (order) => {
   const isWash = Number(order.service_id) === 1;
 
@@ -299,12 +304,16 @@ const buildKpis = (selectedDate, orders) => {
     delivery_completed: deliveryOrders.filter(
       (o) => resolveDeliveryStatus(o) === 'completed',
     ).length,
-    total_payable: dayOrders.reduce((sum, o) => sum + getOrderTotal(o), 0),
+    total_payable: dayOrders
+      .filter(isVendorConfirmed)
+      .reduce((sum, o) => sum + getOrderTotal(o), 0),
     balance_collected: dayOrders.reduce(
       (sum, o) => sum + getBalanceCollected(o),
       0,
     ),
-    balance_pending: dayOrders.reduce((sum, o) => sum + getBalancePayable(o), 0),
+    balance_pending: dayOrders
+      .filter(isVendorConfirmed)
+      .reduce((sum, o) => sum + getBalancePayable(o), 0),
     failed_pickup: pickupOrders.filter((o) => resolvePickupStatus(o) === 'failed')
       .length,
     failed_delivery: deliveryOrders.filter(
@@ -336,8 +345,12 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
 
   const attention = classifyAttention(order, selectedDate);
   const billing = buildOrderBillingPayload(order);
-  const totalAmount = Math.round(Number(billing.total_amount || getOrderTotal(order)));
-  const gstAmount = Math.round(Number(billing.gst || 0));
+  // Amounts are only final once the vendor confirms weight (pieces for dry clean).
+  const amountConfirmed = isVendorConfirmed(order);
+  const totalAmount = amountConfirmed
+    ? Math.round(Number(billing.total_amount || getOrderTotal(order)))
+    : null;
+  const gstAmount = amountConfirmed ? Math.round(Number(billing.gst || 0)) : null;
   const couponCode = order.coupon_code || null;
   const riderName = order.rider_name || null;
   const pickupCompleted = PICKUP_COMPLETED_STATUSES.includes(order.status);
@@ -365,6 +378,7 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     attention_code: attention?.code || null,
     attention_label: attention?.label || null,
     est_fin: buildEstFin(order),
+    amount_confirmed: amountConfirmed,
     charges: totalAmount,
     coupon_applied: couponCode,
     coupon_code: couponCode,
@@ -376,7 +390,7 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     delivery_status: resolveDeliveryStatus(order),
     total_payable: totalAmount,
     balance_collected: getBalanceCollected(order),
-    balance_payable: getBalancePayable(order),
+    balance_payable: amountConfirmed ? getBalancePayable(order) : null,
     scheduled_date: scheduledDate,
     order_date: toDateStr(order.created_at) || toDateStr(order.pickup_date),
     created_at: toIsoDateTime(order.created_at),
@@ -639,7 +653,12 @@ export const getAdminOrdersService = async (query = {}) => {
       }
     }
     if (ticker === 'balance_collected' && getBalanceCollected(order) <= 0) return false;
-    if (ticker === 'balance_pending' && getBalancePayable(order) <= 0) return false;
+    if (
+      ticker === 'balance_pending'
+      && (!isVendorConfirmed(order) || getBalancePayable(order) <= 0)
+    ) {
+      return false;
+    }
 
     if (issueType && resolveIssueType(order) !== issueType) return false;
     return true;
