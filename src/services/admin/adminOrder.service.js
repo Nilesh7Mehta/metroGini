@@ -78,11 +78,11 @@ const resolveListFilters = (query = {}) => {
     throw { status: 400, message: 'date_from must be on or before date_to' };
   }
 
-  const selectedDate =
-    parseOptionalDate(query.date, 'date') || dateFrom || formatDate(new Date());
+  const explicitDate = parseOptionalDate(query.date, 'date') || dateFrom;
 
   return {
-    selectedDate,
+    selectedDate: explicitDate || formatDate(new Date()),
+    hasExplicitDate: Boolean(explicitDate),
     dateFrom,
     dateTo,
     shift: parseOptionalShift(query.shift),
@@ -251,6 +251,12 @@ const isDeliveryOnDate = (order, dateStr) =>
 const isActiveOnDate = (order, dateStr) =>
   isPickupOnDate(order, dateStr) || isDeliveryOnDate(order, dateStr);
 
+/** Latest pickup/delivery day (up to asOf) on which the order needs attention. */
+const resolveAttentionDate = (order, asOf) =>
+  [toDateStr(order.delivery_date), toDateStr(order.pickup_date)]
+    .filter((dateStr) => dateStr && dateStr <= asOf)
+    .find((dateStr) => classifyAttention(order, dateStr, asOf)) ?? null;
+
 const buildDays = (selectedDate, orders) => {
   const days = [];
 
@@ -400,6 +406,7 @@ const fetchOrdersForRange = async ({
   pincodeGroupId,
   cityId,
   shiftSlotIds,
+  excludeDelivered = false,
 }) => {
   const params = [rangeStart, rangeEnd, pincodeGroupId, cityId];
   let shiftClause = '';
@@ -494,6 +501,7 @@ const fetchOrdersForRange = async ({
       LIMIT 1
     ) oc ON TRUE
     WHERE o.status NOT IN ('draft', 'cancelled')
+      ${excludeDelivered ? `AND o.status <> 'delivered'` : ''}
       AND (
         o.pickup_date BETWEEN $1::date AND $2::date
         OR o.delivery_date BETWEEN $1::date AND $2::date
@@ -508,8 +516,36 @@ const fetchOrdersForRange = async ({
   return rows;
 };
 
+/** Open attention counts across all dates — same rules as the attention list without a date. */
+export const getAttentionCounts = async ({ pincodeGroupId = null, cityId = null } = {}) => {
+  const today = formatDate(new Date());
+  const orders = await fetchOrdersForRange({
+    rangeStart: '2000-01-01',
+    rangeEnd: today,
+    pincodeGroupId,
+    cityId,
+    excludeDelivered: true,
+  });
+
+  const counts = {};
+  let total = 0;
+  for (const order of orders) {
+    const attentionDate = resolveAttentionDate(order, today);
+    if (!attentionDate) continue;
+    const { code } = classifyAttention(order, attentionDate, today);
+    counts[code] = (counts[code] || 0) + 1;
+    total += 1;
+  }
+
+  return { total, counts };
+};
+
 export const getAdminOrdersService = async (query = {}) => {
-  const { selectedDate, dateFrom, dateTo, shift } = resolveListFilters(query);
+  const { selectedDate, hasExplicitDate, dateFrom, dateTo, shift } =
+    resolveListFilters(query);
+  const attentionFilter = String(query.attention || '').trim().toLowerCase();
+  // Attention without a date: check every open order against its own pickup/delivery day.
+  const allDates = Boolean(attentionFilter) && !hasExplicitDate;
   const geoFilter = await resolveGeoFilters(query);
   const pincodeGroupId = geoFilter.pincode_group_id;
   const cityId = geoFilter.city_id;
@@ -524,50 +560,61 @@ export const getAdminOrdersService = async (query = {}) => {
     });
   }
 
-  const rangeStart = selectedDate;
-  const rangeEnd = addDays(selectedDate, DAYS_WINDOW - 1);
-
   const orders = await fetchOrdersForRange({
-    rangeStart,
-    rangeEnd,
+    rangeStart: allDates ? '2000-01-01' : selectedDate,
+    rangeEnd: allDates ? selectedDate : addDays(selectedDate, DAYS_WINDOW - 1),
     pincodeGroupId,
     cityId,
     shiftSlotIds,
+    excludeDelivered: allDates,
   });
 
-  const selectedOrders = orders.filter((order) =>
-    isActiveOnDate(order, selectedDate),
-  );
+  const attentionDates = new Map();
+  if (allDates) {
+    for (const order of orders) {
+      const attentionDate = resolveAttentionDate(order, selectedDate);
+      if (attentionDate) attentionDates.set(order.id, attentionDate);
+    }
+  }
+  const orderDateFor = (order) =>
+    allDates ? attentionDates.get(order.id) : selectedDate;
+
+  const selectedOrders = allDates
+    ? orders
+      .filter((order) => attentionDates.has(order.id))
+      .sort((a, b) =>
+        orderDateFor(b).localeCompare(orderDateFor(a)) || Number(b.id) - Number(a.id))
+    : orders.filter((order) => isActiveOnDate(order, selectedDate));
 
   const paymentStatus = String(query.payment_status || '').trim().toLowerCase();
   const ticker = String(query.ticker || '').trim().toLowerCase();
   const issueType = String(query.issue_type || '').trim().toLowerCase();
 
   const listOrders = selectedOrders.filter((order) => {
+    const orderDate = orderDateFor(order);
     const paid = String(order.payment_status || 'pending').toLowerCase() === 'paid';
     if (paymentStatus === 'paid' && !paid) return false;
     if (paymentStatus === 'unpaid' && paid) return false;
 
-    if (ticker === 'pickup' && !isPickupOnDate(order, selectedDate)) return false;
-    if (ticker === 'delivery' && !isDeliveryOnDate(order, selectedDate)) return false;
+    if (ticker === 'pickup' && !isPickupOnDate(order, orderDate)) return false;
+    if (ticker === 'delivery' && !isDeliveryOnDate(order, orderDate)) return false;
     if (
       ticker === 'failed_pickup' &&
-      !(isPickupOnDate(order, selectedDate) && resolvePickupStatus(order) === 'failed')
+      !(isPickupOnDate(order, orderDate) && resolvePickupStatus(order) === 'failed')
     ) {
       return false;
     }
     if (
       ticker === 'failed_delivery' &&
-      !(isDeliveryOnDate(order, selectedDate) && resolveDeliveryStatus(order) === 'failed')
+      !(isDeliveryOnDate(order, orderDate) && resolveDeliveryStatus(order) === 'failed')
     ) {
       return false;
     }
-    const attention = classifyAttention(order, selectedDate);
+    const attention = classifyAttention(order, orderDate);
     if (ticker === 'attention_required' && !attention) return false;
     if (ticker === 'attention_rider' && attention?.party !== 'rider') return false;
     if (ticker === 'attention_vendor' && attention?.party !== 'vendor') return false;
 
-    const attentionFilter = String(query.attention || '').trim().toLowerCase();
     if (attentionFilter === 'any' && !attention) return false;
     if (
       attentionFilter
@@ -598,9 +645,29 @@ export const getAdminOrdersService = async (query = {}) => {
   });
 
   const mappedOrders = listOrders.map((order) =>
-    mapAdminOrderRow(order, selectedDate, shiftByPickupSlot),
+    mapAdminOrderRow(order, orderDateFor(order), shiftByPickupSlot),
   );
   const { items: pageOrders, pagination } = paginateArray(mappedOrders, query);
+
+  if (allDates) {
+    return {
+      filters: {
+        date: null,
+        date_from: dateFrom,
+        date_to: dateTo,
+        shift,
+        pincode_group_id: pincodeGroupId,
+        zone_group: geoFilter.zone_name,
+        city_id: cityId,
+        city_name: geoFilter.city_name,
+      },
+      days: [],
+      selected_date: null,
+      kpis: null,
+      orders: pageOrders,
+      pagination,
+    };
+  }
 
   return {
     filters: {
