@@ -40,15 +40,19 @@ export const applyCouponDiscount = (grossTotal, order = {}) => {
   const hasMax =
     maxRaw != null && maxRaw !== '' && !Number.isNaN(Number(maxRaw));
   const withinMin = gross >= minAmount;
-  const withinMax = !hasMax || gross <= Number(maxRaw);
 
-  if (hasCoupon && withinMin && withinMax) {
+  if (hasCoupon && withinMin) {
     if (order.discount_type === 'percentage') {
       discount = (gross * Number(order.discount_value)) / 100;
     } else if (order.discount_type === 'flat') {
       discount = Number(order.discount_value);
     } else if (order.discount_type === 'per_kg') {
       discount = resolveCouponWeight(order) * Number(order.discount_value);
+    }
+
+    // maximum_amount_value = max discount in ₹, not a max bill amount
+    if (hasMax && discount > Number(maxRaw)) {
+      discount = Number(maxRaw);
     }
   }
 

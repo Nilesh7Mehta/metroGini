@@ -112,13 +112,6 @@ const resolveCouponAmountBounds = (minimum_amount_value, maximum_amount_value) =
     throw { status: 400, message: 'maximum_amount_value must be a non-negative number' };
   }
 
-  if (hasMax && maxAmount < minAmount) {
-    throw {
-      status: 400,
-      message: 'maximum_amount_value must be greater than or equal to minimum_amount_value',
-    };
-  }
-
   return { minAmount, maxAmount };
 };
 

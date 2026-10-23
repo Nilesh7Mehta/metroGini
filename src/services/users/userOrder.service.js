@@ -684,16 +684,6 @@ const validateCouponForUser = async (client, coupon, userId, orderAmount) => {
     };
   }
 
-  if (
-    coupon.maximum_amount_value != null &&
-    orderAmount > Number(coupon.maximum_amount_value)
-  ) {
-    throw {
-      status: 400,
-      message: `Coupon is valid only for orders up to ₹${Number(coupon.maximum_amount_value)}`,
-    };
-  }
-
   if (coupon.coupon_code === "CANCEL500") {
     const eligibilityCheck = await client.query(
       `SELECT id FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=FALSE AND expiry_date >= CURRENT_TIMESTAMP`,
