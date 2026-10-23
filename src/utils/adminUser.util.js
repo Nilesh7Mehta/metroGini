@@ -33,6 +33,7 @@ export const ADMIN_SIDEBAR_MODULES = [
   'service_types',
   'shifts',
   'time_slots',
+  'clothes_weight_tiers',
   'config',
 ];
 

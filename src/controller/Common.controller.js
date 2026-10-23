@@ -5,6 +5,7 @@ import { getServicesForCatalog } from "../services/common/serviceZonePrice.servi
 import { listActiveKnowAboutUs } from "../services/admin/adminKnowAboutUs.service.js";
 import { listActiveHowWeWork } from "../services/admin/adminHowWeWork.service.js";
 import { listActiveFaqs } from "../services/admin/adminFaq.service.js";
+import { listActiveClothesWeightTiers } from "../services/admin/adminClothesWeightTier.service.js";
 import { getTermsAndConditionsFromDb } from "../services/common/termsAndConditions.service.js";
 import { getPrivacyPolicyFromDb } from "../services/common/privacyPolicy.service.js";
 import { TERMS_AND_CONDITIONS } from "../constants/termsAndConditions.js";
@@ -91,6 +92,31 @@ export const getFaqs = async (req, res, next) => {
 
 /** @deprecated use GET /api/common/faq */
 export const userFaq = getFaqs;
+
+export const getClothesWeightTiers = async (req, res, next) => {
+  try {
+    const rows = await listActiveClothesWeightTiers();
+    const tiers = rows.map((row) => ({
+      id: row.id,
+      min_clothes: Number(row.min_clothes),
+      max_clothes: Number(row.max_clothes),
+      min_kg: Number(row.min_kg),
+      max_kg: Number(row.max_kg),
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: "Clothes weight tiers retrieved successfully",
+      data: {
+        min_clothes: tiers.length ? Math.min(...tiers.map((t) => t.min_clothes)) : null,
+        max_clothes: tiers.length ? Math.max(...tiers.map((t) => t.max_clothes)) : null,
+        tiers,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 
 export const shift = async(req , res , next) =>{

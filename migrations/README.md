@@ -37,3 +37,4 @@ Run in order. Each file depends on the ones before it.
 | 044_banners_coupon_id.sql | banners (coupon_id) | 004, 005 |
 | 045_banners_image_coupon_only.sql | banners (image + coupon only, max 2) | 044 |
 | 054_vendor_coordinates.sql | vendors (latitude, longitude) | 002 |
+| 063_clothes_weight_tiers.sql | clothes_weight_tiers (clothes count → estimated kg) | — |

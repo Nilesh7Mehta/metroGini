@@ -22,6 +22,7 @@ import * as adminTimeSlotController from '../../controller/admin/adminTimeSlot.c
 import * as adminKnowAboutUsController from '../../controller/admin/adminKnowAboutUs.controller.js';
 import * as adminHowWeWorkController from '../../controller/admin/adminHowWeWork.controller.js';
 import * as adminFaqController from '../../controller/admin/adminFaq.controller.js';
+import * as adminClothesWeightTierController from '../../controller/admin/adminClothesWeightTier.controller.js';
 import * as adminTermsAndConditionsController from '../../controller/admin/adminTermsAndConditions.controller.js';
 import * as adminPrivacyPolicyController from '../../controller/admin/adminPrivacyPolicy.controller.js';
 import * as configController from '../../controller/common/config.controller.js';
@@ -128,6 +129,13 @@ router.get('/faqs/:id', authenticate, isAdmin, adminFaqController.getFaqItem);
 router.post('/addFaq', authenticate, isAdmin, adminFaqController.addFaq);
 router.put('/updateFaq/:id', authenticate, isAdmin, adminFaqController.updateFaqById);
 router.delete('/deleteFaq/:id', authenticate, isAdmin, adminFaqController.deleteFaqById);
+
+// Clothes Weight Tiers
+router.get('/clothes-weight-tiers', authenticate, isAdmin, adminClothesWeightTierController.getClothesWeightTierList);
+router.get('/clothes-weight-tiers/:id', authenticate, isAdmin, adminClothesWeightTierController.getClothesWeightTierItem);
+router.post('/addClothesWeightTier', authenticate, isAdmin, adminClothesWeightTierController.addClothesWeightTier);
+router.put('/updateClothesWeightTier/:id', authenticate, isAdmin, adminClothesWeightTierController.updateClothesWeightTierById);
+router.delete('/deleteClothesWeightTier/:id', authenticate, isAdmin, adminClothesWeightTierController.deleteClothesWeightTierById);
 
 // Terms & Conditions
 router.get('/terms-and-conditions', authenticate, isAdmin, adminTermsAndConditionsController.getAdminTerms);

@@ -34,6 +34,7 @@ router.post('/push/test', authenticate, isUser, pushController.sendTestPushHandl
 
 router.get('/faq', CommonController.getFaqs);
 router.get('/userfaq', CommonController.getFaqs);
+router.get('/clothes-weight-tiers', CommonController.getClothesWeightTiers);
 router.get('/shift',  CommonController.shift);
 router.get('/banners',  CommonController.getBanners);
 router.get('/know-about-us', CommonController.getKnowAboutUs);

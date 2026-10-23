@@ -36,9 +36,8 @@ export const createDraftOrderService = async ({
   try {
     await client.query("BEGIN");
 
-    if (!clothes_count || clothes_count < 10 || clothes_count > 25) {
-      throw { status: 400, message: "Clothes count must be between 10 and 25" };
-    }
+    const { min: min_weight, max: max_weight } =
+      await getEstimatedWeightRangeFromClothesCount(clothes_count, client);
 
     const addressResult = await client.query(
       `SELECT id, pincode, address_type, complete_address, floor, landmark,
@@ -59,9 +58,6 @@ export const createDraftOrderService = async ({
       throw { status: 400, message: "Please select a valid delivery address" };
     }
     const snapshotJson = JSON.stringify(addressSnapshot);
-
-    const { min: min_weight, max: max_weight } =
-      getEstimatedWeightRangeFromClothesCount(clothes_count);
 
     const existingDraft = await client.query(
       `SELECT id FROM orders WHERE user_id = $1 AND status = 'draft' LIMIT 1`,
