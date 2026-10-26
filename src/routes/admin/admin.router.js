@@ -67,6 +67,7 @@ router.put('/help-support/:id', authenticate, adminHelpSupportController.updateA
 router.get('/partner-leads', authenticate, isAdmin, adminPartnerLeadController.getAdminPartnerLeads);
 router.get('/marketing', authenticate, adminMarketingController.getAdminMarketing);
 router.get('/customers/:id', authenticate, isAdmin, adminCustomerController.getAdminCustomerDetails);
+router.get('/customers/:id/orders', authenticate, isAdmin, adminCustomerController.getAdminCustomerOrders);
 router.post('/addCity', authenticate, cityUpload.single('image'), adminCityController.addCity);
 router.post('/updateCity/:id', authenticate, cityUpload.single('image'), adminCityController.updateCityById);
 router.post('/addService', authenticate, serviceUpload.single('image'), adminServiceController.addService);

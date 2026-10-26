@@ -903,7 +903,7 @@ const fetchAdminOrderById = async (orderId) => {
     LEFT JOIN coupons c ON o.applied_coupon_id = c.id
     LEFT JOIN user_address_details uad ON uad.id = o.address_id
     WHERE o.id = $1
-      AND o.status NOT IN ('draft', 'cancelled')
+      AND o.status <> 'draft'
   `,
     [orderId],
   );

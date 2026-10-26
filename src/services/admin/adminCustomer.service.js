@@ -1,5 +1,6 @@
 import sql from '../../config/db.js';
 import { APP_USER_ROLE } from '../../utils/adminUser.util.js';
+import { getAdminOrderListRowsByIds } from './adminOrder.service.js';
 
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
 
@@ -105,5 +106,36 @@ export const getAdminCustomerDetailsService = async (rawId) => {
     total_spend: Math.round(Number(stats.total_spend || 0)),
     last_order_date: stats.last_order_at || null,
     addresses: addressResult.rows.map(mapAddress),
+  };
+};
+
+/** Every non-draft order of a customer (incl. cancelled), newest first, in the /admin/orders row shape. */
+export const getAdminCustomerOrdersService = async (rawId) => {
+  const userId = parseCustomerId(rawId);
+
+  const userResult = await sql.query(
+    `SELECT id, full_name, mobile FROM users WHERE id = $1 AND role = $2`,
+    [userId, APP_USER_ROLE],
+  );
+  if (!userResult.rows.length) {
+    throw { status: 404, message: 'Customer not found' };
+  }
+  const user = userResult.rows[0];
+
+  const { rows } = await sql.query(
+    `SELECT id FROM orders
+     WHERE user_id = $1 AND status <> 'draft'
+     ORDER BY created_at DESC, id DESC`,
+    [userId],
+  );
+
+  return {
+    customer: {
+      id: Number(user.id),
+      customer_id: formatCustomerId(user.id),
+      name: user.full_name || null,
+      mobile: user.mobile || null,
+    },
+    orders: await getAdminOrderListRowsByIds(rows.map((row) => row.id)),
   };
 };
