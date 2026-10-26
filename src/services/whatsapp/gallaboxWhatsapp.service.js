@@ -114,7 +114,13 @@ export const sendGallaboxTemplate = async ({
     console.log(
       `[gallabox] OK template=${template} to=${recipientPhone} status=${res.status} body=${text.slice(0, 300)}`,
     );
-    return { skipped: false, ok: true, template };
+    let messageId;
+    try {
+      messageId = JSON.parse(text)?.id;
+    } catch {
+      messageId = undefined;
+    }
+    return { skipped: false, ok: true, template, messageId };
   } catch (err) {
     console.error(
       `[gallabox] ERROR template=${template} to=${recipientPhone}:`,
@@ -374,20 +380,23 @@ export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
 
 /**
  * Template: login_otp (AUTHENTICATION) — {{1}} OTP + "Copy code" button.
- * Meta rejects auth templates unless the OTP is also passed to the button.
+ * Gallabox only maps auth-template body params from the `otp` key ("1" is dropped →
+ * Meta 132000), and Meta also requires the OTP on the copy-code button.
  */
-export const sendLoginOtpWhatsappSafe = ({ mobile, name, otp }) => {
-  sendGallaboxTemplateSafe({
-    phone: mobile,
-    name,
-    templateName: "login_otp",
-    bodyValues: {
-      "1": String(otp),
-    },
-    buttonValues: [
-      { index: 0, sub_type: "url", parameters: { type: "text", text: String(otp) } },
-    ],
-  });
+export const loginOtpTemplateOptions = ({ mobile, name, otp }) => ({
+  phone: mobile,
+  name,
+  templateName: "login_otp",
+  bodyValues: {
+    otp: String(otp),
+  },
+  buttonValues: [
+    { index: 0, sub_type: "url", parameters: { type: "text", text: String(otp) } },
+  ],
+});
+
+export const sendLoginOtpWhatsappSafe = (opts) => {
+  sendGallaboxTemplateSafe(loginOtpTemplateOptions(opts));
 };
 
 const formatWhatsappDate = (value) => {
