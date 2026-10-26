@@ -4,7 +4,7 @@ import * as helplineController from '../../controller/helpline.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { createUploader } from "../../middleware/upload.js";
 import { isUser } from '../../middleware/checkRole.middleware.js';
-const profileUpload = createUploader("profile", 500 * 1024); 
+const profileUpload = createUploader("profile", 2 * 1024 * 1024); 
 import {sendOtpLimiter , verifyOtpLimiter}  from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
