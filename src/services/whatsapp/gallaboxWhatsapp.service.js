@@ -372,7 +372,10 @@ export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
   });
 };
 
-/** Template: login_otp — {{1}} OTP */
+/**
+ * Template: login_otp (AUTHENTICATION) — {{1}} OTP + "Copy code" button.
+ * Meta rejects auth templates unless the OTP is also passed to the button.
+ */
 export const sendLoginOtpWhatsappSafe = ({ mobile, name, otp }) => {
   sendGallaboxTemplateSafe({
     phone: mobile,
@@ -381,6 +384,9 @@ export const sendLoginOtpWhatsappSafe = ({ mobile, name, otp }) => {
     bodyValues: {
       "1": String(otp),
     },
+    buttonValues: [
+      { index: 0, sub_type: "url", parameters: { type: "text", text: String(otp) } },
+    ],
   });
 };
 
