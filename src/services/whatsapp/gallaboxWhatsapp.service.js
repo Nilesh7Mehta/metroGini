@@ -362,12 +362,12 @@ export const sendCustomerReengagementOfferSafe = ({
   });
 };
 
-/** Template: incomplete_booking_reminder — no body variables, static URL button */
+/** Template: incomplete_booking_reminder1 — no body variables, static URL button */
 export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "incomplete_booking_reminder",
+    templateName: "incomplete_booking_reminder1",
     bodyValues: {},
   });
 };

@@ -78,7 +78,7 @@ ORDER LIFECYCLE (scenario order)
 
 
 11) INCOMPLETE BOOKING — NEVER BOOKED (draft OR registered only)
-   Template:  incomplete_booking_reminder
+   Template:  incomplete_booking_reminder1
    Trigger:   abandonedCartCron every 2 hours, 09:00–21:00 IST
    Audience:  registered customer (role user, verified / WhatsApp signup,
               not deleted, active) who has never placed an order
@@ -113,4 +113,4 @@ order_on_the_way              → rider picks up from vendor → out_for_deliver
 payment_received              → after remaining payment success
 order_delivered               → after delivery OTP success
 customer_reengagement_offer   → one-time customer @ 21 / 45 / 90 days
-incomplete_booking_reminder   → never booked (draft or registered only), every 2h 9AM–9PM (1/day, max 3/user)
+incomplete_booking_reminder1   → never booked (draft or registered only), every 2h 9AM–9PM (1/day, max 3/user)

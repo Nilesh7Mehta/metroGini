@@ -65,7 +65,7 @@ export const getAbandonedCartParams = () => [
 ];
 
 /**
- * Incomplete booking — incomplete_booking_reminder WhatsApp.
+ * Incomplete booking — incomplete_booking_reminder1 WhatsApp.
  * Registered users with no placed order (draft or no cart at all).
  * One per user per IST day, max N per user.
  */
