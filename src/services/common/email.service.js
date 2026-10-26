@@ -602,6 +602,45 @@ export const sendOrderDeliveredEmail = async ({
   });
 };
 
+const BOOK_IN_APP_URL = "https://metrogini.com/app";
+const BOOK_IN_BROWSER_URL = "https://metrogini.com/web/login";
+
+/** Add-to-cart (draft) users who never booked — WELCOME25 nudge. */
+export const sendIncompleteBookingEmail = async ({
+  email,
+  name,
+  userId,
+  orderId,
+}) => {
+  const linkStyle = "color:#1c8c9c;font-weight:bold;text-decoration:underline;";
+  const html = buildReceiptShellEmailHtml({
+    heading: "Your unwashed clothes are still waiting!",
+    subtitle: "Complete your MetroGini booking",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(name ? `Hi ${name},` : "Hi there,")}</p>
+      <p style="margin:0 0 12px;">With MetroGini, we <strong>wash, iron, fold, and neatly pack your clothes</strong>, then deliver them right to your doorstep. Enjoy more convenience and spend less time on chores!</p>
+      <div style="background:#E6F6F8;border:1px dashed #1c8c9c;border-radius:8px;padding:14px 16px;margin:18px 0;text-align:center;font-size:15px;">
+        🎉 <strong>Get 25% OFF your first order</strong> with code <strong style="letter-spacing:1px;">WELCOME25</strong>.
+      </div>
+      <p style="margin:0 0 8px;"><strong>Book your order now:</strong></p>
+      <p style="margin:0 0 6px;">📱 <strong>In App:</strong> <a href="${BOOK_IN_APP_URL}" target="_blank" rel="noopener noreferrer" style="${linkStyle}">${BOOK_IN_APP_URL}</a></p>
+      <p style="margin:0 0 18px;">🌐 <strong>In Browser:</strong> <a href="${BOOK_IN_BROWSER_URL}" target="_blank" rel="noopener noreferrer" style="${linkStyle}">${BOOK_IN_BROWSER_URL}</a></p>
+      <p style="margin:0;">Warm regards,<br><strong>Team MetroGini</strong><br><strong>MetroGini – Wash by Kilo</strong></p>
+    `,
+    footerTagline: "MetroGini · Wash by Kilo",
+  });
+
+  await sendEmail({
+    to: email,
+    subject: "Your unwashed clothes are still waiting! Get 25% OFF with WELCOME25",
+    html,
+    emailType: "incomplete_booking_reminder",
+    referenceType: orderId != null ? "order" : "user",
+    referenceId: orderId ?? userId ?? null,
+    userId: userId ?? null,
+  });
+};
+
 const formatEmailDate = (value) => {
   if (value == null || value === "") return "—";
 

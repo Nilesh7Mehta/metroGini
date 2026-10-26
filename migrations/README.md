@@ -39,3 +39,4 @@ Run in order. Each file depends on the ones before it.
 | 054_vendor_coordinates.sql | vendors (latitude, longitude) | 002 |
 | 063_clothes_weight_tiers.sql | clothes_weight_tiers (clothes count → estimated kg) | — |
 | 064_incomplete_booking_reminders.sql | abandoned_cart_reminders (order_id nullable) | 062 |
+| 065_incomplete_booking_email_reminders.sql | incomplete_booking_email_reminders | 001, 006 |

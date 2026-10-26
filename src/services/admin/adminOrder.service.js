@@ -378,6 +378,9 @@ const mapAdminOrderRow = (order, selectedDate, shiftByPickupSlot) => {
     attention_code: attention?.code || null,
     attention_label: attention?.label || null,
     est_fin: buildEstFin(order),
+    clothes_count: order.clothes_count != null ? Number(order.clothes_count) : null,
+    actual_clothes_count:
+      Number(order.actual_clothes_count) > 0 ? Number(order.actual_clothes_count) : null,
     amount_confirmed: amountConfirmed,
     charges: totalAmount,
     coupon_applied: couponCode,
@@ -421,6 +424,7 @@ const fetchOrdersForRange = async ({
   cityId,
   shiftSlotIds,
   excludeDelivered = false,
+  orderIds = null,
 }) => {
   const params = [rangeStart, rangeEnd, pincodeGroupId, cityId];
   let shiftClause = '';
@@ -428,6 +432,21 @@ const fetchOrdersForRange = async ({
   if (shiftSlotIds?.length) {
     params.push(shiftSlotIds);
     shiftClause = `AND o.pickup_slot_id = ANY($${params.length}::int[])`;
+  }
+
+  // Explicit ids (dashboard lists) replace the status/date window, incl. cancelled orders.
+  // $1/$2 must still appear in the SQL so Postgres can type them; callers pass null.
+  let scopeClause = `
+      o.status NOT IN ('draft', 'cancelled')
+      ${excludeDelivered ? `AND o.status <> 'delivered'` : ''}
+      AND (
+        $1::date IS NULL
+        OR o.pickup_date BETWEEN $1::date AND $2::date
+        OR o.delivery_date BETWEEN $1::date AND $2::date
+      )`;
+  if (orderIds) {
+    params.push(orderIds);
+    scopeClause = `o.id = ANY($${params.length}::int[]) AND $1::date IS NULL AND $2::date IS NULL`;
   }
 
   const { rows } = await sql.query(
@@ -514,13 +533,7 @@ const fetchOrdersForRange = async ({
       ORDER BY cancelled_at DESC
       LIMIT 1
     ) oc ON TRUE
-    WHERE o.status NOT IN ('draft', 'cancelled')
-      ${excludeDelivered ? `AND o.status <> 'delivered'` : ''}
-      AND (
-        $1::date IS NULL
-        OR o.pickup_date BETWEEN $1::date AND $2::date
-        OR o.delivery_date BETWEEN $1::date AND $2::date
-      )
+    WHERE ${scopeClause}
       AND ${orderZoneCityFilterSql(3, 4)}
       ${shiftClause}
     ORDER BY o.id DESC
@@ -529,6 +542,27 @@ const fetchOrdersForRange = async ({
   );
 
   return rows;
+};
+
+/** Same row shape as GET /admin/orders, for an explicit list of order ids (kept in the given order). */
+export const getAdminOrderListRowsByIds = async (orderIds = []) => {
+  const ids = orderIds.map(Number).filter(Number.isInteger);
+  if (ids.length === 0) return [];
+
+  const { shiftByPickupSlot } = await getPickupShiftConfig();
+  const orders = await fetchOrdersForRange({
+    rangeStart: null,
+    rangeEnd: null,
+    pincodeGroupId: null,
+    cityId: null,
+    orderIds: ids,
+  });
+
+  const today = formatDate(new Date());
+  const byId = new Map(
+    orders.map((order) => [Number(order.id), mapAdminOrderRow(order, today, shiftByPickupSlot)]),
+  );
+  return ids.map((id) => byId.get(id)).filter(Boolean);
 };
 
 /** Open attention counts across all dates — same rules as the attention list without a date. */

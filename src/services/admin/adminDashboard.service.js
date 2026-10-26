@@ -6,7 +6,7 @@ import {
   resolveGeoFilters,
   userZoneCityExistsSql,
 } from '../../utils/adminGeoFilter.util.js';
-import { getAttentionCounts } from './adminOrder.service.js';
+import { getAdminOrderListRowsByIds, getAttentionCounts } from './adminOrder.service.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -421,7 +421,18 @@ const fetchDashboardOrdersList = async (
     [dateFrom, dateTo, pincodeGroupId, cityId],
   );
 
-  return rows.map(mapOrderListRow);
+  const baseRows = rows.map(mapOrderListRow);
+  const fullRows = await getAdminOrderListRowsByIds(baseRows.map((row) => row.id));
+  const fullById = new Map(fullRows.map((row) => [row.id, row]));
+
+  // Same columns as /admin/orders; order_total keeps the estimated-or-final amount
+  // used by the dashboard revenue summary (total_amount is null until vendor confirms).
+  return baseRows.map((row) => ({
+    ...(fullById.get(row.id) ?? row),
+    customer_mobile: row.customer_mobile,
+    rider_name: row.rider_name,
+    order_total: row.total_amount,
+  }));
 };
 
 const mapUserListRow = (row) => ({
@@ -652,7 +663,10 @@ export const getAdminDashboardService = async (query = {}) => {
     const orderedCount = data.details.filter((row) => row.ordered).length;
     data.summary = {
       count: data.details.length,
-      amount: data.details.reduce((sum, row) => sum + (Number(row.total_amount) || 0), 0),
+      amount: data.details.reduce(
+        (sum, row) => sum + (Number(row.order_total ?? row.total_amount) || 0),
+        0,
+      ),
       ordered: listTicker.ticker === 'total_users'
         ? data.details.length
         : orderedCount,
