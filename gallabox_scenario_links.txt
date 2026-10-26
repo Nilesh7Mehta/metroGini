@@ -77,16 +77,19 @@ ORDER LIFECYCLE (scenario order)
    Vars:      {{1}} name | {{2}} VALUED10
 
 
-11) ABANDONED CART — FIRST ORDER ONLY (draft order not booked)
-   Template:  abandoned_cart_reminder
+11) INCOMPLETE BOOKING — NEVER BOOKED (draft OR registered only)
+   Template:  incomplete_booking_reminder
    Trigger:   abandonedCartCron every 2 hours, 09:00–21:00 IST
-   Audience:  draft order idle >= 60 min (ABANDONED_CART_IDLE_MINUTES)
-              AND user has never placed an order (no non-draft order,
-              incl. cancelled/delivered)
-   Once:      max 1 per user per IST day; max 3 per draft
+   Audience:  registered customer (role user, verified / WhatsApp signup,
+              not deleted, active) who has never placed an order
+              (no non-draft order, incl. cancelled/delivered), AND
+              - has a draft idle >= 60 min, OR
+              - has no draft and registered >= 60 min ago
+              (ABANDONED_CART_IDLE_MINUTES)
+   Once:      max 1 per user per IST day; max 3 per user
               (ABANDONED_CART_MAX_REMINDERS); stops once booked
-   Vars:      none (static body, image header)
-   Buttons:   RESUME BOOKING | CONTINUE IN APP (static URLs, no values)
+   Vars:      none (static body, mentions WELCOME25)
+   Buttons:   static URL button (no values)
 
 
 ================================================================================
@@ -110,4 +113,4 @@ order_on_the_way              → rider picks up from vendor → out_for_deliver
 payment_received              → after remaining payment success
 order_delivered               → after delivery OTP success
 customer_reengagement_offer   → one-time customer @ 21 / 45 / 90 days
-abandoned_cart_reminder       → first-order draft idle, every 2h 9AM–9PM (1/day, max 3)
+incomplete_booking_reminder   → never booked (draft or registered only), every 2h 9AM–9PM (1/day, max 3/user)

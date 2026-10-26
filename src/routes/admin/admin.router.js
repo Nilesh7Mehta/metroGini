@@ -30,7 +30,7 @@ import * as appVersionController from '../../controller/common/appVersion.contro
 import { createUploader } from "../../middleware/upload.js";
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { isAdmin } from '../../middleware/checkRole.middleware.js';
-const bannerUpload = createUploader("banners", 500 * 1024);
+const bannerUpload = createUploader("banners", 2 * 1024 * 1024);
 const vendorUpload = createUploader("vendors", 2 * 1024 * 1024);
 const cityUpload = createUploader("cities", 500 * 1024);
 const serviceUpload = createUploader("services", 500 * 1024);

@@ -23,10 +23,23 @@ export const createUploader = (folderName, maxSize = 10 * 1024 * 1024) => {
     }
   });
 
-  return multer({
+  const uploader = multer({
     storage,
     limits: { fileSize: maxSize }
   });
+
+  // MulterError has no `limit`; the global error handler needs it to report the real max size.
+  const single = uploader.single.bind(uploader);
+  uploader.single = (fieldName) => {
+    const middleware = single(fieldName);
+    return (req, res, next) =>
+      middleware(req, res, (err) => {
+        if (err?.code === "LIMIT_FILE_SIZE") err.limit = maxSize;
+        next(err);
+      });
+  };
+
+  return uploader;
 };
 
 /** Stain images → order-stains; damage images → order-damages */
@@ -51,11 +64,17 @@ export const createConfirmWeightUploader = (maxSize = 2 * 1024 * 1024) => {
     },
   });
 
-  return multer({
+  const middleware = multer({
     storage,
     limits: { fileSize: maxSize },
   }).fields([
     { name: 'image', maxCount: 10 },
     { name: 'damage_image', maxCount: 10 },
   ]);
+
+  return (req, res, next) =>
+    middleware(req, res, (err) => {
+      if (err?.code === 'LIMIT_FILE_SIZE') err.limit = maxSize;
+      next(err);
+    });
 };

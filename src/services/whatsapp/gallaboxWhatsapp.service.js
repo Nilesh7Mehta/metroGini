@@ -362,13 +362,25 @@ export const sendCustomerReengagementOfferSafe = ({
   });
 };
 
-/** Template: abandoned_cart_reminder — no body variables, static URL buttons */
-export const sendAbandonedCartReminderSafe = ({ mobile, name }) => {
+/** Template: incomplete_booking_reminder — no body variables, static URL button */
+export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "abandoned_cart_reminder",
+    templateName: "incomplete_booking_reminder",
     bodyValues: {},
+  });
+};
+
+/** Template: login_otp — {{1}} OTP */
+export const sendLoginOtpWhatsappSafe = ({ mobile, name, otp }) => {
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "login_otp",
+    bodyValues: {
+      "1": String(otp),
+    },
   });
 };
 

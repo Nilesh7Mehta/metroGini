@@ -6,6 +6,8 @@ import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
 import { sendPushSafe } from "../common/push.service.js";
 import { sendOtpSmsIfEnabled } from "../common/sms.service.js";
 import { isSmsEnabled } from "../../config/sms.js";
+import { isGallaboxWhatsappEnabled } from "../../config/gallabox.js";
+import { sendLoginOtpWhatsappSafe } from "../whatsapp/gallaboxWhatsapp.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
 import {
@@ -31,6 +33,12 @@ const persistUserOtp = async (userId, otp) => {
 };
 
 const deliverSecondaryOtpChannels = (user, otp) => {
+  sendLoginOtpWhatsappSafe({
+    mobile: user.mobile,
+    name: user.full_name,
+    otp,
+  });
+
   const otpPush = accountOtpTemplate({ otp });
   sendPushSafe(user.id, {
     title: otpPush.title,
@@ -93,7 +101,8 @@ const issueUserOtp = async (user, { successMessage, dummyMessage }) => {
     deliverSecondaryOtpChannels(user, otp);
   }
 
-  const includeOtp = !skipOtpDelivery && !isSmsEnabled();
+  const includeOtp =
+    !skipOtpDelivery && !isSmsEnabled() && !isGallaboxWhatsappEnabled();
 
   return {
     statusCode: 200,
