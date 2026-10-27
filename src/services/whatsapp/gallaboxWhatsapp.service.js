@@ -378,6 +378,16 @@ export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
   });
 };
 
+/** Template: welcome_message — no body variables; sent once on first OTP sign-up */
+export const sendWelcomeMessageSafe = ({ mobile, name }) => {
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "welcome_message",
+    bodyValues: {},
+  });
+};
+
 /**
  * Template: login_otp (AUTHENTICATION) — {{1}} OTP + "Copy code" button.
  * Gallabox only maps auth-template body params from the `otp` key ("1" is dropped →

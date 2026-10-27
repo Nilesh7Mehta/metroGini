@@ -7,7 +7,10 @@ import { sendPushSafe } from "../common/push.service.js";
 import { sendOtpSmsIfEnabled } from "../common/sms.service.js";
 import { isSmsEnabled } from "../../config/sms.js";
 import { isGallaboxWhatsappEnabled } from "../../config/gallabox.js";
-import { sendLoginOtpWhatsappSafe } from "../whatsapp/gallaboxWhatsapp.service.js";
+import {
+  sendLoginOtpWhatsappSafe,
+  sendWelcomeMessageSafe,
+} from "../whatsapp/gallaboxWhatsapp.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
 import { accountOtpTemplate } from "../../utils/userNotificationTemplates.js";
 import {
@@ -282,6 +285,10 @@ export const verifyOTP = async ({ mobile, otp }) => {
      WHERE id = $1`,
     [user.id],
   );
+
+  if (isNewUser && !isDummyAuthMobile(user.mobile)) {
+    sendWelcomeMessageSafe({ mobile: user.mobile, name: user.full_name });
+  }
 
   // ✅ Access Token (short expiry)
   const accessToken = jwt.sign(
