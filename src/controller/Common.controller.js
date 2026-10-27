@@ -93,16 +93,54 @@ export const getFaqs = async (req, res, next) => {
 /** @deprecated use GET /api/common/faq */
 export const userFaq = getFaqs;
 
+const toMoney = (value) => parseFloat(Number(value).toFixed(2));
+
 export const getClothesWeightTiers = async (req, res, next) => {
   try {
-    const rows = await listActiveClothesWeightTiers();
-    const tiers = rows.map((row) => ({
-      id: row.id,
-      min_clothes: Number(row.min_clothes),
-      max_clothes: Number(row.max_clothes),
-      min_kg: Number(row.min_kg),
-      max_kg: Number(row.max_kg),
-    }));
+    const serviceIdRaw = req.query.service_id;
+    const serviceId =
+      serviceIdRaw != null && serviceIdRaw !== "" ? Number(serviceIdRaw) : null;
+    if (serviceId != null && (!Number.isInteger(serviceId) || serviceId <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "service_id must be a positive integer",
+      });
+    }
+
+    const [rows, catalog] = await Promise.all([
+      listActiveClothesWeightTiers(),
+      getServicesForCatalog({
+        pincode: req.query.pincode,
+        pincode_group_id: req.query.pincode_group_id ?? req.query.zone_id,
+      }),
+    ]);
+
+    const services = catalog.filter(
+      (s) => s.is_active && (serviceId == null || Number(s.id) === serviceId),
+    );
+    const zoneRow = catalog.find((s) => s.zone_id != null);
+
+    const tiers = rows.map((row) => {
+      const minKg = Number(row.min_kg);
+      const maxKg = Number(row.max_kg);
+      return {
+        id: row.id,
+        min_clothes: Number(row.min_clothes),
+        max_clothes: Number(row.max_clothes),
+        min_kg: minKg,
+        max_kg: maxKg,
+        prices: services.map((s) => {
+          const pricePerKg = toMoney(s.base_price_per_kg);
+          return {
+            service_id: Number(s.id),
+            service_name: s.name,
+            base_price_per_kg: pricePerKg,
+            min_price: toMoney(minKg * pricePerKg),
+            max_price: toMoney(maxKg * pricePerKg),
+          };
+        }),
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -110,6 +148,13 @@ export const getClothesWeightTiers = async (req, res, next) => {
       data: {
         min_clothes: tiers.length ? Math.min(...tiers.map((t) => t.min_clothes)) : null,
         max_clothes: tiers.length ? Math.max(...tiers.map((t) => t.max_clothes)) : null,
+        zone: zoneRow
+          ? {
+              id: Number(zoneRow.zone_id),
+              code: zoneRow.zone_code,
+              name: zoneRow.zone_name,
+            }
+          : null,
         tiers,
       },
     });
