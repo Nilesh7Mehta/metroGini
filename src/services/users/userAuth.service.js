@@ -119,11 +119,19 @@ const issueUserOtp = async (user, { successMessage, dummyMessage }) => {
 };
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
-export const loginOrRegister = async ({ mobile }) => {
+export const loginOrRegister = async ({ mobile, name }) => {
   if (!mobile) {
     return {
       statusCode: 400,
       body: { success: false, message: "Mobile is required" },
+    };
+  }
+
+  const fullName = String(name ?? "").trim() || null;
+  if (fullName && fullName.length > 100) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "Name must be 100 characters or less" },
     };
   }
 
@@ -133,20 +141,25 @@ export const loginOrRegister = async ({ mobile }) => {
 
   if (!user) {
     const { rows } = await sql.query(
-      `INSERT INTO users (mobile, profile_image) VALUES ($1, $2) RETURNING *`,
-      [mobile, DEFAULT_USER_PROFILE_IMAGE],
+      `INSERT INTO users (mobile, full_name, profile_image) VALUES ($1, $2, $3) RETURNING *`,
+      [mobile, fullName, DEFAULT_USER_PROFILE_IMAGE],
     );
     user = rows[0];
     successMessage = "User registered successfully. OTP sent.";
     dummyMessage = "User registered successfully.";
   } else {
-    if (!user.profile_image) {
+    // Never overwrite a name the user already set (e.g. from profile)
+    const needsImage = !user.profile_image;
+    const needsName = Boolean(fullName) && !user.full_name?.trim();
+    if (needsImage || needsName) {
       const { rows } = await sql.query(
         `UPDATE users
-         SET profile_image = $2, updated_at = CURRENT_TIMESTAMP
+         SET profile_image = COALESCE(profile_image, $2),
+             full_name = CASE WHEN COALESCE(TRIM(full_name), '') = '' THEN COALESCE($3, full_name) ELSE full_name END,
+             updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          RETURNING *`,
-        [user.id, DEFAULT_USER_PROFILE_IMAGE],
+        [user.id, DEFAULT_USER_PROFILE_IMAGE, needsName ? fullName : null],
       );
       user = rows[0] || user;
     }
@@ -157,6 +170,7 @@ export const loginOrRegister = async ({ mobile }) => {
   const issued = await issueUserOtp(user, { successMessage, dummyMessage });
   if (issued.statusCode !== 200) return issued;
 
+  issued.body.data.full_name = user.full_name || null;
   issued.body.data.profile_image =
     user.profile_image || DEFAULT_USER_PROFILE_IMAGE;
   issued.body.data.profile_completed = user.profile_completed;

@@ -9,6 +9,7 @@ export const loginOrRegister = async (req, res, next) => {
   try {
     const { statusCode, body } = await userAuthService.loginOrRegister({
       mobile: req.body.mobile,
+      name: req.body.name,
     });
     return res.status(statusCode).json(body);
   } catch (error) {

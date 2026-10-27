@@ -74,6 +74,23 @@ const parseInactiveTicker = (ticker) => {
   return { ticker, inactiveDays };
 };
 
+/**
+ * Registered in the period, never booked: no placed order and no cart (draft).
+ * Users whose only orders were cancelled still count — same rule as the marketing funnel.
+ * Needs a `filtered_users` CTE (geo-filtered customers) defined before it.
+ */
+const NEVER_USED_CTE = (dateFromParam, dateToParam) => `
+    never_used_users AS (
+      SELECT fu.id AS user_id
+      FROM filtered_users fu
+      WHERE (${dateFromParam}::date IS NULL OR fu.created_at::date >= ${dateFromParam}::date)
+        AND (${dateToParam}::date IS NULL OR fu.created_at::date <= ${dateToParam}::date)
+        AND NOT EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.user_id = fu.id AND o.status <> 'cancelled'
+        )
+    )`;
+
 // Params: $1 dateFrom, $2 dateTo, $3 pincodeGroupId, $4 referenceDate, $5 cityId
 const fetchDashboardMetrics = async (
   dateFrom,
@@ -143,9 +160,11 @@ const fetchDashboardMetrics = async (
       SELECT user_id FROM registered_in_period
       UNION
       SELECT user_id FROM users_with_orders
-    )
+    ),
+    ${NEVER_USED_CTE('$1', '$2')}
     SELECT
       (SELECT COUNT(*)::int FROM users_with_orders) AS total_users,
+      (SELECT COUNT(*)::int FROM never_used_users) AS registered_never_used,
       (SELECT COUNT(*)::int FROM period_orders) AS total_orders,
       (SELECT COUNT(*)::int FROM period_cancelled) AS cancelled_orders,
       COALESCE((SELECT SUM(order_total) FROM period_orders), 0) AS total_revenue,
@@ -210,6 +229,7 @@ const fetchDashboardMetrics = async (
     total_registered: totalRegistered,
     conversion_rate: conversionRate,
     add_to_cart: parseInt(row.add_to_cart, 10),
+    registered_never_used: parseInt(row.registered_never_used, 10),
     inactive_users_30: parseInt(row.inactive_users_30, 10),
     inactive_users_45: parseInt(row.inactive_users_45, 10),
     inactive_users_60: parseInt(row.inactive_users_60, 10),
@@ -330,6 +350,11 @@ const buildTickers = (metrics) => [
   },
   { key: 'add_to_cart', title: 'Add to Cart', value: metrics.add_to_cart },
   {
+    key: 'registered_never_used',
+    title: 'Registered, Never Used',
+    value: metrics.registered_never_used,
+  },
+  {
     key: 'inactive_users_30',
     title: 'Inactive Users 30 days',
     value: metrics.inactive_users_30,
@@ -357,6 +382,7 @@ const USER_LIST_TICKERS = {
   total_registered: 'registered',
   conversion_rate: 'registered',
   add_to_cart: 'cart',
+  registered_never_used: 'never_used',
 };
 
 const parseDashboardListTicker = (ticker) => {
@@ -493,6 +519,34 @@ const fetchDashboardUsersList = async (
         AND ${orderZoneCityFilterSql(3, 4)}
       GROUP BY u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
       ORDER BY latest_order_at DESC, u.id DESC
+      `,
+      [dateFrom, dateTo, pincodeGroupId, cityId],
+    );
+
+    return rows.map((row) => mapUserListRow({ ...row, ordered: false, order_count: 0 }));
+  }
+
+  if (kind === 'never_used') {
+    const { rows } = await sql.query(
+      `
+      WITH filtered_users AS (
+        SELECT u.id, u.created_at
+        FROM users u
+        WHERE u.role = 'user'
+          AND ${userZoneCityExistsSql(3, 4)}
+      ),
+      ${NEVER_USED_CTE('$1', '$2')}
+      SELECT
+        u.id,
+        u.full_name,
+        u.mobile,
+        u.email,
+        u.status AS account_status,
+        u.created_at AS registered_at,
+        u.created_at AS last_activity_at
+      FROM never_used_users nu
+      JOIN users u ON u.id = nu.user_id
+      ORDER BY u.created_at DESC, u.id DESC
       `,
       [dateFrom, dateTo, pincodeGroupId, cityId],
     );

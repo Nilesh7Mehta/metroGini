@@ -16,7 +16,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"mobile\": \"{{mobile}}\"\r\n}",
+              "raw": "{\r\n    \"mobile\": \"{{mobile}}\",\r\n    \"name\": \"Nilesh Mehta\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
