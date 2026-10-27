@@ -165,6 +165,7 @@ export const reviewOrder = async (req, res, next) => {
     return res.status(200).json({
       order_id: req.params.id,
       service_details: {
+        service_id: order.service_id != null ? Number(order.service_id) : null,
         service_name: order.service_name,
         service_type: order.service_type_name,
         clothes_count: order.clothes_count,

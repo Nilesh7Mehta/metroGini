@@ -268,6 +268,9 @@ export const verifyOTP = async ({ mobile, otp }) => {
     };
   }
 
+  // First successful OTP verification for this number = new sign-up (used for analytics).
+  const isNewUser = !user.is_mobile_verified;
+
   await sql.query(
     `UPDATE users
      SET terms_and_condition = TRUE,
@@ -309,6 +312,7 @@ export const verifyOTP = async ({ mobile, otp }) => {
         expires_in: process.env.JWT_EXPIRES_IN || "15m",
         profile_completed: user.profile_completed,
         terms_and_condition: true,
+        is_new_user: isNewUser,
       },
     },
   };

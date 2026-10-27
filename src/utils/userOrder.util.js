@@ -56,6 +56,7 @@ export const formatUserOrder = (order) => {
   const userStainCharge = resolveUserStainCharge(order);
   return {
     order_id: order.id,
+    service_id: order.service_id != null ? Number(order.service_id) : null,
     status: order.status,
     pickup_otp: order.pickup_otp != null ? String(order.pickup_otp) : null,
     delivery_otp:
