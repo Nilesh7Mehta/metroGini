@@ -113,7 +113,7 @@ export const getPickupAvailabilityCalendar = async () => {
       ON b.pickup_date = d.pickup_date AND b.pickup_slot_id = ts.id
     ORDER BY d.pickup_date, ts.id
     `,
-    [daySpan, pickupShiftSlotIds, startDateStr],
+    [daySpan + 1, pickupShiftSlotIds, startDateStr],
   );
 
   if (rows.length === 0) {
@@ -157,7 +157,12 @@ export const getPickupAvailabilityCalendar = async () => {
     daysMap.get(dateKey).slots.push(slot);
   }
 
-  const days = Array.from(daysMap.values());
+  // Query fetches one extra day so dropping a fully-unavailable today still returns the full span
+  if (daysMap.has(today) && !daysMap.get(today).slots.some((s) => s.is_available)) {
+    daysMap.delete(today);
+  }
+
+  const days = Array.from(daysMap.values()).slice(0, PICKUP_AVAILABILITY_DAYS);
   const from_date = days[0]?.date ?? formatDate(new Date());
   const to_date = days[days.length - 1]?.date ?? from_date;
 

@@ -213,7 +213,7 @@ export const getSlotsAvailability = async ({
       FROM bounds b,
         generate_series(
           b.start_date,
-          (b.start_date + ($2::int - 1))::date,
+          (b.start_date + $2::int)::date,
           INTERVAL '1 day'
         ) AS d
     ),
@@ -228,6 +228,7 @@ export const getSlotsAvailability = async ({
         ds.day_of_week,
         s.id AS shift_id,
         s.shift_name,
+        (ds.slot_date = b.today) AS is_today,
         (
           ds.slot_date = b.today
           AND s.end_time > s.start_time
@@ -260,6 +261,7 @@ export const getSlotsAvailability = async ({
     SELECT
       g.slot_date,
       g.day_of_week,
+      g.is_today,
       g.shift_id,
       g.shift_name,
       g.laundry_id,
@@ -298,9 +300,11 @@ export const getSlotsAvailability = async ({
   );
 
   const daysMap = new Map();
+  let todayKey = null;
 
   for (const row of rows) {
     const dateKey = formatDate(row.slot_date);
+    if (row.is_today) todayKey = dateKey;
 
     if (!daysMap.has(dateKey)) {
       daysMap.set(dateKey, {
@@ -319,10 +323,15 @@ export const getSlotsAvailability = async ({
     });
   }
 
+  // Query fetches one extra day so dropping a fully-unavailable today still returns `days` days
+  if (todayKey && !daysMap.get(todayKey)?.slots.some((s) => s.available)) {
+    daysMap.delete(todayKey);
+  }
+
   return {
     pincodeGroupId: validatedPincodeGroupId,
     days: validatedDays,
-    availability: Array.from(daysMap.values()),
+    availability: Array.from(daysMap.values()).slice(0, validatedDays),
   };
 };
 
