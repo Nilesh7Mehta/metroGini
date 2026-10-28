@@ -4,6 +4,7 @@ import {
   PICKUP_AVAILABILITY_DAYS,
 } from '../../constants/pickupSlots.js';
 import { getPickupShiftConfig } from './pickupShiftSlots.service.js';
+import { getBookingWindow } from './bookingWindow.service.js';
 
 const formatDate = (date) => {
   if (typeof date === 'string') return date.slice(0, 10);
@@ -66,11 +67,10 @@ export const getPickupAvailabilityCalendar = async () => {
   const { pickupShiftSlotIds } = await getPickupShiftConfig();
   const daySpan = PICKUP_AVAILABILITY_DAYS - 1;
 
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() + 1);
-  const startDateStr = formatDate(startDate);
+  const { firstDate, today, nowTime } = await getBookingWindow();
+  const startDateStr = firstDate;
 
-  const endDate = new Date(startDate);
+  const endDate = new Date(`${firstDate}T00:00:00`);
   endDate.setDate(endDate.getDate() + daySpan);
   const endDateStr = formatDate(endDate);
 
@@ -130,7 +130,13 @@ export const getPickupAvailabilityCalendar = async () => {
   for (const row of rows) {
     const dateKey = formatDate(row.pickup_date);
     const bookedCount = Number(row.booked_count);
-    const remaining = Math.max(0, PICKUP_SHIFT_CAPACITY - bookedCount);
+    const slotEnded =
+      dateKey === today &&
+      String(row.end_time) > String(row.start_time) &&
+      String(row.end_time) <= nowTime;
+    const remaining = slotEnded
+      ? 0
+      : Math.max(0, PICKUP_SHIFT_CAPACITY - bookedCount);
 
     const slot = {
       id: row.id,
@@ -142,7 +148,7 @@ export const getPickupAvailabilityCalendar = async () => {
       peak_extra_charge: row.peak_extra_charge,
       booked_count: bookedCount,
       remaining,
-      is_available: bookedCount < PICKUP_SHIFT_CAPACITY,
+      is_available: !slotEnded && bookedCount < PICKUP_SHIFT_CAPACITY,
     };
 
     if (!daysMap.has(dateKey)) {

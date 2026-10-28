@@ -1,5 +1,9 @@
-import sql from "../../config/db.js";
-import { SLOT_AVAILABILITY_DAYS } from "../../constants/slotAvailability.js";
+import sql, { APP_TIMEZONE } from "../../config/db.js";
+import {
+  SLOT_AVAILABILITY_DAYS,
+  SLOT_SAME_DAY_CUTOFF,
+} from "../../constants/slotAvailability.js";
+import { firstBookableDateSql } from "./bookingWindow.service.js";
 
 const PINCODE_REGEX = /^\d{6}$/;
 
@@ -87,8 +91,8 @@ export const evaluatePincodeBookable = async (pincode) => {
         d::date AS slot_date,
         EXTRACT(ISODOW FROM d)::int AS day_of_week
       FROM generate_series(
-        (CURRENT_DATE + INTERVAL '1 day')::date,
-        (CURRENT_DATE + ($2::int * INTERVAL '1 day'))::date,
+        ${firstBookableDateSql("$3", "$4")},
+        (${firstBookableDateSql("$3", "$4")} + ($2::int - 1))::date,
         INTERVAL '1 day'
       ) AS d
     ),
@@ -125,7 +129,7 @@ export const evaluatePincodeBookable = async (pincode) => {
          AND r.shift_id = v.shift_id
       ) AS has_overlapping_slots
     `,
-    [pincodeGroupId, lookAheadDays],
+    [pincodeGroupId, lookAheadDays, APP_TIMEZONE, SLOT_SAME_DAY_CUTOFF],
   );
 
   const flags = scheduleRes.rows[0] || {};

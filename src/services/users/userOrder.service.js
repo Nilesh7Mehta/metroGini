@@ -9,6 +9,7 @@ import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { sendSmsToUserSafe } from "../common/sms.service.js";
 import { sendUserEmailSafe, sendOrderCancelledEmail } from "../common/email.service.js";
 import { assertPickupSlotAvailable } from "../common/timeSlotAvailability.service.js";
+import { assertPickupDateBookable } from "../common/bookingWindow.service.js";
 import { resolveBasePricePerKg } from "../common/serviceZonePrice.service.js";
 import { assertPincodeServiceable } from "../common/pincode.service.js";
 import { SMS_TEMPLATE_KEYS } from "../../utils/smsTemplates.js";
@@ -153,12 +154,7 @@ export const updatePickupService = async ({
   if (isNaN(new Date(pickup_date).getTime()))
     throw { status: 400, message: "Invalid pickup date" };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const selectedDate = new Date(pickup_date);
-  selectedDate.setHours(0, 0, 0, 0);
-  if (selectedDate <= today)
-    throw { status: 400, message: "Pickup date must be a future date" };
+  await assertPickupDateBookable(pickup_date, pickup_slot_id);
 
   const slot = await sql.query(
     `SELECT id FROM time_slots WHERE id=$1 AND is_active=TRUE`,
@@ -433,13 +429,10 @@ export const completeOrderService = async ({
   if (isNaN(new Date(next_delivery_date).getTime()))
     throw { status: 400, message: "Invalid delivery date" };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  await assertPickupDateBookable(pickup_date, pickup_slot_id);
+
   const selectedDate = new Date(pickup_date);
   selectedDate.setHours(0, 0, 0, 0);
-  if (selectedDate <= today)
-    throw { status: 400, message: "Pickup date must be a future date" };
-
   const selectedDeliveryDate = new Date(next_delivery_date);
   selectedDeliveryDate.setHours(0, 0, 0, 0);
   if (selectedDeliveryDate <= selectedDate)
@@ -1280,6 +1273,7 @@ export const reschedulePickupService = async ({
     if (slotCheck.rows.length === 0)
       throw { status: 400, message: "Invalid or inactive pickup slot" };
 
+    await assertPickupDateBookable(pickup_date, pickup_slot_id, client);
     await assertPickupSlotAvailable(pickup_date, pickup_slot_id, order_id);
 
     await client.query(

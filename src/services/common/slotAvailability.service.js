@@ -1,10 +1,12 @@
-import sql from '../../config/db.js';
+import sql, { APP_TIMEZONE } from '../../config/db.js';
 import {
   SLOT_AVAILABILITY_DAYS,
   SLOT_AVAILABILITY_MAX_DAYS,
   DEFAULT_VENDOR_WASH_CAPACITY_KG,
+  SLOT_SAME_DAY_CUTOFF,
 } from '../../constants/slotAvailability.js';
 import { DAY_LABELS } from './laundryGroupShiftSchedule.service.js';
+import { firstBookableDateSql } from './bookingWindow.service.js';
 
 const PINCODE_REGEX = /^\d{6}$/;
 
@@ -198,18 +200,25 @@ export const getSlotsAvailability = async ({
 
   const { rows } = await sql.query(
     `
-    WITH date_series AS (
+    WITH bounds AS (
+      SELECT
+        ${firstBookableDateSql("$4", "$5")} AS start_date,
+        (CURRENT_TIMESTAMP AT TIME ZONE $4)::date AS today,
+        (CURRENT_TIMESTAMP AT TIME ZONE $4)::time AS now_time
+    ),
+    date_series AS (
       SELECT
         d::date AS slot_date,
         EXTRACT(ISODOW FROM d)::int AS day_of_week
-      FROM generate_series(
-        (CURRENT_DATE + INTERVAL '1 day')::date,
-        (CURRENT_DATE + ($2::int * INTERVAL '1 day'))::date,
-        INTERVAL '1 day'
-      ) AS d
+      FROM bounds b,
+        generate_series(
+          b.start_date,
+          (b.start_date + ($2::int - 1))::date,
+          INTERVAL '1 day'
+        ) AS d
     ),
     active_shifts AS (
-      SELECT id, shift_name
+      SELECT id, shift_name, start_time, end_time
       FROM shifts
       WHERE status IS TRUE
     ),
@@ -219,12 +228,18 @@ export const getSlotsAvailability = async ({
         ds.day_of_week,
         s.id AS shift_id,
         s.shift_name,
+        (
+          ds.slot_date = b.today
+          AND s.end_time > s.start_time
+          AND s.end_time <= b.now_time
+        ) AS shift_ended,
         CASE
           WHEN vend.id IS NULL OR rid.id IS NULL THEN NULL
           ELSE lgss.laundry_id
         END AS laundry_id
       FROM date_series ds
       CROSS JOIN active_shifts s
+      CROSS JOIN bounds b
       LEFT JOIN laundry_group_shift_schedule lgss
         ON lgss.pincode_group_id = $1
        AND lgss.day_of_week = ds.day_of_week
@@ -253,12 +268,12 @@ export const getSlotsAvailability = async ({
       lsc.status AS capacity_status,
       v.max_wash_kg,
       CASE
-        WHEN g.laundry_id IS NULL THEN 0
+        WHEN g.laundry_id IS NULL OR g.shift_ended THEN 0
         WHEN lsc.id IS NOT NULL THEN GREATEST(0, lsc.total_capacity - lsc.used_capacity)
         ELSE FLOOR(COALESCE(v.max_wash_kg, $3))
       END::int AS remaining,
       CASE
-        WHEN g.laundry_id IS NULL THEN FALSE
+        WHEN g.laundry_id IS NULL OR g.shift_ended THEN FALSE
         WHEN lsc.id IS NOT NULL THEN (
           lsc.status <> 'CLOSED'
           AND GREATEST(0, lsc.total_capacity - lsc.used_capacity) > 0
@@ -273,7 +288,13 @@ export const getSlotsAvailability = async ({
     LEFT JOIN vendors v ON v.id = g.laundry_id
     ORDER BY g.slot_date, g.shift_id
     `,
-    [validatedPincodeGroupId, validatedDays, DEFAULT_VENDOR_WASH_CAPACITY_KG],
+    [
+      validatedPincodeGroupId,
+      validatedDays,
+      DEFAULT_VENDOR_WASH_CAPACITY_KG,
+      APP_TIMEZONE,
+      SLOT_SAME_DAY_CUTOFF,
+    ],
   );
 
   const daysMap = new Map();
