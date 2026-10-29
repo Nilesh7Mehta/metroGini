@@ -217,12 +217,12 @@ const sendPayTemplateSafe = async ({
   }
 };
 
-/** Template: pickup_day_reminder — {{1}} name, {{2}} ORD-xxx */
+/** Template: pickup_scheduled — {{1}} name, {{2}} ORD-xxx */
 export const sendPickupDayReminderSafe = ({ mobile, name, orderId }) => {
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "pickup_day_reminder",
+    templateName: "pickup_scheduled",
     bodyValues: {
       "1": displayName(name),
       "2": formatOrderDisplayId(orderId),

@@ -12,8 +12,8 @@ ORDER LIFECYCLE (scenario order)
    Vars:      {{1}} name | {{2}} ORD-xxx | {{3}} pickup date | {{4}} delivery date
 
 
-2) MORNING OF PICKUP DAY (order still booked → out_for_pickup)
-   Template:  pickup_day_reminder
+2) PICKUP DAY (order still booked → out_for_pickup)
+   Template:  pickup_scheduled
    Trigger:   pickupCron (pickup_date = today)
    Vars:      {{1}} name | {{2}} ORD-xxx
 
@@ -104,7 +104,7 @@ Used by:  order_bill_payment_clone, payment_reminder_clone
 QUICK LOOKUP
 ================================================================================
 booking_wash_by_kilo          → after booking confirmed
-pickup_day_reminder           → morning of pickup day
+pickup_scheduled              → pickup day (incl. same-day bookings)
 order_pickup_update           → pickup morning if rider assigned; else startPickup fallback
 pickup_completed              → after pickup OTP success
 order_bill_payment_clone      → after vendor finalize (bill + pay link)

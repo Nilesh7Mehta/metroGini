@@ -28,13 +28,13 @@ Tested: YES (Postman/curl + Gallabox UI) — credentials/channel OK
 TEMPLATE 1
 ================================================================================
 Status:          APPROVED + TESTED
-Template name:   pickup_day_reminder
+Template name:   pickup_scheduled   (replaces pickup_day_reminder)
 Category:        Utility
 Language:        en
 Channel:         Metrogini
 
 Body:
-Good morning {{1}} 🌞
+Hello {{1}} 🌞
 Today's the day! Your MetroGini pickup is scheduled.
 Booking ID: {{2}}
 Thank you for choosing MetroGini!
@@ -61,7 +61,7 @@ curl --location 'https://server.gallabox.com/devapi/messages/whatsapp' \
     "whatsapp": {
       "type": "template",
       "template": {
-        "templateName": "pickup_day_reminder",
+        "templateName": "pickup_scheduled",
         "bodyValues": {
           "1": "Karthik",
           "2": "ORD-001"
