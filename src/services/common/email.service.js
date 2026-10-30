@@ -602,6 +602,67 @@ export const sendOrderDeliveredEmail = async ({
   });
 };
 
+const getPayLinkBaseUrl = () =>
+  (process.env.PAY_LINK_BASE_URL?.trim() || "https://api.metrogini.com").replace(/\/+$/, "");
+
+/** Remaining balance unpaid — same Pay Now link as the WhatsApp reminder. */
+export const sendPaymentReminderEmail = async ({
+  email,
+  name,
+  userId,
+  orderId,
+  amountPayable,
+}) => {
+  const orderRef =
+    orderId != null ? `ORD-${String(orderId).padStart(3, "0")}` : "—";
+  const safeOrderRef = escapeHtml(orderRef);
+  const amountLabel = escapeHtml(formatInr(amountPayable));
+
+  let payUrl = null;
+  try {
+    const { ensureOrderPayToken } = await import(
+      "../users/payment/payRedirect.service.js"
+    );
+    const payToken = await ensureOrderPayToken(orderId);
+    payUrl = `${getPayLinkBaseUrl()}/api/pay/${payToken}`;
+  } catch (error) {
+    console.error(
+      `[email] payment reminder pay token failed orderId=${orderId}:`,
+      error?.message || error,
+    );
+  }
+
+  const payButtonHtml = payUrl
+    ? `<p style="margin:18px 0;text-align:center;">
+        <a href="${escapeHtml(payUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#1c8c9c;color:#FFFFFF;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;">Pay Now</a>
+      </p>`
+    : "";
+
+  const html = buildReceiptShellEmailHtml({
+    heading: "Payment Reminder",
+    subtitle: `Order ${safeOrderRef}`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(greet(name))}</p>
+      <p style="margin:0 0 12px;">A remaining amount of <strong>${amountLabel}</strong> is pending for your wash by kilo order <strong>${safeOrderRef}</strong>.</p>
+      <p style="margin:0 0 12px;">Kindly complete the payment before your scheduled delivery.</p>
+      ${payButtonHtml}
+      <p style="margin:0;">You can also pay from the MetroGini App, or to our rider at your doorstep.</p>
+    `,
+    footerTagline: "MetroGini · Wash by Kilo · Payment Reminder",
+    footerMeta: [orderRef],
+  });
+
+  await sendEmail({
+    to: email,
+    subject: `Payment pending for order ${orderRef} — MetroGini`,
+    html,
+    emailType: "payment_reminder",
+    referenceType: "order",
+    referenceId: orderId,
+    userId: userId ?? null,
+  });
+};
+
 const BOOK_IN_APP_URL = "https://metrogini.com/app";
 const BOOK_IN_BROWSER_URL = "https://metrogini.com/web/login";
 

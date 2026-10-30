@@ -1,7 +1,11 @@
 import sql, { APP_TIMEZONE } from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
-import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
+import {
+  sendDeliveryOtpEmail,
+  sendPaymentReminderEmail,
+  sendUserEmailSafe,
+} from '../common/email.service.js';
 import { generateOTP } from '../../utils/otp.js';
 import { computeFinalTotalsForConfirmWeight } from '../../utils/orderFinalBilling.util.js';
 import { syncPaymentStatusAfterFinalBill } from '../users/payment/paymentFulfillment.service.js';
@@ -2009,6 +2013,11 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
       sendPaymentReminderSafe({
         mobile: order.mobile,
         name: order.full_name,
+        orderId: order_id,
+        amountPayable: remaining,
+      });
+      sendUserEmailSafe(order.user_id, sendPaymentReminderEmail, {
+        userId: order.user_id,
         orderId: order_id,
         amountPayable: remaining,
       });

@@ -5,6 +5,10 @@ import { createNotificationsBatch } from "../utils/notificationHelper.js";
 import { formatOrderDisplayId } from "../utils/userNotificationTemplates.js";
 import { PAYMENT_STATUS } from "../utils/status.js";
 import { sendPaymentReminderSafe } from "../services/whatsapp/gallaboxWhatsapp.service.js";
+import {
+  sendPaymentReminderEmail,
+  sendUserEmailSafe,
+} from "../services/common/email.service.js";
 
 const REMINDER_TITLE = "Payment Reminder";
 
@@ -66,6 +70,12 @@ export const sendDuePaymentReminders = async () => {
       sendPaymentReminderSafe({
         mobile: order.mobile,
         name: order.full_name,
+        orderId: order.id,
+        amountPayable: order.remaining_amount,
+      });
+
+      sendUserEmailSafe(order.user_id, sendPaymentReminderEmail, {
+        userId: order.user_id,
         orderId: order.id,
         amountPayable: order.remaining_amount,
       });
