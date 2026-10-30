@@ -9,7 +9,11 @@ import { sendPaymentReminderSafe } from "../services/whatsapp/gallaboxWhatsapp.s
 const REMINDER_TITLE = "Payment Reminder";
 
 /**
- * Unpaid remaining balance, delivery today — remind once per order.
+ * Unpaid remaining balance after the bill is finalized.
+ * WhatsApp payment reminder every 2 hours until the balance is paid
+ * or the order is delivered (doorstep collection) / cancelled.
+ * The first reminder waits 2 hours after order_finalized_at so it does
+ * not stack on the bill message sent at finalize.
  */
 export const sendDuePaymentReminders = async () => {
   try {
@@ -21,24 +25,27 @@ export const sendDuePaymentReminders = async () => {
       LEFT JOIN users u ON u.id = o.user_id
       WHERE o.payment_status = $1
         AND COALESCE(o.remaining_amount, 0) > 0
-        AND o.delivery_date IS NOT NULL
-        AND o.delivery_date = (CURRENT_TIMESTAMP AT TIME ZONE $2)::date
         AND o.status IN (
           'order_finalized',
           'ready_for_delivery',
           'out_for_delivery'
         )
-        AND NOT EXISTS (
-          SELECT 1 FROM notifications n
-          WHERE n.identity_id = o.user_id
-            AND n.role = 'user'
-            AND n.reference_type = 'order'
-            AND n.reference_id = o.id
-            AND n.title = $3
-        )
+        AND COALESCE(
+          (
+            SELECT MAX(n.created_at)
+            FROM notifications n
+            WHERE n.identity_id = o.user_id
+              AND n.role = 'user'
+              AND n.reference_type = 'order'
+              AND n.reference_id = o.id
+              AND n.title = $2
+          ),
+          o.order_finalized_at,
+          (CURRENT_TIMESTAMP AT TIME ZONE $3) - INTERVAL '3 hours'
+        ) <= (CURRENT_TIMESTAMP AT TIME ZONE $3) - INTERVAL '2 hours'
       ORDER BY o.id ASC
       `,
-      [PAYMENT_STATUS.PARTIALLY_PAID, APP_TIMEZONE, REMINDER_TITLE],
+      [PAYMENT_STATUS.PARTIALLY_PAID, REMINDER_TITLE, APP_TIMEZONE],
     );
 
     if (rows.length === 0) return { sent: 0 };
@@ -73,9 +80,13 @@ export const sendDuePaymentReminders = async () => {
   }
 };
 
-/** Hourly — once on delivery day while balance remains unpaid */
+/** Every 2 hours — repeat while the balance is still unpaid */
 export const startPaymentReminderCron = () => {
-  cron.schedule("0 * * * *", () => {
-    sendDuePaymentReminders().catch(() => {});
-  });
+  cron.schedule(
+    "0 */2 * * *",
+    () => {
+      sendDuePaymentReminders().catch(() => {});
+    },
+    { timezone: APP_TIMEZONE },
+  );
 };

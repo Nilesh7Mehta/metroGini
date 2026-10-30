@@ -1,4 +1,4 @@
-import sql from '../../config/db.js';
+import sql, { APP_TIMEZONE } from '../../config/db.js';
 import { buildOrderTimestamps, fetchOrderTimestamps, formatDateTime } from '../../utils/datetime.util.js';
 import { createNotificationsBatch } from '../../utils/notificationHelper.js';
 import { sendDeliveryOtpEmail, sendUserEmailSafe } from '../common/email.service.js';
@@ -1978,7 +1978,7 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
     otp: delivery_otp,
   });
 
-  // Reminder if remaining balance still unpaid (deduped by notification title)
+  // Reminder if remaining balance still unpaid (skip if one went out in the last 2 hours)
   const remaining = Number(order.remaining_amount);
   if (
     order.payment_status === 'partially_paid' &&
@@ -1990,8 +1990,9 @@ export const markReadyForDeliveryService = async (vendor_id, order_id) => {
        WHERE identity_id = $1 AND role = 'user'
          AND reference_type = 'order' AND reference_id = $2
          AND title = 'Payment Reminder'
+         AND created_at > (CURRENT_TIMESTAMP AT TIME ZONE $3) - INTERVAL '2 hours'
        LIMIT 1`,
-      [order.user_id, order_id],
+      [order.user_id, order_id, APP_TIMEZONE],
     );
     if (alreadyReminded.rows.length === 0) {
       await createNotificationsBatch([{
