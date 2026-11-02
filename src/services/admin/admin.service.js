@@ -2,6 +2,10 @@ import sql from "../../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { formatAdminPublic, ADMIN_PANEL_ROLE_FILTER } from "../../utils/adminUser.util.js";
+import {
+  LOYALTY_DISCOUNT_TYPES,
+  defaultLoyaltyRangeForType,
+} from "../../utils/loyaltyCoupon.util.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -115,6 +119,72 @@ const resolveCouponAmountBounds = (minimum_amount_value, maximum_amount_value) =
   return { minAmount, maxAmount };
 };
 
+const hasField = (body, key) =>
+  Object.prototype.hasOwnProperty.call(body || {}, key);
+
+const parseLoyaltyOrderNumber = (value, field) => {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) {
+    throw { status: 400, message: `${field} must be a whole number of 1 or more` };
+  }
+  return n;
+};
+
+/**
+ * Loyalty sequence range for a coupon. Missing fields fall back to the
+ * existing row, then to the legacy default for the discount type
+ * (percentage → order 1, per_kg → order 2+).
+ */
+const resolveLoyaltyRange = (body, discountType, existing = null) => {
+  const fallback = defaultLoyaltyRangeForType(discountType);
+  const hasExisting = existing?.loyalty_order_from != null;
+
+  const from =
+    hasField(body, "loyalty_order_from") &&
+    body.loyalty_order_from !== null &&
+    body.loyalty_order_from !== ""
+      ? parseLoyaltyOrderNumber(body.loyalty_order_from, "loyalty_order_from")
+      : hasExisting
+        ? Number(existing.loyalty_order_from)
+        : fallback.from;
+
+  let to;
+  if (hasField(body, "loyalty_order_to")) {
+    to =
+      body.loyalty_order_to === null || body.loyalty_order_to === ""
+        ? null
+        : parseLoyaltyOrderNumber(body.loyalty_order_to, "loyalty_order_to");
+  } else if (hasExisting) {
+    to = existing.loyalty_order_to == null ? null : Number(existing.loyalty_order_to);
+  } else {
+    to = fallback.to;
+  }
+
+  if (to != null && to < from) {
+    throw {
+      status: 400,
+      message: "loyalty_order_to must be greater than or equal to loyalty_order_from",
+    };
+  }
+
+  return { from, to };
+};
+
+/** One loyalty coupon per order number — switch off any whose range overlaps. */
+const releaseOverlappingLoyaltyCoupons = async (client, { from, to }, excludeId = null) => {
+  const { rows } = await client.query(
+    `UPDATE coupons
+     SET auto_apply_loyalty = false, updated_at = CURRENT_TIMESTAMP
+     WHERE auto_apply_loyalty = true
+       AND ($3::int IS NULL OR id <> $3)
+       AND COALESCE(loyalty_order_from, 1) <= COALESCE($2::int, 2147483647)
+       AND COALESCE(loyalty_order_to, 2147483647) >= $1::int
+     RETURNING coupon_code`,
+    [from, to, excludeId],
+  );
+  return rows.map((r) => r.coupon_code);
+};
+
 export const insertCoupon = async (body) => {
   const {
     coupon_code,
@@ -149,12 +219,16 @@ export const insertCoupon = async (body) => {
     throw { status: 400, message: "End date must be greater than start date" };
 
   const loyaltyAuto = Boolean(auto_apply_loyalty);
-  if (loyaltyAuto && !["percentage", "per_kg"].includes(discount_type)) {
+  if (loyaltyAuto && !LOYALTY_DISCOUNT_TYPES.includes(discount_type)) {
     throw {
       status: 400,
       message: "auto_apply_loyalty is only allowed for percentage or per_kg coupons",
     };
   }
+
+  const loyaltyRange = loyaltyAuto
+    ? resolveLoyaltyRange(body, discount_type)
+    : { from: null, to: null };
 
   const { minAmount, maxAmount } = resolveCouponAmountBounds(
     minimum_amount_value,
@@ -165,21 +239,16 @@ export const insertCoupon = async (body) => {
   try {
     await client.query("BEGIN");
 
-    if (loyaltyAuto) {
-      await client.query(
-        `UPDATE coupons
-         SET auto_apply_loyalty = false, updated_at = CURRENT_TIMESTAMP
-         WHERE auto_apply_loyalty = true AND discount_type = $1`,
-        [discount_type],
-      );
-    }
+    const replaced = loyaltyAuto
+      ? await releaseOverlappingLoyaltyCoupons(client, loyaltyRange)
+      : [];
 
     const { rows } = await client.query(
       `INSERT INTO coupons
         (coupon_code, discount_type, discount_value, minimum_amount_value,
          maximum_amount_value, start_date, end_date, is_active, per_user_limit,
-         usage_limit, auto_apply_loyalty)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         usage_limit, auto_apply_loyalty, loyalty_order_from, loyalty_order_to)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [
         coupon_code.trim().toUpperCase(),
@@ -193,11 +262,13 @@ export const insertCoupon = async (body) => {
         per_user_limit ?? 1,
         usage_limit ?? null,
         loyaltyAuto,
+        loyaltyRange.from,
+        loyaltyRange.to,
       ],
     );
 
     await client.query("COMMIT");
-    return rows[0];
+    return { ...rows[0], replaced_loyalty_coupons: replaced };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -231,7 +302,7 @@ export const editCoupon = async (id, body) => {
   if (
     loyaltyAuto === true &&
     discount_type &&
-    !["percentage", "per_kg"].includes(discount_type)
+    !LOYALTY_DISCOUNT_TYPES.includes(discount_type)
   ) {
     throw {
       status: 400,
@@ -249,39 +320,37 @@ export const editCoupon = async (id, body) => {
     await client.query("BEGIN");
 
     const existing = await client.query(
-      `SELECT id, discount_type FROM coupons WHERE id = $1 FOR UPDATE`,
+      `SELECT id, discount_type, auto_apply_loyalty,
+              loyalty_order_from, loyalty_order_to
+       FROM coupons WHERE id = $1 FOR UPDATE`,
       [id],
     );
     if (!existing.rows.length) {
       throw { status: 404, message: "Coupon not found" };
     }
 
-    const nextType = discount_type || existing.rows[0].discount_type;
+    const existingRow = existing.rows[0];
+    const nextType = discount_type || existingRow.discount_type;
     const nextLoyalty =
-      loyaltyAuto !== undefined
-        ? loyaltyAuto
-        : (
-            await client.query(
-              `SELECT auto_apply_loyalty FROM coupons WHERE id = $1`,
-              [id],
-            )
-          ).rows[0].auto_apply_loyalty;
+      loyaltyAuto !== undefined ? loyaltyAuto : existingRow.auto_apply_loyalty;
 
-    if (nextLoyalty && !["percentage", "per_kg"].includes(nextType)) {
+    if (nextLoyalty && !LOYALTY_DISCOUNT_TYPES.includes(nextType)) {
       throw {
         status: 400,
         message: "auto_apply_loyalty is only allowed for percentage or per_kg coupons",
       };
     }
 
-    if (nextLoyalty) {
-      await client.query(
-        `UPDATE coupons
-         SET auto_apply_loyalty = false, updated_at = CURRENT_TIMESTAMP
-         WHERE auto_apply_loyalty = true AND discount_type = $1 AND id <> $2`,
-        [nextType, id],
-      );
-    }
+    const loyaltyRange = nextLoyalty
+      ? resolveLoyaltyRange(body, nextType, existingRow)
+      : {
+          from: existingRow.loyalty_order_from,
+          to: existingRow.loyalty_order_to,
+        };
+
+    const replaced = nextLoyalty
+      ? await releaseOverlappingLoyaltyCoupons(client, loyaltyRange, id)
+      : [];
 
     const { rows } = await client.query(
       `UPDATE coupons
@@ -290,6 +359,7 @@ export const editCoupon = async (id, body) => {
            start_date = $6, end_date = $7,
            is_active = $8, per_user_limit = $9, usage_limit = $10,
            auto_apply_loyalty = $11,
+           loyalty_order_from = $13, loyalty_order_to = $14,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $12
        RETURNING *`,
@@ -306,11 +376,13 @@ export const editCoupon = async (id, body) => {
         usage_limit,
         Boolean(nextLoyalty),
         id,
+        loyaltyRange.from,
+        loyaltyRange.to,
       ],
     );
 
     await client.query("COMMIT");
-    return rows[0];
+    return { ...rows[0], replaced_loyalty_coupons: replaced };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
