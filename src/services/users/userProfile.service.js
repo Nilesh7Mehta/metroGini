@@ -3,6 +3,7 @@ import { deleteFile } from "../../utils/file.service.js";
 import { formatUserOrder } from "../../utils/userOrder.util.js";
 import { createNotificationsBatch } from "../../utils/notificationHelper.js";
 import { accountCreatedTemplate } from "../../utils/userNotificationTemplates.js";
+import { sendEmailSafe, sendWelcomeEmail } from "../common/email.service.js";
 import { getCurrentUserOrdersService } from "./userOrder.service.js";
 
 const mapProfileRow = (row) => ({
@@ -181,6 +182,12 @@ export const updateProfile = async ({ userId, body, file }) => {
         data: welcome.data,
       },
     ]);
+
+    sendEmailSafe(sendWelcomeEmail, {
+      email: String(email).trim(),
+      name: String(full_name).trim(),
+      userId,
+    });
   }
 
   const profileRow = await fetchProfileRow(userId);

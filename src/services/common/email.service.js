@@ -666,6 +666,35 @@ export const sendPaymentReminderEmail = async ({
 const BOOK_IN_APP_URL = "https://metrogini.com/app";
 const BOOK_IN_BROWSER_URL = "https://metrogini.com/web/login";
 
+/** New user registration — sent once when the profile is first completed. */
+export const sendWelcomeEmail = async ({ email, name, userId }) => {
+  const linkStyle = "color:#1c8c9c;font-weight:bold;text-decoration:underline;";
+  const html = buildReceiptShellEmailHtml({
+    heading: "Welcome to MetroGini – Wash by Kilo",
+    subtitle: "Thank you for registering",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(name ? `Hi ${name},` : "Hi there,")}</p>
+      <p style="margin:0 0 12px;">Thank you for registering with <strong>MetroGini – Wash by Kilo</strong>. Your account has been created successfully.</p>
+      <p style="margin:0 0 12px;">We <strong>wash, iron, fold, and neatly pack your clothes</strong>, then deliver them right to your doorstep. Say goodbye to wash days and hello to fresh, clean clothes!</p>
+      <p style="margin:0 0 8px;"><strong>Book your first pickup:</strong></p>
+      <p style="margin:0 0 6px;">📱 <strong>In App:</strong> <a href="${BOOK_IN_APP_URL}" target="_blank" rel="noopener noreferrer" style="${linkStyle}">${BOOK_IN_APP_URL}</a></p>
+      <p style="margin:0 0 18px;">🌐 <strong>In Browser:</strong> <a href="${BOOK_IN_BROWSER_URL}" target="_blank" rel="noopener noreferrer" style="${linkStyle}">${BOOK_IN_BROWSER_URL}</a></p>
+      <p style="margin:0;">Warm regards,<br><strong>Team MetroGini</strong><br><strong>MetroGini – Wash by Kilo</strong></p>
+    `,
+    footerTagline: "MetroGini · Wash by Kilo · Welcome",
+  });
+
+  await sendEmail({
+    to: email,
+    subject: "Welcome to MetroGini – Wash by Kilo | Thank you for registering",
+    html,
+    emailType: "welcome",
+    referenceType: "user",
+    referenceId: userId ?? null,
+    userId: userId ?? null,
+  });
+};
+
 /** Add-to-cart (draft) users who never booked — WELCOME25 nudge. */
 export const sendIncompleteBookingEmail = async ({
   email,
