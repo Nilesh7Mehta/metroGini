@@ -2,6 +2,20 @@
 
 Run in order. Each file depends on the ones before it.
 
+## Running migrations
+
+Applied files are tracked in the `schema_migrations` table.
+
+| Command | What it does |
+|---------|--------------|
+| `npm run migrate` | Applies every pending `migrations/*.sql` in filename order, stopping at the first failure |
+| `npm run migrate:status` | Lists which files are applied and which are pending |
+| `npm run migrate:baseline -- 065` | Marks files numbered up to `065` as applied **without running them** |
+| `npm run migrate:baseline` | Marks **all** files as applied without running them |
+
+First time on an existing database (migrations were applied by hand before):
+baseline up to the last file you already ran, then run `npm run migrate` for the rest.
+
 | File | Tables | Depends On |
 |------|--------|------------|
 | 001_users.sql | users, user_address_details, refresh_tokens | — |

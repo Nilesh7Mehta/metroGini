@@ -1,7 +1,6 @@
 import sql from "../../config/db.js";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
+import { createUserSession } from "../../utils/userSession.util.js";
 import { DEFAULT_USER_PROFILE_IMAGE } from "../../constants/userProfile.js";
 
 const MOBILE_REGEX = /^\d{10,15}$/;
@@ -28,29 +27,6 @@ export const assertValidMobile = (mobile) => {
     };
   }
   return normalized;
-};
-
-const issueTokens = async (user) => {
-  const accessToken = jwt.sign(
-    { id: user.id, mobile: user.mobile, role: user.role || "user" },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
-  );
-
-  const refreshToken = crypto.randomBytes(40).toString("hex");
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
-
-  await sql.query(
-    `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
-    [user.id, refreshToken, expiresAt],
-  );
-
-  return {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    expires_in: process.env.JWT_EXPIRES_IN || "7d",
-  };
 };
 
 const loadCustomerSnapshot = async (userId) => {
@@ -150,7 +126,7 @@ export const createWhatsappSession = async ({ mobile }) => {
     }
   }
 
-  const tokens = await issueTokens(user);
+  const tokens = await createUserSession(user);
   const snapshot = await loadCustomerSnapshot(user.id);
 
   return {

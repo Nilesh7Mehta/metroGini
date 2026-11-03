@@ -1,6 +1,4 @@
 import sql from "../../config/db.js";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { findUserByMobile } from "../../models/user.model.js";
 import { sendEmailSafe, sendOtpEmail } from "../common/email.service.js";
 import { sendPushSafe } from "../common/push.service.js";
@@ -23,6 +21,7 @@ import {
   getOtpCooldownRemainingSeconds,
 } from "../../utils/otp.js";
 import { DEFAULT_USER_PROFILE_IMAGE } from "../../constants/userProfile.js";
+import { createUserSession, signUserAccessToken } from "../../utils/userSession.util.js";
 
 const persistUserOtp = async (userId, otp) => {
   await sql.query(
@@ -290,23 +289,7 @@ export const verifyOTP = async ({ mobile, otp }) => {
     sendWelcomeMessageSafe({ mobile: user.mobile, name: user.full_name });
   }
 
-  // ✅ Access Token (short expiry)
-  const accessToken = jwt.sign(
-    { id: user.id, mobile: user.mobile, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "15m" },
-  );
-
-  // ✅ Refresh Token (long expiry)
-  const refreshToken = crypto.randomBytes(40).toString("hex");
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
-
-  // Store refresh token in DB
-  await sql.query(
-    `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
-    [user.id, refreshToken, expiresAt],
-  );
+  const session = await createUserSession(user);
 
   return {
     statusCode: 200,
@@ -314,9 +297,10 @@ export const verifyOTP = async ({ mobile, otp }) => {
       success: true,
       message: "OTP verified successfully",
       data: {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_in: process.env.JWT_EXPIRES_IN || "15m",
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_in: session.expires_in,
+        session_expires_at: session.session_expires_at,
         profile_completed: user.profile_completed,
         terms_and_condition: true,
         is_new_user: isNewUser,
@@ -332,7 +316,10 @@ export const refreshAccessToken = async ({ refresh_token }) => {
   }
 
   const result = await sql.query(
-    `SELECT * FROM refresh_tokens WHERE token = $1`,
+    `SELECT id, user_id, expires_at,
+            GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (expires_at - NOW()))))::int AS seconds_left
+     FROM refresh_tokens
+     WHERE token = $1`,
     [refresh_token],
   );
 
@@ -340,9 +327,18 @@ export const refreshAccessToken = async ({ refresh_token }) => {
     return { statusCode: 403, body: { message: "Invalid refresh token" } };
   }
 
+  const session = result.rows[0];
+  if (session.seconds_left <= 0) {
+    await sql.query(`DELETE FROM refresh_tokens WHERE id = $1`, [session.id]);
+    return {
+      statusCode: 401,
+      body: { success: false, message: "Session expired. Please log in again." },
+    };
+  }
+
   const userResult = await sql.query(
     `SELECT * FROM users WHERE id = $1`,
-    [result.rows[0].user_id],
+    [session.user_id],
   );
 
   const user = userResult.rows[0];
@@ -353,11 +349,8 @@ export const refreshAccessToken = async ({ refresh_token }) => {
     return { statusCode: 403, body: { success: false, message: "Account deleted" } };
   }
 
-  const newAccessToken = jwt.sign(
-    { id: user.id, mobile: user.mobile },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "15m" },
-  );
+  // New access token lives only until the session itself ends.
+  const newAccessToken = signUserAccessToken(user, session.id, session.seconds_left);
 
   return {
     statusCode: 200,
@@ -365,7 +358,8 @@ export const refreshAccessToken = async ({ refresh_token }) => {
       success: true,
       message: "Access token refreshed successfully",
       access_token: newAccessToken,
-      expires_in: process.env.JWT_EXPIRES_IN || "15m",
+      expires_in: `${session.seconds_left}s`,
+      session_expires_at: session.expires_at,
     },
   };
 };

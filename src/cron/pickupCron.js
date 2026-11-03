@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import sql from "../config/db.js";
+import sql, { APP_TIMEZONE } from "../config/db.js";
 import { generateOTP } from "../utils/otp.js";
 import { createNotificationsBatch } from "../utils/notificationHelper.js";
 import {
@@ -15,17 +15,15 @@ export const startPickupCron = () => {
   cron.schedule("*/2 * * * *", async () => {
     try {
       console.log("Cron is running ===============");
-      
-      const today = new Date().toISOString().split("T")[0];
 
       const { rows } = await sql.query(
         `SELECT o.id, o.user_id, o.order_code, o.assigned_rider_id,
                 u.full_name, u.mobile
          FROM orders o
          LEFT JOIN users u ON u.id = o.user_id
-         WHERE o.pickup_date = $1
+         WHERE o.pickup_date = (CURRENT_TIMESTAMP AT TIME ZONE $1)::date
          AND o.status = 'booked'`,
-        [today]
+        [APP_TIMEZONE]
       );
 
       for (const order of rows) {

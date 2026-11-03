@@ -26,14 +26,31 @@ export const authenticate = async (req, res, next) => {
       (decoded.role == null || decoded.role === "user");
 
     if (isCustomerToken) {
+      // Tokens with a session id (`sid`) are valid only while that login session
+      // exists and hasn't expired — logout deletes the session.
+      const sessionId = decoded.sid ?? null;
       const { rows } = await sql.query(
-        `SELECT is_deleted FROM users WHERE id = $1 AND role::text = 'user'`,
-        [decoded.id],
+        `SELECT u.is_deleted,
+                ($2::bigint IS NULL OR EXISTS (
+                  SELECT 1 FROM refresh_tokens rt
+                  WHERE rt.id = $2::bigint
+                    AND rt.user_id = u.id
+                    AND rt.expires_at > NOW()
+                )) AS session_active
+         FROM users u
+         WHERE u.id = $1 AND u.role::text = 'user'`,
+        [decoded.id, sessionId],
       );
       if (rows[0]?.is_deleted) {
         return res.status(403).json({
           success: false,
           message: "Account deleted",
+        });
+      }
+      if (rows[0] && !rows[0].session_active) {
+        return res.status(401).json({
+          success: false,
+          message: "Session expired. Please log in again.",
         });
       }
     }

@@ -38,6 +38,10 @@ const knowAboutUsUpload = createUploader("know-about-us", 2 * 1024 * 1024);
 const howWeWorkUpload = createUploader("how-we-work", 10 * 1024 * 1024);
 const router = express.Router();
 router.post('/login', adminController.loginAdmin);
+
+// Every admin route below requires an admin-panel login (admin, super_admin, manager, accountant).
+router.use(authenticate, isAdmin);
+
 router.get('/profile', authenticate, isAdmin, adminController.getProfile);
 router.post('/changePassword', authenticate, isAdmin, adminController.changePassword);
 router.get('/users', authenticate, isAdmin, adminUserController.listAdminUsers);
