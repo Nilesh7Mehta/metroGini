@@ -4,6 +4,7 @@ import {
   getAdminRidersService,
   getAdminRiderDetailsService,
   getAdminRiderOrdersService,
+  getAdminRiderOrderHistoryService,
   getAdminRidersOverviewService,
 } from '../../services/admin/adminRider.service.js';
 import { mapRiderScheduleError } from '../../services/common/riderGroupShiftSchedule.service.js';
@@ -63,6 +64,25 @@ export const getAdminRiderOrders = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'Rider orders fetched successfully',
+      data,
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    next(err);
+  }
+};
+
+export const getAdminRiderOrderHistory = async (req, res, next) => {
+  try {
+    const data = await getAdminRiderOrderHistoryService(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Rider order history fetched successfully',
       data,
     });
   } catch (err) {

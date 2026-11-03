@@ -18,6 +18,7 @@ import { classifyAttention, collectAttention } from '../../utils/attention.util.
 import { resolveOpsIssueType } from '../../utils/opsIssue.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
 import { DEFAULT_USER_PROFILE_IMAGE } from '../../constants/userProfile.js';
+import { getAdminOrderListRowsByIds } from './adminOrder.service.js';
 
 const AADHAR_REGEX = /^\d{12}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -1379,6 +1380,34 @@ export const getAdminRiderOrdersService = async (rawId, query = {}) => {
     orders: dayOrders.map((order) =>
       mapRiderOrderRow(order, selectedDate, shiftByPickupSlot),
     ),
+  };
+};
+
+/** Every non-draft order ever assigned to a rider (incl. cancelled), newest first, in the /admin/orders row shape. */
+export const getAdminRiderOrderHistoryService = async (rawId) => {
+  const riderId = parseRiderId(rawId);
+  const rider = await fetchRiderById(riderId);
+
+  if (!rider) {
+    throw { status: 404, message: 'Rider not found' };
+  }
+
+  const { rows } = await sql.query(
+    `SELECT id FROM orders
+     WHERE assigned_rider_id = $1 AND status <> 'draft'
+     ORDER BY created_at DESC, id DESC`,
+    [riderId],
+  );
+
+  return {
+    rider: {
+      id: Number(rider.id),
+      rider_id: formatRiderId(rider.id),
+      name: rider.full_name || 'N/A',
+      contact: rider.mobile_number ? formatPhone(rider.mobile_number) : null,
+      status: formatRiderStatus(rider.is_active),
+    },
+    orders: await getAdminOrderListRowsByIds(rows.map((row) => row.id)),
   };
 };
 

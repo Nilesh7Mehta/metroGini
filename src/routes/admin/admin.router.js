@@ -101,6 +101,7 @@ router.get('/riders', authenticate, adminRiderController.getAdminRiders);
 router.post('/riders', authenticate, adminRiderController.createAdminRider);
 router.get('/riders/overview', authenticate, adminRiderController.getAdminRidersOverview);
 router.get('/riders/:id/orders', authenticate, adminRiderController.getAdminRiderOrders);
+router.get('/riders/:id/order-history', authenticate, adminRiderController.getAdminRiderOrderHistory);
 router.get('/riders/:id', authenticate, adminRiderController.getAdminRiderDetails);
 router.put('/riders/:id', authenticate, adminRiderController.updateAdminRider);
 router.post('/createCoupon',  authenticate,  adminController.createCoupon);
