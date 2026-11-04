@@ -55,7 +55,8 @@ export const checkInService = async (rider_id) => {
   }
 };
 
-export const checkOutService = async (rider_id) => {
+/** Close the rider's open session; returns it, or null if they weren't checked in. */
+export const closeOpenSession = async (rider_id) => {
   const { rows } = await sql.query(
     `UPDATE rider_attendance
      SET check_out_at = ${LOCAL_NOW},
@@ -69,11 +70,15 @@ export const checkOutService = async (rider_id) => {
     [rider_id, APP_TIMEZONE],
   );
 
-  if (rows.length === 0) {
+  return rows[0] ? formatSession(rows[0]) : null;
+};
+
+export const checkOutService = async (rider_id) => {
+  const session = await closeOpenSession(rider_id);
+  if (!session) {
     throw { status: 400, message: "You are not checked in" };
   }
-
-  return formatSession(rows[0]);
+  return session;
 };
 
 /** Minutes worked in a session, counting an open session up to now. */

@@ -9,6 +9,7 @@ import {
   getRosterService,
   getTodayShiftsService,
 } from "../../services/rider/rider.service.js";
+import { closeOpenSession } from "../../services/rider/riderAttendance.service.js";
 
 export const loginOrVerify = async (req, res, next) => {
   try {
@@ -144,6 +145,29 @@ export const getTodayShifts = async (req, res, next) => {
       success: true,
       message: "Today's shifts retrieved successfully",
       data,
+    });
+  } catch (error) {
+    if (error.status)
+      return res
+        .status(error.status)
+        .json({ success: false, message: error.message });
+    next(error);
+  }
+};
+
+/** Logout also checks the rider out; the app discards its token afterwards. */
+export const logout = async (req, res, next) => {
+  try {
+    const session = await closeOpenSession(req.user.rider_id);
+    res.status(200).json({
+      success: true,
+      message: session
+        ? "Checked out and logged out successfully"
+        : "Logged out successfully",
+      data: {
+        checked_out: Boolean(session),
+        session,
+      },
     });
   } catch (error) {
     if (error.status)

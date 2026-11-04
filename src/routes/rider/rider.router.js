@@ -34,4 +34,7 @@ router.get('/roster' , authenticate , isRider, riderController.getRoster);
 
 router.post('/needRiderHelp' ,authenticate , isRider, helplineController.needHelpAsRider);
 
+// Logout = check out of attendance (if checked in); app then deletes its token
+router.post('/logout', authenticate, isRider, riderController.logout);
+
 export default router;
