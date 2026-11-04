@@ -1383,7 +1383,7 @@ export const getAdminRiderOrdersService = async (rawId, query = {}) => {
   };
 };
 
-/** Every non-draft order ever assigned to a rider (incl. cancelled), newest first, in the /admin/orders row shape. */
+/** Every order ever assigned to a rider (excl. draft and cancelled), newest first, in the /admin/orders row shape. */
 export const getAdminRiderOrderHistoryService = async (rawId) => {
   const riderId = parseRiderId(rawId);
   const rider = await fetchRiderById(riderId);
@@ -1394,7 +1394,7 @@ export const getAdminRiderOrderHistoryService = async (rawId) => {
 
   const { rows } = await sql.query(
     `SELECT id FROM orders
-     WHERE assigned_rider_id = $1 AND status <> 'draft'
+     WHERE assigned_rider_id = $1 AND status NOT IN ('draft', 'cancelled')
      ORDER BY created_at DESC, id DESC`,
     [riderId],
   );
