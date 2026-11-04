@@ -6,6 +6,7 @@ import * as adminDashboardController from '../../controller/admin/adminDashboard
 import * as adminOrderController from '../../controller/admin/adminOrder.controller.js';
 import * as adminMerchantController from '../../controller/admin/adminMerchant.controller.js';
 import * as adminRiderController from '../../controller/admin/adminRider.controller.js';
+import * as adminRiderAttendanceController from '../../controller/admin/adminRiderAttendance.controller.js';
 import * as adminPaymentController from '../../controller/admin/adminPayment.controller.js';
 import * as adminVendorPayoutController from '../../controller/admin/adminVendorPayout.controller.js';
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
@@ -97,6 +98,8 @@ router.get('/merchants/overview', authenticate, adminMerchantController.getAdmin
 router.get('/merchants/:id/orders', authenticate, adminMerchantController.getAdminMerchantOrders);
 router.put('/merchants/:id', authenticate, adminMerchantController.updateAdminMerchant);
 router.get('/merchants/:id', authenticate, adminMerchantController.getAdminMerchantDetails);
+router.get('/rider-attendance', adminRiderAttendanceController.getAttendanceByDate);
+router.get('/rider-attendance/riders/:id', adminRiderAttendanceController.getAttendanceHistory);
 router.get('/riders', authenticate, adminRiderController.getAdminRiders);
 router.post('/riders', authenticate, adminRiderController.createAdminRider);
 router.get('/riders/overview', authenticate, adminRiderController.getAdminRidersOverview);
