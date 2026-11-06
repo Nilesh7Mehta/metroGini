@@ -397,6 +397,7 @@ const mapTransaction = (order) => {
   return {
     id: Number(order.id),
     payment_id: formatPaymentId(order),
+    invoice_id: paymentStatus === 'paid' ? `INV-ORD-${order.id}` : null,
     order_id: formatOrderId(order),
     order_ref: Number(order.id),
     order_db_id: Number(order.id),
