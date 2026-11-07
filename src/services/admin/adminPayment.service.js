@@ -429,6 +429,9 @@ const mapTransaction = (order) => {
       order.actual_weight != null ? Number(order.actual_weight) : null,
     coupon_applied: couponCode,
     coupon_code: couponCode,
+    discount_type: couponCode ? order.discount_type || null : null,
+    discount_value:
+      couponCode && order.discount_value != null ? parseFloat(order.discount_value) : null,
     discounted_amount: couponDiscount,
     coupon_discount: couponDiscount,
     gst: gstAmount,
