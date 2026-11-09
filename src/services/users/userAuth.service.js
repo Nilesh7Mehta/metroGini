@@ -136,6 +136,12 @@ export const loginOrRegister = async ({ mobile, name }) => {
       body: { success: false, message: "Name must be 100 characters or less" },
     };
   }
+  if (fullName && fullName.length === 0) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "Name is required" },
+    };
+  }
 
   let user = await findUserByMobile(mobile);
   let dummyMessage;
