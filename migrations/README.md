@@ -54,3 +54,4 @@ baseline up to the last file you already ran, then run `npm run migrate` for the
 | 063_clothes_weight_tiers.sql | clothes_weight_tiers (clothes count → estimated kg) | — |
 | 064_incomplete_booking_reminders.sql | abandoned_cart_reminders (order_id nullable) | 062 |
 | 065_incomplete_booking_email_reminders.sql | incomplete_booking_email_reminders | 001, 006 |
+| 068_users_pincode.sql | users (pincode) | 001 |

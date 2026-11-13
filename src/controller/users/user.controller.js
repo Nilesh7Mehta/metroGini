@@ -10,6 +10,7 @@ export const loginOrRegister = async (req, res, next) => {
     const { statusCode, body } = await userAuthService.loginOrRegister({
       mobile: req.body.mobile,
       name: req.body.name,
+      pincode: req.body.pincode,
     });
     return res.status(statusCode).json(body);
   } catch (error) {

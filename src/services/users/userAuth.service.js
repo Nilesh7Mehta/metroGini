@@ -121,13 +121,21 @@ const issueUserOtp = async (user, { successMessage, dummyMessage }) => {
 };
 
 // Check if user exists by mobile; if not create, then generate OTP and store it.
-export const loginOrRegister = async ({ mobile, name }) => {
+export const loginOrRegister = async ({ mobile, name, pincode }) => {
   if (!mobile) {
     return {
       statusCode: 400,
       body: { success: false, message: "Mobile is required" },
     };
   }
+
+  const userPincode = String(pincode ?? "").trim() || null;
+  // if (userPincode && !/^\d{6}$/.test(userPincode)) {
+  //   return {
+  //     statusCode: 400,
+  //     body: { success: false, message: "pincode must be a valid 6-digit pincode" },
+  //   };
+  // }
 
   const fullName = String(name ?? "").trim() || null;
   if (fullName && fullName.length > 100) {
@@ -149,8 +157,8 @@ export const loginOrRegister = async ({ mobile, name }) => {
 
   if (!user) {
     const { rows } = await sql.query(
-      `INSERT INTO users (mobile, full_name, profile_image) VALUES ($1, $2, $3) RETURNING *`,
-      [mobile, fullName, DEFAULT_USER_PROFILE_IMAGE],
+      `INSERT INTO users (mobile, full_name, profile_image, pincode) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [mobile, fullName, DEFAULT_USER_PROFILE_IMAGE, userPincode],
     );
     user = rows[0];
     successMessage = "User registered successfully. OTP sent.";
@@ -159,15 +167,22 @@ export const loginOrRegister = async ({ mobile, name }) => {
     // Never overwrite a name the user already set (e.g. from profile)
     const needsImage = !user.profile_image;
     const needsName = Boolean(fullName) && !user.full_name?.trim();
-    if (needsImage || needsName) {
+    const needsPincode = Boolean(userPincode) && user.pincode !== userPincode;
+    if (needsImage || needsName || needsPincode) {
       const { rows } = await sql.query(
         `UPDATE users
          SET profile_image = COALESCE(profile_image, $2),
              full_name = CASE WHEN COALESCE(TRIM(full_name), '') = '' THEN COALESCE($3, full_name) ELSE full_name END,
+             pincode = COALESCE($4, pincode),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          RETURNING *`,
-        [user.id, DEFAULT_USER_PROFILE_IMAGE, needsName ? fullName : null],
+        [
+          user.id,
+          DEFAULT_USER_PROFILE_IMAGE,
+          needsName ? fullName : null,
+          needsPincode ? userPincode : null,
+        ],
       );
       user = rows[0] || user;
     }
@@ -179,6 +194,7 @@ export const loginOrRegister = async ({ mobile, name }) => {
   if (issued.statusCode !== 200) return issued;
 
   issued.body.data.full_name = user.full_name || null;
+  issued.body.data.pincode = user.pincode || null;
   issued.body.data.profile_image =
     user.profile_image || DEFAULT_USER_PROFILE_IMAGE;
   issued.body.data.profile_completed = user.profile_completed;
