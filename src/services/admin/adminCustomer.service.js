@@ -1,5 +1,6 @@
 import sql from '../../config/db.js';
 import { APP_USER_ROLE } from '../../utils/adminUser.util.js';
+import { paidAmountSql } from '../../utils/orderSpend.util.js';
 import { getAdminOrderListRowsByIds } from './adminOrder.service.js';
 
 const formatCustomerId = (userId) => `CUST${String(userId).padStart(3, '0')}`;
@@ -72,7 +73,7 @@ export const getAdminCustomerDetailsService = async (rawId) => {
     `SELECT
        COUNT(*) FILTER (WHERE status NOT IN ('draft', 'cancelled'))::int AS total_orders,
        COALESCE(
-         SUM(COALESCE(final_total, estimated_total, 0))
+         SUM(${paidAmountSql('')})
            FILTER (WHERE status NOT IN ('draft', 'cancelled')),
          0
        ) AS total_spend,

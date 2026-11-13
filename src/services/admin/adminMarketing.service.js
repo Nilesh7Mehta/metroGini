@@ -6,6 +6,7 @@ import {
   userZoneCityExistsSql,
 } from '../../utils/adminGeoFilter.util.js';
 import { paginateArray } from '../../utils/pagination.util.js';
+import { paidAmountSql } from '../../utils/orderSpend.util.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_PERIODS = ['today', 'week', 'month'];
@@ -217,7 +218,7 @@ const fetchCustomerMetrics = async (pincodeGroupId, cityId) => {
         o.user_id,
         COUNT(*) FILTER (WHERE o.status NOT IN ('draft', 'cancelled'))::int AS total_orders,
         COALESCE(
-          SUM(COALESCE(o.final_total, o.estimated_total, 0))
+          SUM(${paidAmountSql('o')})
             FILTER (WHERE o.status NOT IN ('draft', 'cancelled')),
           0
         ) AS total_spend,

@@ -6,6 +6,7 @@ import {
   resolveGeoFilters,
   userZoneCityExistsSql,
 } from '../../utils/adminGeoFilter.util.js';
+import { paidAmountSql } from '../../utils/orderSpend.util.js';
 import { getAdminOrderListRowsByIds, getAttentionCounts } from './adminOrder.service.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -266,10 +267,7 @@ const fetchInactiveUsersList = async (
       SELECT
         o.user_id,
         COUNT(*)::int AS total_orders,
-        COALESCE(
-          SUM(COALESCE(o.final_total, o.estimated_total, 0)),
-          0
-        ) AS total_spend
+        COALESCE(SUM(${paidAmountSql('o')}), 0) AS total_spend
       FROM orders o
       WHERE o.status NOT IN ('draft', 'cancelled')
       GROUP BY o.user_id
@@ -576,7 +574,8 @@ const fetchDashboardUsersList = async (
         o.status,
         o.payment_status,
         o.created_at,
-        COALESCE(o.final_total, o.estimated_total, 0) AS order_total
+        COALESCE(o.final_total, o.estimated_total, 0) AS order_total,
+        ${paidAmountSql('o')} AS paid_amount
       FROM orders o
       ${ORDER_ZONE_JOINS}
       WHERE o.status NOT IN ('draft', 'cancelled')
@@ -588,7 +587,7 @@ const fetchDashboardUsersList = async (
       SELECT
         user_id,
         COUNT(*)::int AS order_count,
-        COALESCE(SUM(order_total), 0) AS order_spend
+        COALESCE(SUM(paid_amount), 0) AS order_spend
       FROM period_orders
       WHERE user_id IS NOT NULL
       GROUP BY user_id
