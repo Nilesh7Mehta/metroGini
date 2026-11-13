@@ -608,6 +608,7 @@ const mapSegmentDetail = (customer, statusOverride = null) => {
     name: customer.name,
     email: customer.email,
     phone_number: customer.phone_number,
+    pincode: customer.pincode,
     last_order_id: customer.last_order_id,
     last_order_date: customer.last_order_date,
     total_orders: customer.total_orders,
