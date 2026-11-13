@@ -207,7 +207,7 @@ const fetchCustomerMetrics = async (pincodeGroupId, cityId) => {
   const { rows } = await sql.query(
     `
     WITH customer_users AS (
-      SELECT u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
+      SELECT u.id, u.full_name, u.mobile, u.email, u.pincode, u.status, u.created_at
       FROM users u
       WHERE u.role = 'user'
         AND ${userZoneCityExistsSql(1, 2)}
@@ -259,6 +259,7 @@ const fetchCustomerMetrics = async (pincodeGroupId, cityId) => {
       u.full_name,
       u.mobile,
       u.email,
+      u.pincode,
       u.created_at AS registered_at,
       COALESCE(os.total_orders, 0) AS total_orders,
       COALESCE(os.total_spend, 0) AS total_spend,
@@ -294,6 +295,7 @@ const fetchCustomerMetrics = async (pincodeGroupId, cityId) => {
       name: row.full_name || null,
       phone_number: row.mobile || null,
       email: row.email || null,
+      pincode: row.pincode || null,
       registered_at: toDateOnly(row.registered_at),
       last_order_id: row.last_order_id
         ? formatOrderId(row.last_order_id, row.order_code)

@@ -279,6 +279,7 @@ const fetchInactiveUsersList = async (
       u.full_name,
       u.mobile,
       u.email,
+      u.pincode,
       u.status AS account_status,
       fu.created_at AS registered_at,
       ulo.last_order_at,
@@ -312,6 +313,7 @@ const fetchInactiveUsersList = async (
       name: row.full_name || null,
       phone_number: row.mobile || null,
       email: row.email || null,
+      pincode: row.pincode || null,
       account_status: row.account_status || 'active',
       registered_at: toIsoOrNull(row.registered_at),
       last_order_date: toIsoOrNull(row.last_order_at),
@@ -467,6 +469,7 @@ const mapUserListRow = (row) => ({
   name: row.full_name || null,
   phone_number: row.mobile || null,
   email: row.email || null,
+  pincode: row.pincode || null,
   account_status: row.account_status || 'active',
   registered_at: toIsoOrNull(row.registered_at),
   ordered: Boolean(row.ordered),
@@ -499,6 +502,7 @@ const fetchDashboardUsersList = async (
         u.full_name,
         u.mobile,
         u.email,
+        u.pincode,
         u.status AS account_status,
         u.created_at AS registered_at,
         COUNT(*)::int AS draft_count,
@@ -517,7 +521,7 @@ const fetchDashboardUsersList = async (
         AND ($1::date IS NULL OR o.created_at::date >= $1::date)
         AND ($2::date IS NULL OR o.created_at::date <= $2::date)
         AND ${orderZoneCityFilterSql(3, 4)}
-      GROUP BY u.id, u.full_name, u.mobile, u.email, u.status, u.created_at
+      GROUP BY u.id, u.full_name, u.mobile, u.email, u.pincode, u.status, u.created_at
       ORDER BY latest_order_at DESC, u.id DESC
       `,
       [dateFrom, dateTo, pincodeGroupId, cityId],
@@ -541,6 +545,7 @@ const fetchDashboardUsersList = async (
         u.full_name,
         u.mobile,
         u.email,
+        u.pincode,
         u.status AS account_status,
         u.created_at AS registered_at,
         u.created_at AS last_activity_at
@@ -622,6 +627,7 @@ const fetchDashboardUsersList = async (
       u.full_name,
       u.mobile,
       u.email,
+      u.pincode,
       u.status AS account_status,
       u.created_at AS registered_at,
       (owo.user_id IS NOT NULL) AS ordered,
