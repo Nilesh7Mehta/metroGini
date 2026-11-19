@@ -55,3 +55,4 @@ baseline up to the last file you already ran, then run `npm run migrate` for the
 | 064_incomplete_booking_reminders.sql | abandoned_cart_reminders (order_id nullable) | 062 |
 | 065_incomplete_booking_email_reminders.sql | incomplete_booking_email_reminders | 001, 006 |
 | 068_users_pincode.sql | users (pincode) | 001 |
+| 069_reg_not_ordered_reminder_steps.sql | abandoned_cart_reminders (step 1–6) | 064 |

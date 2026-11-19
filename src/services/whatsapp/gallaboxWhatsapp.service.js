@@ -368,14 +368,37 @@ export const sendCustomerReengagementOfferSafe = ({
   });
 };
 
-/** Template: incomplete_booking_reminder1 — no body variables, static URL button */
-export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
+/**
+ * Templates: 1_reminder_reg_not_ordered … 6_reminder_reg_not_ordered
+ * Sent in order after registration for users who never booked.
+ * No body variables (static copy + static URL button).
+ */
+export const REG_NOT_ORDERED_TEMPLATES = Object.freeze({
+  1: "1_reminder_reg_not_ordered",
+  2: "2_reminder_reg_not_ordered",
+  3: "3_reminder_reg_not_ordered",
+  4: "4_reminder_reg_not_ordered",
+  5: "5_reminder_reg_not_ordered",
+  6: "6_reminder_reg_not_ordered",
+});
+
+export const sendRegNotOrderedReminderSafe = ({ mobile, name, step }) => {
+  const templateName = REG_NOT_ORDERED_TEMPLATES[Number(step)];
+  if (!templateName) {
+    console.warn(`[gallabox] SKIP reg_not_ordered reason=invalid_step step=${step}`);
+    return;
+  }
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "incomplete_booking_reminder1",
+    templateName,
     bodyValues: {},
   });
+};
+
+/** @deprecated Use sendRegNotOrderedReminderSafe — kept for older callers */
+export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
+  sendRegNotOrderedReminderSafe({ mobile, name, step: 1 });
 };
 
 /** Template: welcome_message — no body variables; sent once on first OTP sign-up */

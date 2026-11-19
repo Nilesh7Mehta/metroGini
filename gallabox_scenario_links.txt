@@ -77,19 +77,18 @@ ORDER LIFECYCLE (scenario order)
    Vars:      {{1}} name | {{2}} VALUED10
 
 
-11) INCOMPLETE BOOKING — NEVER BOOKED (draft OR registered only)
-   Template:  incomplete_booking_reminder1
-   Trigger:   abandonedCartCron every 2 hours, 09:00–21:00 IST
+11) REG NOT ORDERED — NEVER BOOKED (new / no booking / cart only)
+   Templates: 1_reminder_reg_not_ordered … 6_reminder_reg_not_ordered
+   Trigger:   abandonedCartCron every 5 minutes (IST)
    Audience:  registered customer (role user, verified / WhatsApp signup,
               not deleted, active) who has never placed an order
-              (no non-draft order, incl. cancelled/delivered), AND
-              - has a draft idle >= 60 min, OR
-              - has no draft and registered >= 60 min ago
-              (ABANDONED_CART_IDLE_MINUTES)
-   Once:      max 1 per user per IST day; max 3 per user
-              (ABANDONED_CART_MAX_REMINDERS); stops once booked
-   Vars:      none (static body, mentions WELCOME25)
-   Buttons:   static URL button (no values)
+              (no non-draft order) — includes new registered, registered
+              but never booked, and add-to-cart but did not book
+   Schedule:  after registration (users.created_at), in order, each once:
+              1 = 15 min | 2 = 2 hours | 3 = 24 hours |
+              4 = 48 hours | 5 = 5 days | 6 = 7 days
+   Once:      UNIQUE (user_id, step); stops once booked
+   Vars:      none (static body + static URL button)
 
 
 ================================================================================
@@ -113,4 +112,4 @@ order_on_the_way              → rider picks up from vendor → out_for_deliver
 payment_received              → after remaining payment success
 order_delivered               → after delivery OTP success
 customer_reengagement_offer   → one-time customer @ 21 / 45 / 90 days
-incomplete_booking_reminder1   → never booked (draft or registered only), every 2h 9AM–9PM (1/day, max 3/user)
+1..6_reminder_reg_not_ordered  → never booked; after reg 15m/2h/24h/48h/5d/7d (each once, in order)
