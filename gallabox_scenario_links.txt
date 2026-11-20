@@ -63,10 +63,11 @@ ORDER LIFECYCLE (scenario order)
    Vars:      {{1}} ORD-xxx
 
 
-9) AFTER ORDER DELIVERED (delivery OTP verified → delivered)
+9) AFTER ORDER SUCCESSFULLY DELIVERED (status → delivered)
    Template:  order_delivered
-   Trigger:   Rider verify delivery OTP
+   Trigger:   Order marked delivered (completeDelivery)
    Vars:      {{1}} ORD-xxx
+   Then:      cust_review immediately after ({{1}} customer name)
 
 
 10) ONE-TIME CUSTOMER, NO REPEAT ORDER (reengagement)
@@ -110,6 +111,7 @@ order_bill_payment_clone      → after vendor finalize (bill + pay link)
 payment_reminder_clone        → unpaid, before/on delivery day (once)
 order_on_the_way              → rider picks up from vendor → out_for_delivery
 payment_received              → after remaining payment success
-order_delivered               → after delivery OTP success
+order_delivered               → after order successfully delivered
+cust_review                   → immediately after order_delivered ({{1}} name)
 customer_reengagement_offer   → one-time customer @ 21 / 45 / 90 days
 1..6_reminder_reg_not_ordered  → never booked; after reg 15m/2h/24h/48h/5d/7d (each once, in order)

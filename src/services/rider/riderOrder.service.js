@@ -1131,13 +1131,18 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     orderCode: order.order_code,
   });
 
-  const { sendOrderDeliveredSafe } = await import(
+  const { sendOrderDeliveredSafe, sendCustomerReviewSafe } = await import(
     "../whatsapp/gallaboxWhatsapp.service.js"
   );
   sendOrderDeliveredSafe({
     mobile: order.mobile,
     name: order.full_name,
     orderId: order_id,
+  });
+  // After order is successfully delivered
+  sendCustomerReviewSafe({
+    mobile: order.mobile,
+    name: order.full_name,
   });
 
   // Notify vendor that rider completed the delivery

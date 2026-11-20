@@ -264,6 +264,18 @@ export const sendOrderDeliveredSafe = ({ mobile, name, orderId }) => {
   });
 };
 
+/** Template: cust_review — {{1}} customer name; send after order is delivered */
+export const sendCustomerReviewSafe = ({ mobile, name }) => {
+  sendGallaboxTemplateSafe({
+    phone: mobile,
+    name,
+    templateName: "cust_review",
+    bodyValues: {
+      "1": displayName(name),
+    },
+  });
+};
+
 const formatMoneyValue = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
@@ -401,12 +413,12 @@ export const sendIncompleteBookingReminderSafe = ({ mobile, name }) => {
   sendRegNotOrderedReminderSafe({ mobile, name, step: 1 });
 };
 
-/** Template: welcome_message — no body variables; sent once on first OTP sign-up */
+/** Template: welcome_message_after_otp — no body variables; sent once on first OTP sign-up */
 export const sendWelcomeMessageSafe = ({ mobile, name }) => {
   sendGallaboxTemplateSafe({
     phone: mobile,
     name,
-    templateName: "welcome_message",
+    templateName: "welcome_message_after_otp",
     bodyValues: {},
   });
 };
