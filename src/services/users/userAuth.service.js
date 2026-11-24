@@ -129,13 +129,19 @@ export const loginOrRegister = async ({ mobile, name, pincode }) => {
     };
   }
 
-  const userPincode = String(pincode ?? "").trim() || null;
-  // if (userPincode && !/^\d{6}$/.test(userPincode)) {
-  //   return {
-  //     statusCode: 400,
-  //     body: { success: false, message: "pincode must be a valid 6-digit pincode" },
-  //   };
-  // }
+  const userPincode = String(pincode ?? "").trim();
+  if (!userPincode) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "Pincode is required" },
+    };
+  }
+  if (!/^\d{6}$/.test(userPincode)) {
+    return {
+      statusCode: 400,
+      body: { success: false, message: "pincode must be a valid 6-digit pincode" },
+    };
+  }
 
   const fullName = String(name ?? "").trim() || null;
   if (fullName && fullName.length > 100) {
