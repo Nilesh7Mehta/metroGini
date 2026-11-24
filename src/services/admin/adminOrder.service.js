@@ -78,13 +78,38 @@ const resolveListFilters = (query = {}) => {
     throw { status: 400, message: 'date_from must be on or before date_to' };
   }
 
-  const explicitDate = parseOptionalDate(query.date, 'date') || dateFrom;
+  const weekStart = parseOptionalDate(query.week_start, 'week_start');
+  const requestedDate = parseOptionalDate(query.date, 'date');
+  const explicitDate = requestedDate || dateFrom;
+
+  let selectedDate;
+  let rangeStart;
+  let rangeEnd;
+
+  if (hasFrom) {
+    rangeStart = dateFrom;
+    rangeEnd = dateTo;
+    if (requestedDate && requestedDate >= dateFrom && requestedDate <= dateTo) {
+      selectedDate = requestedDate;
+    } else {
+      selectedDate = dateFrom;
+    }
+  } else {
+    selectedDate = explicitDate || weekStart || formatDate(new Date());
+    // Keep the ticker window anchored to week_start so changing the
+    // selected day does not shift/drop other days in the strip.
+    rangeStart = weekStart || selectedDate;
+    rangeEnd = addDays(rangeStart, DAYS_WINDOW - 1);
+  }
 
   return {
-    selectedDate: explicitDate || formatDate(new Date()),
+    selectedDate,
     hasExplicitDate: Boolean(explicitDate),
+    weekStart,
     dateFrom,
     dateTo,
+    rangeStart,
+    rangeEnd,
     shift: parseOptionalShift(query.shift),
   };
 };
@@ -262,11 +287,11 @@ const resolveAttentionDate = (order, asOf) =>
     .filter(Boolean)
     .find((dateStr) => classifyAttention(order, dateStr, asOf)) ?? null;
 
-const buildDays = (selectedDate, orders) => {
+const buildDays = (rangeStart, rangeEnd, orders) => {
   const days = [];
+  let date = rangeStart;
 
-  for (let i = 0; i < DAYS_WINDOW; i += 1) {
-    const date = addDays(selectedDate, i);
+  while (date <= rangeEnd) {
     const pickupToday = orders.filter((o) => isPickupOnDate(o, date)).length;
     const deliveryToday = orders.filter((o) => isDeliveryOnDate(o, date)).length;
 
@@ -276,6 +301,7 @@ const buildDays = (selectedDate, orders) => {
       pickup_count: pickupToday,
       delivery_count: deliveryToday,
     });
+    date = addDays(date, 1);
   }
 
   return days;
@@ -590,8 +616,15 @@ export const getAttentionCounts = async ({ pincodeGroupId = null, cityId = null 
 };
 
 export const getAdminOrdersService = async (query = {}) => {
-  const { selectedDate, hasExplicitDate, dateFrom, dateTo, shift } =
-    resolveListFilters(query);
+  const {
+    selectedDate,
+    hasExplicitDate,
+    dateFrom,
+    dateTo,
+    rangeStart,
+    rangeEnd,
+    shift,
+  } = resolveListFilters(query);
   const attentionFilter = String(query.attention || '').trim().toLowerCase();
   // Attention without a date: check every open order against its own pickup/delivery day.
   const allDates = Boolean(attentionFilter) && !hasExplicitDate;
@@ -610,8 +643,8 @@ export const getAdminOrdersService = async (query = {}) => {
   }
 
   const orders = await fetchOrdersForRange({
-    rangeStart: allDates ? null : selectedDate,
-    rangeEnd: allDates ? null : addDays(selectedDate, DAYS_WINDOW - 1),
+    rangeStart: allDates ? null : rangeStart,
+    rangeEnd: allDates ? null : rangeEnd,
     pincodeGroupId,
     cityId,
     shiftSlotIds,
@@ -734,7 +767,7 @@ export const getAdminOrdersService = async (query = {}) => {
       city_id: cityId,
       city_name: geoFilter.city_name,
     },
-    days: buildDays(selectedDate, orders),
+    days: buildDays(rangeStart, rangeEnd, orders),
     selected_date: selectedDate,
     kpis: buildKpis(selectedDate, orders),
     orders: pageOrders,
