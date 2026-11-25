@@ -1176,3 +1176,45 @@ export const getAdminOrderOperationsService = async (orderId) => {
     timestamps: buildOrderTimestamps(order),
   };
 };
+
+export const cancelAdminOrderService = async (orderId) => {
+  const numericId = Number(orderId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw { status: 400, message: 'Invalid order id' };
+  }
+
+  const existing = await sql.query(
+    `SELECT id, status FROM orders WHERE id = $1 AND status <> 'draft'`,
+    [numericId],
+  );
+
+  if (existing.rows.length === 0) {
+    throw { status: 404, message: 'Order not found' };
+  }
+
+  const currentStatus = existing.rows[0].status;
+  if (currentStatus === 'cancelled') {
+    throw { status: 400, message: 'Order is already cancelled' };
+  }
+  if (currentStatus === 'delivered') {
+    throw { status: 400, message: 'Delivered orders cannot be cancelled' };
+  }
+
+  const { rows } = await sql.query(
+    `
+    UPDATE orders
+    SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, status, cancelled_at, updated_at
+    `,
+    [numericId],
+  );
+
+  const order = rows[0];
+  return {
+    order_id: order.id,
+    status: order.status,
+    cancelled_at: order.cancelled_at,
+    updated_at: order.updated_at,
+  };
+};

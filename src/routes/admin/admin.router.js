@@ -91,6 +91,7 @@ router.post('/addTimeSlot', authenticate, adminTimeSlotController.addTimeSlot);
 router.put('/updateTimeSlot/:id', authenticate, adminTimeSlotController.updateTimeSlotById);
 router.get('/orders', authenticate, adminOrderController.getAdminOrders);
 router.get('/orders/:id', authenticate, adminOrderController.getAdminOrderDetails);
+router.post('/orders/:id/cancel', authenticate, adminOrderController.cancelAdminOrder);
 router.get('/order/:id/operations', authenticate, adminOrderController.getAdminOrderOperations);
 router.post('/merchants', authenticate, adminMerchantController.createAdminMerchant);
 router.get('/merchants', authenticate, adminMerchantController.getAdminMerchants);

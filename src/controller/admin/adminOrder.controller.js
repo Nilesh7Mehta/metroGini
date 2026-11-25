@@ -2,6 +2,7 @@ import {
   getAdminOrdersService,
   getAdminOrderDetailsService,
   getAdminOrderOperationsService,
+  cancelAdminOrderService,
 } from '../../services/admin/adminOrder.service.js';
 
 export const getAdminOrders = async (req, res, next) => {
@@ -40,6 +41,24 @@ export const getAdminOrderOperations = async (req, res, next) => {
   try {
     const data = await getAdminOrderOperationsService(req.params.id);
     return res.status(200).json({ success: true, data });
+  } catch (err) {
+    if (err.status) {
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
+export const cancelAdminOrder = async (req, res, next) => {
+  try {
+    const data = await cancelAdminOrderService(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Order cancelled successfully',
+      data,
+    });
   } catch (err) {
     if (err.status) {
       return res
