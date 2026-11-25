@@ -171,7 +171,7 @@
                 "profile"
               ]
             },
-            "description": "Confirms login. Requires {{token}} from Verify OTP.\n\n`data.profile_image` for new users is `uploads/profile/metrogini_avatae.jpeg`.\nOpen image: `{{baseUrl}}{{data.profile_image}}` → e.g. `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`"
+            "description": "Includes referral_code (name+random e.g. NILESH7K2M after first delivery), rewards_earned, reward_grants_available, reward_coupon_code."
           },
           "response": [
             {
@@ -1168,6 +1168,86 @@
             "body": {
               "mode": "raw",
               "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "applyCoupon"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8c. Apply Referral",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "description": "POST /applyReferral — friend code from referral_codes only. Clears promo. Body: referral_code. REFERRALREWARD still uses applyCoupon (promo path).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"referral_code\": \"UZAIRUE9B\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyReferral",
+              "host": [
+                "{{baseUrl}}api"
+              ],
+              "path": [
+                "user",
+                "order",
+                "{{orderId}}",
+                "applyReferral"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8d. Apply REFERRALREWARD (referrer)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "description": "Referrer applies REFERRALREWARD using an unused grant after a referred friend's order is delivered.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"

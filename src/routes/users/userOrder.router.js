@@ -35,8 +35,11 @@ router.post('/:id/complete-order', userOrderController.completeOrderSetup);
 //step 5: review order
 router.get('/:id/review', userOrderController.reviewOrder);
 
-//step Apply Coupon
+// Promo / loyalty / REFERRALREWARD (coupons table only)
 router.post('/:id/applyCoupon', userOrderController.applyCoupon);
+
+// Friend personal referral code (referral_codes table only) — mutually exclusive with promo
+router.post('/:id/applyReferral', userOrderController.applyReferral);
 
 router.post('/:id/removeCoupon', userOrderController.removeCoupon);
 

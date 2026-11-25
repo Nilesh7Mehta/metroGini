@@ -1109,6 +1109,21 @@ export const verifyDeliveryOtpService = async (rider_id, order_id, otp) => {
     [order_id],
   );
 
+  // Unlock personal name+random refer code + credit referrer if this order used one
+  try {
+    const {
+      ensureReferralCodeForUser,
+      creditReferrerRewardForDeliveredOrder,
+    } = await import("../users/referral.service.js");
+    await ensureReferralCodeForUser(order.user_id);
+    await creditReferrerRewardForDeliveredOrder(order_id);
+  } catch (referralErr) {
+    console.error(
+      `[referral] post-delivery failed order=${order_id}:`,
+      referralErr?.message || referralErr,
+    );
+  }
+
   // Notify user with rating request (template 8)
   const rating = ratingRequestTemplate({ orderId: order_id });
   await createNotificationsBatch([{

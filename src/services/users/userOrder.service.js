@@ -574,7 +574,7 @@ export const completeOrderService = async ({
 const loadOrderForCouponMutation = async (client, orderId, userId) => {
   const { rows } = await client.query(
     `SELECT o.id, o.user_id, o.status, o.payment_status, o.service_id, o.address_id,
-            o.applied_coupon_id, o.auto_coupon_dismissed,
+            o.applied_coupon_id, o.applied_referral_code_id, o.auto_coupon_dismissed,
             o.estimated_weight_min, o.estimated_weight_max, o.actual_weight,
             o.estimated_total, o.final_total, o.amount_paid, o.discount_price,
             o.base_price_per_kg, o.extra_price_per_kg, o.flat_fee, o.peak_extra_charge,
@@ -583,12 +583,16 @@ const loadOrderForCouponMutation = async (client, orderId, userId) => {
             st.flat_fee AS service_type_flat_fee,
             ts.is_peak AS slot_is_peak,
             ts.peak_extra_charge AS slot_peak_extra_charge,
-            c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value,
-            c.minimum_amount_value, c.maximum_amount_value
+            c.id AS coupon_id,
+            COALESCE(rc.code, c.coupon_code) AS coupon_code,
+            c.discount_type, c.discount_value,
+            c.minimum_amount_value, c.maximum_amount_value,
+            (o.applied_referral_code_id IS NOT NULL) AS is_referral_applied
      FROM orders o
      LEFT JOIN service_types st ON o.service_type_id = st.id
      LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
+     LEFT JOIN referral_codes rc ON rc.id = o.applied_referral_code_id
      WHERE o.id = $1 AND o.user_id = $2
      FOR UPDATE OF o`,
     [orderId, userId],
@@ -668,7 +672,13 @@ const resolveDraftGrossAmount = async (client, orderRow) => {
   };
 };
 
-const validateCouponForUser = async (client, coupon, userId, orderAmount) => {
+const validateCouponForUser = async (
+  client,
+  coupon,
+  userId,
+  orderAmount,
+  { orderId = null } = {},
+) => {
   const minAmount = Number(coupon.minimum_amount_value || 0);
   if (orderAmount < minAmount) {
     throw {
@@ -677,24 +687,52 @@ const validateCouponForUser = async (client, coupon, userId, orderAmount) => {
     };
   }
 
-  if (coupon.coupon_code === "CANCEL500") {
-    const eligibilityCheck = await client.query(
-      `SELECT id FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=FALSE AND expiry_date >= CURRENT_TIMESTAMP`,
-      [coupon.id, userId],
+  if (coupon.is_referral_code_template) {
+    throw { status: 400, message: "Invalid or expired coupon" };
+  }
+
+  if (coupon.coupon_code === "CANCEL500" || coupon.is_referral_reward) {
+    const { assertReferralRewardEligible } = await import(
+      "./referral.service.js"
     );
-    if (eligibilityCheck.rows.length === 0) {
-      throw {
-        status: 400,
-        message: "You are not eligible to use this coupon",
-      };
+    if (coupon.is_referral_reward) {
+      await assertReferralRewardEligible(client, userId, coupon.id);
+    } else {
+      const eligibilityCheck = await client.query(
+        `SELECT id FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=FALSE AND expiry_date >= CURRENT_TIMESTAMP`,
+        [coupon.id, userId],
+      );
+      if (eligibilityCheck.rows.length === 0) {
+        throw {
+          status: 400,
+          message: "You are not eligible to use this coupon",
+        };
+      }
     }
+  }
+
+  if (coupon.is_referral_code) {
+    const { assertCanApplyReferralCode } = await import(
+      "./referral.service.js"
+    );
+    await assertCanApplyReferralCode(client, {
+      coupon,
+      userId,
+      orderId,
+    });
   }
 
   if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
     throw { status: 400, message: "Coupon usage limit exceeded" };
   }
 
-  if (coupon.per_user_limit !== null) {
+  // Referral reward uses grant rows; skip per_user_limit (unlimited earns)
+  // Personal referral: one attribution per user (assertCanApplyReferralCode)
+  if (
+    coupon.per_user_limit !== null &&
+    !coupon.is_referral_reward &&
+    !coupon.is_referral_code
+  ) {
     const usageCheck = await client.query(
       `SELECT COUNT(*) FROM coupon_usages WHERE coupon_id=$1 AND user_id=$2 AND is_used=TRUE`,
       [coupon.id, userId],
@@ -705,19 +743,55 @@ const validateCouponForUser = async (client, coupon, userId, orderAmount) => {
   }
 };
 
+const applyReferralSideEffects = async (client, order, coupon) => {
+  const {
+    assertCanApplyReferralCode,
+    setOrderReferredBy,
+    clearOrderReferredBy,
+    consumeReferralRewardGrant,
+  } = await import("./referral.service.js");
+
+  if (coupon.is_referral_code) {
+    const attr = await assertCanApplyReferralCode(client, {
+      coupon,
+      userId: order.user_id,
+      orderId: order.id,
+    });
+    if (attr?.referred_by_user_id) {
+      await setOrderReferredBy(
+        client,
+        order.id,
+        attr.referred_by_user_id,
+        attr.referral_code_id,
+      );
+    }
+    return;
+  }
+
+  // Normal / reward coupon replaces any referral on the order
+  await clearOrderReferredBy(client, order.id);
+
+  if (coupon.is_referral_reward) {
+    await consumeReferralRewardGrant(client, order.user_id, coupon.id);
+  }
+};
+
 const persistCouponOnOrder = async (
   client,
   { order, coupon, isPostWeigh },
 ) => {
+  const { withLiveReferralCodeRates } = await import("./referral.service.js");
+  const liveCoupon = await withLiveReferralCodeRates(coupon, client);
+
   if (isPostWeigh) {
     const totals = computeFinalTotalsFromOrder({
       ...order,
-      applied_coupon_id: coupon.id,
-      coupon_id: coupon.id,
-      discount_type: coupon.discount_type,
-      discount_value: coupon.discount_value,
-      minimum_amount_value: coupon.minimum_amount_value,
-      maximum_amount_value: coupon.maximum_amount_value,
+      applied_coupon_id: liveCoupon.id,
+      coupon_id: liveCoupon.id,
+      discount_type: liveCoupon.discount_type,
+      discount_value: liveCoupon.discount_value,
+      minimum_amount_value: liveCoupon.minimum_amount_value,
+      maximum_amount_value: liveCoupon.maximum_amount_value,
     });
 
     await client.query(
@@ -730,13 +804,15 @@ const persistCouponOnOrder = async (
            updated_at = NOW()
        WHERE id = $5`,
       [
-        coupon.id,
+        liveCoupon.id,
         totals.discount,
         totals.final_total,
         totals.remaining_amount,
         order.id,
       ],
     );
+
+    await applyReferralSideEffects(client, order, liveCoupon);
 
     const settlement = await syncPaymentStatusAfterFinalBill(client, {
       orderId: order.id,
@@ -757,14 +833,16 @@ const persistCouponOnOrder = async (
     client,
     order,
   );
-  await validateCouponForUser(client, coupon, order.user_id, orderAmount);
+  await validateCouponForUser(client, liveCoupon, order.user_id, orderAmount, {
+    orderId: order.id,
+  });
 
   const { discount, net_total } = applyCouponDiscount(orderAmount, {
-    applied_coupon_id: coupon.id,
-    discount_type: coupon.discount_type,
-    discount_value: coupon.discount_value,
-    minimum_amount_value: coupon.minimum_amount_value,
-    maximum_amount_value: coupon.maximum_amount_value,
+    applied_coupon_id: liveCoupon.id,
+    discount_type: liveCoupon.discount_type,
+    discount_value: liveCoupon.discount_value,
+    minimum_amount_value: liveCoupon.minimum_amount_value,
+    maximum_amount_value: liveCoupon.maximum_amount_value,
     estimated_weight_min: pricingOrder.estimated_weight_min,
     estimated_weight_max: pricingOrder.estimated_weight_max,
     actual_weight: order.actual_weight,
@@ -777,8 +855,10 @@ const persistCouponOnOrder = async (
          auto_coupon_dismissed = false,
          updated_at = NOW()
      WHERE id = $3`,
-    [coupon.id, discount, order.id],
+    [liveCoupon.id, discount, order.id],
   );
+
+  await applyReferralSideEffects(client, order, liveCoupon);
 
   return {
     discount_price: discount,
@@ -843,7 +923,9 @@ const fetchReviewOrderRow = async (db, orderId, userId) => {
               ua.complete_address
             ) AS full_address,
             ts.is_peak, ts.peak_extra_charge,
-            c.id AS coupon_id, c.coupon_code, c.discount_type, c.discount_value,
+            c.id AS coupon_id,
+            COALESCE(rc.code, c.coupon_code) AS coupon_code,
+            c.discount_type, c.discount_value,
             c.minimum_amount_value, c.maximum_amount_value
      FROM orders o
      JOIN services s ON o.service_id = s.id
@@ -853,6 +935,7 @@ const fetchReviewOrderRow = async (db, orderId, userId) => {
      LEFT JOIN user_address_details ua ON o.address_id = ua.id
      LEFT JOIN time_slots ts ON o.pickup_slot_id = ts.id
      LEFT JOIN coupons c ON o.applied_coupon_id = c.id
+     LEFT JOIN referral_codes rc ON rc.id = o.applied_referral_code_id
      WHERE o.id=$1 AND o.user_id=$2 AND o.status='draft'`,
     [orderId, userId],
   );
@@ -929,6 +1012,10 @@ export const reviewOrderService = async ({ order_id, user_id }) => {
   }
 };
 
+/**
+ * Promo / loyalty / REFERRALREWARD only — looks in `coupons`.
+ * Clears any applied referral on the order. Use applyReferralService for friend codes.
+ */
 export const applyCouponService = async ({
   order_id,
   user_id,
@@ -962,6 +1049,7 @@ export const applyCouponService = async ({
         };
       }
     } else {
+      // Coupons table only — personal friend codes must use applyReferral
       const couponResult = await client.query(
         `SELECT * FROM coupons WHERE UPPER(coupon_code)=UPPER($1) AND is_active=true
          AND start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP`,
@@ -971,6 +1059,12 @@ export const applyCouponService = async ({
         throw { status: 400, message: "Invalid or expired coupon" };
       }
       coupon = couponResult.rows[0];
+      if (
+        coupon.is_referral_code_template ||
+        coupon.is_referral_code
+      ) {
+        throw { status: 400, message: "Invalid or expired coupon" };
+      }
       assertLoyaltyCouponAllowedForCount(coupon, completedCount);
     }
 
@@ -989,9 +1083,11 @@ export const applyCouponService = async ({
         coupon,
         user_id,
         probe.gross_base_total,
+        { orderId: order_id },
       );
     }
 
+    // Promo replaces referral (clearOrderReferredBy inside side effects)
     const result = await persistCouponOnOrder(client, {
       order,
       coupon,
@@ -1000,6 +1096,86 @@ export const applyCouponService = async ({
 
     await client.query("COMMIT");
     return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Friend referral code only — looks in `referral_codes`.
+ * Replaces any promo coupon on the order (mutually exclusive).
+ * Body: { referral_code: "UZAIRUE9B" }
+ */
+export const applyReferralService = async ({
+  order_id,
+  user_id,
+  referral_code,
+  coupon_code, // alias accepted for convenience
+}) => {
+  const client = await sql.connect();
+  try {
+    await client.query("BEGIN");
+
+    const order = await loadOrderForCouponMutation(client, order_id, user_id);
+    const { isPostWeigh } = assertCouponMutable(order);
+
+    const raw =
+      referral_code != null && String(referral_code).trim() !== ""
+        ? String(referral_code).trim()
+        : coupon_code != null && String(coupon_code).trim() !== ""
+          ? String(coupon_code).trim()
+          : null;
+
+    if (!raw) {
+      throw { status: 400, message: "Referral code is required" };
+    }
+
+    const {
+      buildReferralCouponFromCode,
+      withLiveReferralCodeRates,
+    } = await import("./referral.service.js");
+
+    let coupon = await buildReferralCouponFromCode(raw, client);
+    if (!coupon) {
+      throw { status: 400, message: "Invalid or inactive referral code" };
+    }
+    coupon = await withLiveReferralCodeRates(coupon, client);
+
+    if (isPostWeigh) {
+      const probe = computeFinalTotalsFromOrder({
+        ...order,
+        applied_coupon_id: coupon.id,
+        coupon_id: coupon.id,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        minimum_amount_value: coupon.minimum_amount_value,
+        maximum_amount_value: coupon.maximum_amount_value,
+      });
+      await validateCouponForUser(
+        client,
+        coupon,
+        user_id,
+        probe.gross_base_total,
+        { orderId: order_id },
+      );
+    }
+
+    // Referral replaces promo coupon (new applied_coupon_id = template)
+    const result = await persistCouponOnOrder(client, {
+      order,
+      coupon,
+      isPostWeigh,
+    });
+
+    await client.query("COMMIT");
+    return {
+      ...result,
+      referral_code: coupon.coupon_code,
+      referred: true,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -1029,16 +1205,37 @@ export const removeCouponService = async ({ order_id, user_id }) => {
         discount_value: null,
       });
 
+      const prevCouponId = order.applied_coupon_id;
+
       await client.query(
         `UPDATE orders
          SET applied_coupon_id = NULL,
              discount_price = NULL,
+             referred_by_user_id = NULL,
+             applied_referral_code_id = NULL,
              auto_coupon_dismissed = true,
              final_total = $1,
              remaining_amount = $2,
              updated_at = NOW()
          WHERE id = $3`,
         [totals.final_total, totals.remaining_amount, order_id],
+      );
+
+      await client.query(
+        `UPDATE coupon_usages cu
+         SET is_used = FALSE
+         WHERE cu.id = (
+           SELECT cu2.id
+           FROM coupon_usages cu2
+           JOIN coupons c ON c.id = cu2.coupon_id
+           WHERE cu2.user_id = $1
+             AND cu2.coupon_id = $2
+             AND cu2.is_used = TRUE
+             AND c.is_referral_reward = true
+           ORDER BY cu2.created_at DESC, cu2.id DESC
+           LIMIT 1
+         )`,
+        [user_id, prevCouponId],
       );
 
       const settlement = await syncPaymentStatusAfterFinalBill(client, {
@@ -1054,15 +1251,38 @@ export const removeCouponService = async ({ order_id, user_id }) => {
       };
     }
 
+    const prevCouponId = order.applied_coupon_id;
+
     await client.query(
       `UPDATE orders
        SET applied_coupon_id = NULL,
            discount_price = NULL,
+           referred_by_user_id = NULL,
+           applied_referral_code_id = NULL,
            auto_coupon_dismissed = true,
            updated_at = NOW()
        WHERE id = $1`,
       [order_id],
     );
+
+    // Restore a referral-reward grant if they remove the coupon from a draft
+    await client.query(
+      `UPDATE coupon_usages cu
+       SET is_used = FALSE
+       WHERE cu.id = (
+         SELECT cu2.id
+         FROM coupon_usages cu2
+         JOIN coupons c ON c.id = cu2.coupon_id
+         WHERE cu2.user_id = $1
+           AND cu2.coupon_id = $2
+           AND cu2.is_used = TRUE
+           AND c.is_referral_reward = true
+         ORDER BY cu2.created_at DESC, cu2.id DESC
+         LIMIT 1
+       )`,
+      [user_id, prevCouponId],
+    );
+
     await client.query("COMMIT");
     return {};
   } catch (error) {
@@ -1204,7 +1424,7 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
             r.full_name AS rider_name,
             r.mobile_number AS rider_number,
             c.id AS coupon_id,
-            c.coupon_code,
+            COALESCE(rc.code, c.coupon_code) AS coupon_code,
             c.discount_type,
             c.discount_value,
             c.minimum_amount_value,
@@ -1215,6 +1435,7 @@ export const getUserOrderByIdService = async ({ user_id, order_id }) => {
      LEFT JOIN time_slots delivery_slot ON o.delivery_slot_id=delivery_slot.id
      LEFT JOIN riders r ON r.id = o.assigned_rider_id
      LEFT JOIN coupons c ON c.id = o.applied_coupon_id
+     LEFT JOIN referral_codes rc ON rc.id = o.applied_referral_code_id
      WHERE o.id = $1 AND o.user_id = $2`,
     [order_id, user_id],
   );

@@ -70,6 +70,8 @@ export const getProfile = async ({ req, userId }) => {
 
   const user = mapProfileRow(row);
   const currentOrders = await getCurrentUserOrdersService({ user_id: userId });
+  const { getUserReferralSummary } = await import("./referral.service.js");
+  const referral = await getUserReferralSummary(userId);
 
   return {
     statusCode: 200,
@@ -78,6 +80,7 @@ export const getProfile = async ({ req, userId }) => {
       message: "Profile fetched successfully",
       data: {
         ...user,
+        ...referral,
         current_orders: currentOrders.map(formatUserOrder),
       },
     },

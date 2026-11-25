@@ -457,7 +457,7 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "Draft or unpaid post-weigh. Omit coupon_code / send {} to reapply loyalty coupon for order count tier.",
+                "description": "Promo / loyalty / REFERRALREWARD only (coupons table). Omit coupon_code / send {} for loyalty. Clears any referral on the order. Friend codes → use Apply Referral (applyReferral).",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
@@ -501,6 +501,86 @@
                 "body": {
                   "mode": "raw",
                   "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "applyCoupon"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Apply Referral",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "description": "POST /applyReferral — personal friend code from referral_codes only (e.g. UZAIRUE9B). Mutually exclusive with promo: clears applied promo. % from REFERRAL_CODE_TEMPLATE. One attribution per user. Referrer gets REFERRALREWARD after delivery.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"referral_code\": \"UZAIRUE9B\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/user/order/1/applyReferral",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "user",
+                    "order",
+                    "1",
+                    "applyReferral"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Apply REFERRALREWARD (referrer)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "description": "Referrer applies REFERRALREWARD after earning a grant (friend's referred order delivered). Requires an unused coupon_usages grant. Friends cannot use this code.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1293,7 +1373,8 @@
                 "user",
                 "profile"
               ]
-            }
+            },
+            "description": "Includes referral fields after first delivery unlock: referral_code (e.g. NILESH7K2M), rewards_earned, reward_grants_available, reward_coupon_code (REFERRALREWARD)."
           },
           "response": []
         },
@@ -1822,7 +1903,8 @@
                     "admin",
                     "createCoupon"
                   ]
-                }
+                },
+                "description": "Create a normal coupon. For referral system flags use the dedicated referral coupon requests below."
               },
               "response": []
             },
@@ -1859,6 +1941,84 @@
                     "admin",
                     "updateCoupon",
                     "4"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update REFERRAL_CODE_TEMPLATE (friend %)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "description": "Admin-editable template. Live % is overlaid onto every personal name+random referral code. Keep is_referral_code_template=true. Replace path id with the template coupon id from Get Coupon.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"REFERRAL_CODE_TEMPLATE\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 30,\r\n  \"minimum_amount_value\": 0,\r\n  \"maximum_amount_value\": null,\r\n  \"start_date\": \"2026-01-01T00:00:00Z\",\r\n  \"end_date\": \"2036-12-31T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": null,\r\n  \"usage_limit\": null,\r\n  \"is_referral_code_template\": true,\r\n  \"is_referral_reward\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateCoupon/TEMPLATE_ID",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateCoupon",
+                    "TEMPLATE_ID"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update REFERRALREWARD (referrer %)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "description": "Shared reward coupon granted to referrers only (via coupon_usages). Keep is_referral_reward=true. Replace path id with REFERRALREWARD coupon id from Get Coupon.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 25,\r\n  \"minimum_amount_value\": 0,\r\n  \"maximum_amount_value\": null,\r\n  \"start_date\": \"2026-01-01T00:00:00Z\",\r\n  \"end_date\": \"2036-12-31T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": null,\r\n  \"usage_limit\": null,\r\n  \"is_referral_reward\": true,\r\n  \"is_referral_code_template\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/updateCoupon/REWARD_ID",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "updateCoupon",
+                    "REWARD_ID"
                   ]
                 }
               },

@@ -198,6 +198,8 @@ export const insertCoupon = async (body) => {
     per_user_limit,
     usage_limit,
     auto_apply_loyalty,
+    is_referral_reward,
+    is_referral_code_template,
   } = body;
 
   if (
@@ -243,12 +245,22 @@ export const insertCoupon = async (body) => {
       ? await releaseOverlappingLoyaltyCoupons(client, loyaltyRange)
       : [];
 
+    const rewardFlag = Boolean(is_referral_reward);
+    const templateFlag = Boolean(is_referral_code_template);
+    if (rewardFlag && templateFlag) {
+      throw {
+        status: 400,
+        message: "A coupon cannot be both referral reward and referral code template",
+      };
+    }
+
     const { rows } = await client.query(
       `INSERT INTO coupons
         (coupon_code, discount_type, discount_value, minimum_amount_value,
          maximum_amount_value, start_date, end_date, is_active, per_user_limit,
-         usage_limit, auto_apply_loyalty, loyalty_order_from, loyalty_order_to)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         usage_limit, auto_apply_loyalty, loyalty_order_from, loyalty_order_to,
+         is_referral_reward, is_referral_code_template)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         coupon_code.trim().toUpperCase(),
@@ -259,11 +271,13 @@ export const insertCoupon = async (body) => {
         start_date,
         end_date,
         is_active ?? true,
-        per_user_limit ?? 1,
+        rewardFlag ? null : (per_user_limit ?? 1),
         usage_limit ?? null,
         loyaltyAuto,
         loyaltyRange.from,
         loyaltyRange.to,
+        rewardFlag,
+        templateFlag,
       ],
     );
 
@@ -290,6 +304,8 @@ export const editCoupon = async (id, body) => {
     per_user_limit,
     usage_limit,
     auto_apply_loyalty,
+    is_referral_reward,
+    is_referral_code_template,
   } = body;
 
   if (discount_type && !["percentage", "flat", "per_kg"].includes(discount_type)) {
@@ -321,7 +337,8 @@ export const editCoupon = async (id, body) => {
 
     const existing = await client.query(
       `SELECT id, discount_type, auto_apply_loyalty,
-              loyalty_order_from, loyalty_order_to
+              loyalty_order_from, loyalty_order_to,
+              is_referral_reward, is_referral_code_template
        FROM coupons WHERE id = $1 FOR UPDATE`,
       [id],
     );
@@ -333,6 +350,21 @@ export const editCoupon = async (id, body) => {
     const nextType = discount_type || existingRow.discount_type;
     const nextLoyalty =
       loyaltyAuto !== undefined ? loyaltyAuto : existingRow.auto_apply_loyalty;
+    const nextReward =
+      is_referral_reward !== undefined
+        ? Boolean(is_referral_reward)
+        : Boolean(existingRow.is_referral_reward);
+    const nextTemplate =
+      is_referral_code_template !== undefined
+        ? Boolean(is_referral_code_template)
+        : Boolean(existingRow.is_referral_code_template);
+
+    if (nextReward && nextTemplate) {
+      throw {
+        status: 400,
+        message: "A coupon cannot be both referral reward and referral code template",
+      };
+    }
 
     if (nextLoyalty && !LOYALTY_DISCOUNT_TYPES.includes(nextType)) {
       throw {
@@ -360,6 +392,8 @@ export const editCoupon = async (id, body) => {
            is_active = $8, per_user_limit = $9, usage_limit = $10,
            auto_apply_loyalty = $11,
            loyalty_order_from = $13, loyalty_order_to = $14,
+           is_referral_reward = $15,
+           is_referral_code_template = $16,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $12
        RETURNING *`,
@@ -372,12 +406,14 @@ export const editCoupon = async (id, body) => {
         start_date,
         end_date,
         is_active,
-        per_user_limit,
+        nextReward ? null : per_user_limit,
         usage_limit,
         Boolean(nextLoyalty),
         id,
         loyaltyRange.from,
         loyaltyRange.to,
+        nextReward,
+        nextTemplate,
       ],
     );
 

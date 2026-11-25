@@ -9,6 +9,7 @@ import {
   completeOrderService,
   reviewOrderService,
   applyCouponService,
+  applyReferralService,
   removeCouponService,
   getUserOrdersService,
   getUserOrderByIdService,
@@ -215,6 +216,32 @@ export const applyCoupon = async (req, res, next) => {
     });
     return res.status(200).json({
       message: "Coupon applied successfully",
+      discount_price: pricing.discount_price,
+      discount: pricing.discount,
+      approx_total: pricing.approx_total,
+      ...(pricing.final_total != null
+        ? {
+            final_total: pricing.final_total,
+            remaining_amount: pricing.remaining_amount,
+          }
+        : {}),
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+export const applyReferral = async (req, res, next) => {
+  try {
+    const pricing = await applyReferralService({
+      order_id: req.params.id,
+      user_id: req.user.id,
+      ...req.body,
+    });
+    return res.status(200).json({
+      message: "Referral code applied successfully",
+      referral_code: pricing.referral_code,
+      referred: true,
       discount_price: pricing.discount_price,
       discount: pricing.discount,
       approx_total: pricing.approx_total,

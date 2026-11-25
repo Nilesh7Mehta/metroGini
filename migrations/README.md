@@ -56,3 +56,8 @@ baseline up to the last file you already ran, then run `npm run migrate` for the
 | 065_incomplete_booking_email_reminders.sql | incomplete_booking_email_reminders | 001, 006 |
 | 068_users_pincode.sql | users (pincode) | 001 |
 | 069_reg_not_ordered_reminder_steps.sql | abandoned_cart_reminders (step 1–6) | 064 |
+| 070_user_referrals.sql | users.referral_code, orders.referred_by, referral_rewards, coupon referral flags | 005, 001, 006 |
+| 071_referral_code_name_random.sql | users.referral_code VARCHAR(40) for name+random codes | 070 |
+| 072_referral_codes_name_random_backfill.sql | Marker; run `node scripts/migrate-referral-codes-name-random.mjs` to rewrite all personal codes | 071 |
+| 073_referral_codes_prior_customers_backfill.sql | Marker; run `node scripts/backfill-referral-codes-prior-customers.mjs` so prior customers can share codes | 072 |
+| 074_referral_codes_table.sql | Personal refer codes → `referral_codes` table; remove from `coupons` | 070, 071 |
