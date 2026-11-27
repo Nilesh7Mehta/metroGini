@@ -33,7 +33,7 @@
                 "login-or-register"
               ]
             },
-            "description": "Sends OTP to the mobile.\n\nOn **new register**: inserts user with default `profile_image = uploads/profile/metrogini_avatae.jpeg`.\nOn **login**: if `profile_image` is null, fills the same default avatar.\n\nOTP is currently 1234 for dummy/test mobiles (see server OTP util).\nResponse includes `profile_completed` and `terms_and_condition`.\n\nCheck avatar after Verify OTP via **Get Profile** → `data.profile_image`.\nPublic URL: `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`"
+            "description": "Sends OTP to the mobile.\n\nBody: `mobile` required; `name` and `pincode` optional (pincode if sent must be 6 digits).\n\nOn **new register**: inserts user with default `profile_image = uploads/profile/metrogini_avatae.jpeg`.\nOn **login**: if `profile_image` is null, fills the same default avatar.\n\nOTP is currently 1234 for dummy/test mobiles (see server OTP util).\nResponse includes `profile_completed` and `terms_and_condition`.\n\nCheck avatar after Verify OTP via **Get Profile** → `data.profile_image`.\nPublic URL: `{{baseUrl}}uploads/profile/metrogini_avatae.jpeg`"
           },
           "response": [
             {
@@ -171,7 +171,7 @@
                 "profile"
               ]
             },
-            "description": "Includes referral_code (name+random e.g. NILESH7K2M after first delivery), rewards_earned, reward_grants_available, reward_coupon_code."
+            "description": "Includes referral_code (e.g. UZAIRUE9B), rewards_earned, reward_grants_available, reward_coupon_code."
           },
           "response": [
             {
@@ -1124,10 +1124,10 @@
             },
             "method": "POST",
             "header": [],
-            "description": "Apply any coupon code on draft or unpaid post-weigh order. For loyalty reapply without a code, use request 8b.",
+            "description": "NO → promo path. POST applyCoupon (coupons only). Clears referral if present. Use 8c for friend referral codes.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+              "raw": "{\r\n  \"coupon_code\": \"FIRSTORDER\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1204,10 +1204,10 @@
             },
             "method": "POST",
             "header": [],
-            "description": "POST /applyReferral — friend code from referral_codes only. Clears promo. Body: referral_code. REFERRALREWARD still uses applyCoupon (promo path).",
+            "description": "YES → referral path. POST applyReferral { referral_code }. Looks up referral_codes only. Clears promo. % from REFERRAL_CODE_TEMPLATE.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"referral_code\": \"UZAIRUE9B\"\r\n}",
+              "raw": "{\r\n  \"referral_code\": \"{{referralCode}}\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1244,7 +1244,7 @@
             },
             "method": "POST",
             "header": [],
-            "description": "Referrer applies REFERRALREWARD using an unused grant after a referred friend's order is delivered.",
+            "description": "Referrer promo path: applyCoupon { coupon_code: REFERRALREWARD } after friend's referred order is delivered (unused grant required).",
             "body": {
               "mode": "raw",
               "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\"\r\n}",
@@ -1284,7 +1284,7 @@
             },
             "method": "POST",
             "header": [],
-            "description": "Removes coupon and sets auto_coupon_dismissed so Review will not auto-reapply. After weigh, rebuilds final_total/remaining_amount.",
+            "description": "Clears promo or referral from the order (referred_by + applied_referral_code_id too). Sets auto_coupon_dismissed.",
             "body": {
               "mode": "raw",
               "raw": ""
@@ -1705,11 +1705,15 @@
     },
     {
       "key": "orderId",
-      "value": "1"
+      "value": "4"
     },
     {
       "key": "addressId",
       "value": "1"
+    },
+    {
+      "key": "referralCode",
+      "value": "UZAIRUE9B"
     }
   ]
 }

@@ -457,10 +457,10 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "Promo / loyalty / REFERRALREWARD only (coupons table). Omit coupon_code / send {} for loyalty. Clears any referral on the order. Friend codes → use Apply Referral (applyReferral).",
+                "description": "Frontend: user chose NO on “Do you have a reference code?”\n\nPOST /api/user/order/:id/applyCoupon — coupons table only (promo / loyalty / REFERRALREWARD).\nClears any applied referral on the order (mutually exclusive).\nFriend personal codes must use Apply Referral.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"coupon_code\" : \"FLAT100\"\r\n}",
+                  "raw": "{\r\n  \"coupon_code\": \"FIRSTORDER\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -468,14 +468,14 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "user",
                     "order",
-                    "1",
+                    "{{orderId}}",
                     "applyCoupon"
                   ]
                 }
@@ -508,14 +508,14 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "user",
                     "order",
-                    "1",
+                    "{{orderId}}",
                     "applyCoupon"
                   ]
                 }
@@ -537,10 +537,10 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "POST /applyReferral — personal friend code from referral_codes only (e.g. UZAIRUE9B). Mutually exclusive with promo: clears applied promo. % from REFERRAL_CODE_TEMPLATE. One attribution per user. Referrer gets REFERRALREWARD after delivery.",
+                "description": "Frontend: user chose YES on “Do you have a reference code?”\n\nPOST /api/user/order/:id/applyReferral — referral_codes table only.\nBody: { referral_code }. Clears any promo coupon (mutually exclusive).\nDiscount % live from REFERRAL_CODE_TEMPLATE. One attribution per user.\nReferrer gets REFERRALREWARD only after this order is delivered.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"referral_code\": \"UZAIRUE9B\"\r\n}",
+                  "raw": "{\r\n  \"referral_code\": \"{{referralCode}}\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -548,14 +548,14 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}api/user/order/1/applyReferral",
+                  "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyReferral",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "user",
                     "order",
-                    "1",
+                    "{{orderId}}",
                     "applyReferral"
                   ]
                 }
@@ -577,7 +577,7 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "Referrer applies REFERRALREWARD after earning a grant (friend's referred order delivered). Requires an unused coupon_usages grant. Friends cannot use this code.",
+                "description": "Promo path (applyCoupon). Referrer applies REFERRALREWARD after a referred friend's order is delivered.\nRequires unused coupon_usages grant. Not entered in the Yes→referral field.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\"\r\n}",
@@ -588,14 +588,14 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}api/user/order/1/applyCoupon",
+                  "raw": "{{baseUrl}}api/user/order/{{orderId}}/applyCoupon",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "user",
                     "order",
-                    "1",
+                    "{{orderId}}",
                     "applyCoupon"
                   ]
                 }
@@ -617,20 +617,20 @@
                 },
                 "method": "POST",
                 "header": [],
-                "description": "Removes coupon and prevents auto-reapply on review. Rebuilds final_total if weight already confirmed.",
+                "description": "Removes promo OR referral from the order (clears applied_coupon_id, referred_by_user_id, applied_referral_code_id).\nSets auto_coupon_dismissed. After weigh, rebuilds final_total/remaining_amount.",
                 "body": {
                   "mode": "raw",
                   "raw": ""
                 },
                 "url": {
-                  "raw": "{{baseUrl}}api/user/order/2/removeCoupon",
+                  "raw": "{{baseUrl}}api/user/order/{{orderId}}/removeCoupon",
                   "host": [
                     "{{baseUrl}}api"
                   ],
                   "path": [
                     "user",
                     "order",
-                    "2",
+                    "{{orderId}}",
                     "removeCoupon"
                   ]
                 }
@@ -1289,7 +1289,7 @@
                 "login-or-register"
               ]
             },
-            "description": "Returns id, mobile, profile_completed, terms_and_condition (boolean), and otp (dev only)."
+            "description": "Body: mobile required; name and pincode optional (pincode if sent must be 6 digits). Returns id, mobile, profile_completed, terms_and_condition (boolean), and otp (dev only)."
           },
           "response": []
         },
@@ -1374,7 +1374,7 @@
                 "profile"
               ]
             },
-            "description": "Includes referral fields after first delivery unlock: referral_code (e.g. NILESH7K2M), rewards_earned, reward_grants_available, reward_coupon_code (REFERRALREWARD)."
+            "description": "Returns referral_code (name+random from referral_codes, e.g. UZAIRUE9B), rewards_earned, reward_grants_available, reward_coupon_code (REFERRALREWARD).\nCode unlocks after first delivery (or prior-customer backfill)."
           },
           "response": []
         },
@@ -1961,7 +1961,7 @@
                 },
                 "method": "PUT",
                 "header": [],
-                "description": "Admin-editable template. Live % is overlaid onto every personal name+random referral code. Keep is_referral_code_template=true. Replace path id with the template coupon id from Get Coupon.",
+                "description": "Change friend referral discount anytime (live %). Personal codes in referral_codes do not store %.\nKeep is_referral_code_template=true. Replace TEMPLATE_ID with id from Get Coupon.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n  \"coupon_code\": \"REFERRAL_CODE_TEMPLATE\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 30,\r\n  \"minimum_amount_value\": 0,\r\n  \"maximum_amount_value\": null,\r\n  \"start_date\": \"2026-01-01T00:00:00Z\",\r\n  \"end_date\": \"2036-12-31T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": null,\r\n  \"usage_limit\": null,\r\n  \"is_referral_code_template\": true,\r\n  \"is_referral_reward\": false\r\n}",
@@ -2000,7 +2000,7 @@
                 },
                 "method": "PUT",
                 "header": [],
-                "description": "Shared reward coupon granted to referrers only (via coupon_usages). Keep is_referral_reward=true. Replace path id with REFERRALREWARD coupon id from Get Coupon.",
+                "description": "Change referrer reward % anytime. Keep is_referral_reward=true. Replace REWARD_ID with id from Get Coupon.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\r\n  \"coupon_code\": \"REFERRALREWARD\",\r\n  \"discount_type\": \"percentage\",\r\n  \"discount_value\": 25,\r\n  \"minimum_amount_value\": 0,\r\n  \"maximum_amount_value\": null,\r\n  \"start_date\": \"2026-01-01T00:00:00Z\",\r\n  \"end_date\": \"2036-12-31T23:59:59Z\",\r\n  \"is_active\": true,\r\n  \"per_user_limit\": null,\r\n  \"usage_limit\": null,\r\n  \"is_referral_reward\": true,\r\n  \"is_referral_code_template\": false\r\n}",
@@ -2090,6 +2090,95 @@
                     "admin",
                     "getCoupon",
                     "1"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Referrals",
+          "item": [
+            {
+              "name": "List Referrals",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "description": "GET /admin/referrals?page=&limit=&search= — users with personal referral codes, times_used, rewards_earned.",
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/referrals?page=1&limit=20&search=",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "referrals"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "name / mobile / code"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Referral Detail (usages)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "description": "GET /admin/referrals/:userId — referrer profile + friends who used the code (order, status, reward).",
+                "url": {
+                  "raw": "{{baseUrl}}api/admin/referrals/2?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}api"
+                  ],
+                  "path": [
+                    "admin",
+                    "referrals",
+                    "2"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
                   ]
                 }
               },
@@ -9812,6 +9901,24 @@
           "response": []
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4001/"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": "4"
+    },
+    {
+      "key": "referralCode",
+      "value": "UZAIRUE9B"
     }
   ]
 }
