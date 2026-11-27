@@ -12,6 +12,7 @@ import * as adminVendorPayoutController from '../../controller/admin/adminVendor
 import * as adminIssueController from '../../controller/admin/adminIssue.controller.js';
 import * as adminHelpSupportController from '../../controller/admin/adminHelpSupport.controller.js';
 import * as adminPartnerLeadController from '../../controller/admin/adminPartnerLead.controller.js';
+import * as adminReferralController from '../../controller/admin/adminReferral.controller.js';
 import * as adminMarketingController from '../../controller/admin/adminMarketing.controller.js';
 import * as adminCustomerController from '../../controller/admin/adminCustomer.controller.js';
 import * as adminUserController from '../../controller/admin/adminUser.controller.js';
@@ -113,6 +114,10 @@ router.put('/updateCoupon/:id', authenticate,  adminController.updateCoupon);
 // router.delete('/deleteCoupon/:id', adminController.deleteCoupon);
 router.get('/getCoupon', authenticate,  adminController.getCoupons);
 router.get('/getCoupon/:id' , authenticate,  adminController.getCouponById);
+
+// Referrals (personal codes + who used them)
+router.get('/referrals', authenticate, isAdmin, adminReferralController.listAdminReferrals);
+router.get('/referrals/:userId', authenticate, isAdmin, adminReferralController.getAdminReferralDetail);
 
 //Banners;
 router.post("/addBanner", authenticate, bannerUpload.single("image"), bannerController.addBanner);
